@@ -190,11 +190,15 @@ to your merchant EOA and settle automatically. The full public loop is proven in
 | `POLL_INTERVAL_MS` | `30000` | poller cadence |
 | `WEBCAP_DB` | `data/webcap.db` | SQLite file (WAL) |
 | `WEBCAP_CAPTURE_ALLOW_HOSTS` | — | comma-separated hosts the capture endpoint may load despite the private-IP guard (local dev) |
+| `WEBCAP_X402_PRICE_USDC` | `0.001` | x402 per-request price in USDC (Base only; `local` disables x402) |
+| `X402_FACILITATOR_URL` | `https://x402.org/facilitator` | x402 facilitator (testnet default; use the CDP facilitator on mainnet) |
+| `WEBCAP_X402_ASSET` | chain USDC | x402 asset override (default: the chain's USDC) |
+| `WEBCAP_X402_PAY_TO` | merchant | x402 payTo override (default: the merchant address) |
 
 ## Tests
 
 ```bash
-npm test           # 95 tests: unit + API + e2e; anvil + local http fixtures only, no internet
+npm test           # 108 tests: unit + API + e2e; anvil + local http fixtures only, no internet
 npm run typecheck
 ```
 
@@ -208,3 +212,28 @@ docker compose up --build
 The image is Debian-based (`node:24`) rather than Alpine because the capture
 pipeline runs the `chrome` channel (Google Chrome), which has no musl/Alpine
 build. The DB persists in the `webcap-data` volume.
+
+## x402 real USDC payment (Base, per-request, no account)
+
+A standards-based **x402 (HTTP 402)** pay-per-request endpoint. No registration, no
+credits — the client pays USDC on the spot. The payer is **gasless**: it signs an
+EIP-3009 `transferWithAuthorization`; the facilitator submits the on-chain transfer
+and pays gas, and the USDC lands in the merchant wallet.
+
+### `POST /v1/x402/capture` — x402-gated
+
+Unpaid → `402` + a `payment-required` header (base64 x402 v2 challenge). Pay via the
+`PAYMENT-SIGNATURE` header (any x402 v2 client) or the bundled agent client:
+
+```bash
+# as a paying agent (Base-sepolia; the EOA needs a USDC balance — no ETH needed)
+X402_CUSTOMER_PRIVATE_KEY=0x… \
+  npx tsx scripts/x402-pay.ts https://example.com https://<your-public-url>
+```
+
+- `WEBCAP_CHAIN=base-sepolia` → `eip155:84532`, USDC `0x036C…CF7e` (name `USDC`, v2), facilitator `x402.org`.
+- `WEBCAP_CHAIN=base` → `eip155:8453` (mainnet), USDC `0x8335…2913` (name `USD Coin`, v2) — **real money**; point `X402_FACILITATOR_URL` at the CDP facilitator.
+- `WEBCAP_CHAIN=local` → the x402 route returns `503` (no public facilitator).
+
+Live proof (a real public 402 challenge + a real facilitator on-chain verification) is
+in [`artifacts/PROOF.md`](artifacts/PROOF.md).

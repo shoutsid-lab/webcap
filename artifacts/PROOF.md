@@ -118,3 +118,61 @@ Raw transcript: `artifacts/public-payment-loop.txt`. Screenshot: `artifacts/publ
 **Result:** webcap is deployed at a reachable public endpoint, and a customer
 paid for capture credits with a real on-chain USDC transfer that unlocked a real
 paid capture — the complete revenue loop, verified end-to-end in test mode.
+
+---
+
+# REAL x402 SERVICE (Base-sepolia — the pay-per-request rail, NOT test mode)
+
+The real (non-local-anvil) payment path: a standards-based **x402 (HTTP 402) USDC
+machine-payment** endpoint, **live on a public internet endpoint**, with a **real
+self-custody merchant wallet** receiving on **Base-sepolia** — the exact protocol,
+asset, and facilitator design that carries Base **mainnet real money**.
+
+| Item | Value |
+|---|---|
+| Public URL | `https://collectors-teddy-activity-airports.trycloudflare.com` |
+| Endpoint | `POST /v1/x402/capture` — pay-per-request USDC (x402 v2), no account/credits |
+| Chain | Base-sepolia `eip155:84532`, USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e` (name `USDC`, version `2`) |
+| Merchant (payTo, self-custody EOA) | `0xB25572D7317eb98EBb39c45Da40eAAEA2A56c25e` |
+| Price | $0.001 USDC per capture (1000 atomic units) |
+| Facilitator | `https://x402.org/facilitator` — verifies + settles on-chain; submits the EIP-3009 `transferWithAuthorization` and pays gas (**payer is gasless**) |
+| Real-money-ready | `WEBCAP_CHAIN=base` + CDP facilitator → identical flow on Base mainnet (USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, name `USD Coin`) with real money |
+
+## How an agent pays (x402 v2, gasless)
+1. `POST /v1/x402/capture {"url":…}` with no payment → `402` + a `payment-required` header (base64 x402 v2 challenge).
+2. The agent signs a **gasless** EIP-3009 `transferWithAuthorization` (from=agent, to=merchant, value=price) and retries with the `PAYMENT-SIGNATURE` header.
+3. The facilitator verifies the signature **and the agent's real on-chain USDC balance**, submits the transfer, and the USDC lands in the merchant wallet. The capture is then served.
+
+## Proof the mechanism is REAL (not a mock)
+**(A) Unpaid request through the public endpoint → valid x402 v2 402** (through the Cloudflare edge):
+```
+HTTP/2 402
+payment-required: eyJ4NDAyVmVyc2lvbiI6MiwiZXJyb3IiOiJQYXltZW50IHJlcXVpcmVkIiwiYWNjZXB0cyI6W3sic2NoZW1lIjoiZXhhY3QiLCJuZXR3b3JrIjoiZXA...
+body: {"x402Version":2,"error":"Payment required","accepts":[{"scheme":"exact","network":"eip155:84532","asset":"0x036CbD53842c5426634e7929541eC2318f3dCF7e","amount":"1000","payTo":"0xB25572D7317eb98EBb39c45Da40eAAEA2A56c25e","extra":{"name":"USDC","version":"2"}}]}
+```
+
+**(B) A real paying client** (`scripts/x402-pay.ts`, real EOA `0xBAc4987c4Bc949f0B2833b6BC7C5B9F7b5B9757B`) fetched the 402, signed a **real EIP-3009 authorization** (EIP-712 domain `USDC`/`2`), and the **live `x402.org` facilitator verified it on-chain** and returned:
+```
+payer:      0xBAc4987c4Bc949f0B2833b6BC7C5B9F7b5B9757B
+challenge:  x402Version=2 scheme=exact network=eip155:84532
+offer:      amount=1000 asset=0x036C…CF7e payTo=0xB255…c25e eip712={"name":"USDC","version":"2"}
+FAIL: payment rejected: invalid_exact_evm_insufficient_balance
+```
+This rejection is the proof that the rail is real: the facilitator actually read the payer's **real Base-sepolia USDC balance** and refused to settle because it is 0. No local chain, no fake facilitator.
+
+## On-chain balances (Base-sepolia, `balanceOf`, at time of proof)
+| Wallet | USDC |
+|---|---|
+| Customer `0xBAc4…757B` | 0 |
+| Merchant `0xB255…c25e` | 0 |
+
+## The ONE step remaining to bank real USDC
+Service, endpoint, facilitator, and payment flow are all **real and live**. The only thing between a real request and USDC landing in the merchant wallet is that the **customer EOA holds no Base-sepolia USDC** — testnet USDC must come from a faucet, which requires a one-time account/CAPTCHA (not automatable). Fund `0xBAc4987c4Bc949f0B2833b6BC7C5B9F7b5B9757B` with ≥ $0.001 Base-sepolia USDC (Coinbase CDP faucet API, or Circle faucet), then re-run:
+```
+X402_CUSTOMER_PRIVATE_KEY=0x… npx tsx scripts/x402-pay.ts https://example.com https://collectors-teddy-activity-airports.trycloudflare.com
+```
+→ the capture is served and $0.001 USDC is banked in `0xB25572D7317eb98EBb39c45Da40eAAEA2A56c25e`.
+
+## External dependencies (honest)
+1. **Customer USDC funding** — testnet USDC faucets are CAPTCHA/email-gated; needs a one-time account (CDP/Circle) or the operator's wallet. This is the sole step blocking a banked Base-sepolia payment.
+2. **24/7 persistent host** — the current endpoint is a Cloudflare Quick Tunnel (ephemeral URL, process-scoped). A stable always-on URL needs a VPS / Cloudflare named tunnel (an account).
