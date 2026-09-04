@@ -3,6 +3,8 @@ dist/
 data/
 bin/
 artifacts/
+out/
+cache/
 .env
 *.log
 .DS_Store

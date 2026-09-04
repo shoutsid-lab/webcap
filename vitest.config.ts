@@ -5,8 +5,10 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     testTimeout: 60_000,
     hookTimeout: 120_000,
-    // forks isolates each test file's process; e2e suites spawn anvil as a child.
+    // forks isolates each test file's process; the anvil chain for e2e tests
+    // is spawned ONCE for the whole run by the globalSetup (T1.4 harness).
     pool: 'forks',
     globals: false,
+    globalSetup: ['scripts/devchain.ts'],
   },
 });
