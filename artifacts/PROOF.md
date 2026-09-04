@@ -78,3 +78,43 @@ A real invoice was paid **on-chain** (tx `0x87502e…e379b`, block 4), the
 settlement credited exactly **100 credits**, and a paid capture returned a real
 **18376-byte PNG** (magic `89504E47`) — completing the webcap revenue loop in
 test mode.
+
+---
+
+## PUBLIC ENDPOINT (GOAL #1)
+
+The same server was exposed to the public internet through a **Cloudflare Quick
+Tunnel** (`bin/cloudflared tunnel --url http://localhost:8080`), which fronted
+the local server with a public `https://` URL. Every request below went
+**public internet → Cloudflare edge → tunnel → localhost:8080 → webcap**.
+
+**Public URL:** `https://progress-benefit-cradle-structure.trycloudflare.com`
+
+| Public request | Result |
+|---|---|
+| `GET /v1/health` | `200` `{"ok":true,"chainId":31337,"creditsPerUsdc":100,"pricePerCredit":0.01}` |
+| `POST /v1/register` `{"address":"0xf39F…2266"}` | `201` `{"address":"0xf39F…2266","apiKey":"wc_live_f8aaabbfc270620e1baf39c56e9b2d83","balance":0}` |
+| `GET /v1/og?url=https://example.com` | `200` `{"url":"https://example.com","title":"Example Domain",…}` (real headless-Chrome fetch, ~0.4 s) |
+
+Raw responses: `artifacts/public-endpoint.txt`.
+
+## CLEAN PUBLIC PAYMENT LOOP (GOALS #1 + #2, at the public surface)
+
+A complete register → invoice → **on-chain USDC payment** → settle → paid
+capture, driven entirely through the public URL. The merchant used here
+(`0xF34E47e29bE7baA89FB97C4Dd0346c6bC0a2294e`) is a **fresh wallet that was
+never minted**, so the only `Transfer` to it is the customer's real payment —
+no dev-mint can falsely settle the invoice.
+
+1. **Register** (public) → `201`, `apiKey wc_live_f8aa…d83`, balance `0`.
+2. **Invoice** (public, 100 credits) → `201`, `invoiceId 1`, `requiredUsdc 1`, `credits 100`.
+3. **On-chain payment** — customer (`0xf39F…2266`) transfers **1.0 USDC** to the merchant on anvil:
+   - tx hash `0x5ca51b9e65850d370dcf7d5b11739f4ffd506f80fd35c83f2b36cc938c89bfbf`, block `4`.
+4. **Settlement** — the poller settles invoice #1 to **exactly 100 credits** (`floor(1.0 × 100)`); account `balance: 100`, invoice `status: "paid"`.
+5. **Paid capture** (public) → `200`, real **18963-byte PNG** (magic `89504E47`), `creditsCharged: 1`, balance `100 → 99`.
+
+Raw transcript: `artifacts/public-payment-loop.txt`. Screenshot: `artifacts/public-capture.png`.
+
+**Result:** webcap is deployed at a reachable public endpoint, and a customer
+paid for capture credits with a real on-chain USDC transfer that unlocked a real
+paid capture — the complete revenue loop, verified end-to-end in test mode.

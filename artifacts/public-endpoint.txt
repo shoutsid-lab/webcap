@@ -1,0 +1,15 @@
+webcap PUBLIC ENDPOINT PROOF - 2026-09-04T18:48:23Z
+public URL: https://progress-benefit-cradle-structure.trycloudflare.com   (cloudflared Quick Tunnel -> localhost:8080)
+chain: anvil chainId 31337 | USDC 0x5FbDB2315678afecb367f032d93F642f64180aa3 | merchant 0x3ECF33b78712713c8Fc8BC945861ae444B4850dd
+
+=== GET https://progress-benefit-cradle-structure.trycloudflare.com/v1/health ===
+{"ok":true,"chainId":31337,"creditsPerUsdc":100,"pricePerCredit":0.01}
+[HTTP 200 in 0.290056s]
+
+=== POST https://progress-benefit-cradle-structure.trycloudflare.com/v1/register {"address":"0xf39F...2266"} ===
+{"address":"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266","apiKey":"wc_live_9fd1830f2a0ab95421b51df5576a1937","balance":0}
+[HTTP 201]
+
+=== GET https://progress-benefit-cradle-structure.trycloudflare.com/v1/og?url=https://example.com  (free OG, real browser capture) ===
+{"url":"https://example.com/","title":"Example Domain","icon":"data:,"}
+[HTTP 200 in 0.396401s]

@@ -135,7 +135,47 @@ cast send --rpc-url http://127.0.0.1:8545 \
   "transfer(address,uint256)" "$(jq -r .merchant.address /tmp/webcap-chain.json)" 1000000
 curl -s -X POST localhost:8080/v1/capture -H "authorization: Bearer $KEY" \
   -H 'content-type: application/json' -d '{"url":"https://example.com","format":"png"}'
+> **Note (dev-chain quirk):** `npm run chain:up` mints 10k dev-USDC to *both*
+> the customer and the merchant, so the merchant's own dev-mint settles the
+> first invoice (to `10000 × 100` credits). To demo a clean pay→settle→capture,
+> point `WEBCAP_MERCHANT_ADDRESS` at a **fresh** wallet (never minted) and pay
+> from the customer — exactly the public-loop proof in `artifacts/PROOF.md`.
+
+## Deploy to a public endpoint (production)
+
+webcap is self-hosted: run it on any always-on machine and front it with a
+public HTTPS endpoint. For a live business point it at Base mainnet USDC with
+your own merchant key; for a safe demo use Base Sepolia.
+
+**1. Configure** — copy `.env.example` to `.env` and set:
 ```
+WEBCAP_CHAIN=base-sepolia            # or `base` for live USDC
+USDC_MERCHANT_PRIVATE_KEY=0x<your-merchant-eoa-key>
+WEBCAP_PORT=8080
+POLL_INTERVAL_MS=30000
+WEBCAP_DB=./data/webcap.db
+```
+The merchant EOA only *receives* USDC (it does not pay gas); fund it with the
+chain's native token only if you ever let it send transactions.
+
+**2. Run the service**:
+```
+npm ci
+npm start        # listens on :8080 and starts the settlement poller
+```
+
+**3. Expose it publicly** — Cloudflare Quick Tunnel (no account or domain
+needed; the URL is stable for as long as the process runs):
+```
+bin/cloudflared tunnel --url http://localhost:8080 --no-autoupdate
+# prints:  https://<random>.trycloudflare.com   <- your public endpoint
+```
+`bin/cloudflared` is a committed static binary; for a fixed production domain
+use your own Cloudflare Tunnel / ingress / reverse proxy instead.
+
+Customers then call `https://<endpoint>/v1/...`; USDC payments arrive on-chain
+to your merchant EOA and settle automatically. The full public loop is proven in
+`artifacts/PROOF.md` (localhost SURFACE + the clean public payment loop).
 
 ## Configuration
 
@@ -154,7 +194,7 @@ curl -s -X POST localhost:8080/v1/capture -H "authorization: Bearer $KEY" \
 ## Tests
 
 ```bash
-npm test           # 93 tests: unit + API + e2e; anvil + local http fixtures only, no internet
+npm test           # 95 tests: unit + API + e2e; anvil + local http fixtures only, no internet
 npm run typecheck
 ```
 

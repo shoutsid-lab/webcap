@@ -1,0 +1,28 @@
+webcap PUBLIC PAYMENT LOOP (clean, fresh never-minted merchant) - 2026-09-04T18:52:47Z
+public URL: https://progress-benefit-cradle-structure.trycloudflare.com   (cloudflared Quick Tunnel -> localhost:8080 -> anvil 31337)
+merchant 0xF34E47e29bE7baA89FB97C4Dd0346c6bC0a2294e (FRESH, never minted)
+customer 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 (anvil acct0, holds USDC)
+
+=== 1. POST /v1/register (public) ===
+{"address":"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266","apiKey":"wc_live_f8aaabbfc270620e1baf39c56e9b2d83","balance":0}
+apiKey=wc_live_f8aaabbfc270620e1baf39c56e9b2d83
+
+=== 2. POST /v1/invoice {credits:100} (public, authed) ===
+{"invoiceId":"1","merchant":"0x0000000000000000000000000000000000000000","token":"0x5FbDB2315678afecb367f032d93F642f64180aa3","chainId":31337,"requiredUsdc":1,"credits":100,"expiresAt":"2026-09-04T19:52:47.794Z"}
+[HTTP 201]
+
+=== 3. on-chain: customer -> fresh merchant, 1.0 USDC (anvil) ===
+npm notice run webcap@0.1.0 npx
+npm notice run 'tsx' /tmp/pub-pay.ts
+customer 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 usdcBefore 10000
+txHash 0x5ca51b9e65850d370dcf7d5b11739f4ffd506f80fd35c83f2b36cc938c89bfbf
+block 4
+PAY_DONE
+
+=== 4. wait settle (~8s) -> GET /v1/account (MUST be balance 100) ===
+{"address":"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266","balance":100,"invoices":[{"id":"1","status":"paid","credits":100,"requiredUsdc":1,"createdAt":"2026-09-04T18:52:47.794Z"}]}
+[HTTP 200]
+
+=== 5. POST /v1/capture {url,format:png} (public, real browser) ===
+[HTTP 200 in 0.432302s]
+format png | bytes 18963 | magic 89504e47 | creditsCharged 1 | balance 99
