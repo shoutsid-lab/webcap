@@ -1,0 +1,12 @@
+# Cloudflare NAMED tunnel config (gives a STABLE https://webcap.<zone>.com — no VPS needed).
+#
+# setup-named-tunnel.sh fills in __TUNNEL_ID__ / __ZONE__, installs the tunnel token to
+# /etc/cloudflared/webcap.json, routes DNS, and installs this file to /etc/cloudflared/webcap.yml.
+tunnel: __TUNNEL_ID__
+credentials-file: /etc/cloudflared/webcap.json
+
+ingress:
+  - hostname: webcap.__ZONE__
+    service: http://localhost:8080
+  # catch-all: anything else is a 404
+  - service: http_status:404

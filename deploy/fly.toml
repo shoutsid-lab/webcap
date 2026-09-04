@@ -1,0 +1,19 @@
+# Fly.io — https://fly.io/docs/reference/configuration/
+# Deploy: `fly launch` (accepts this file) then `fly deploy`.
+# Set secrets with: fly secrets set WEBCAP_CHAIN=base-sepolia USDC_MERCHANT_PRIVATE_KEY=0x... X402_FACILITATOR_URL=https://x402.org/facilitator
+# NOTE: the capture pipeline runs real Chrome — give the VM at least ~1GB RAM (default below).
+app = "webcap"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "1024mb"

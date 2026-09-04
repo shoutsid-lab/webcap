@@ -1,0 +1,16 @@
+[Unit]
+Description=Cloudflare named tunnel (webcap) — stable https://webcap.<zone>.com
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Config written by setup-named-tunnel.sh to /etc/cloudflared/webcap.yml
+# (tunnel token + ingress webcap.<zone>.com -> localhost:8080).
+ExecStart=/usr/local/bin/cloudflared tunnel run webcap --config /etc/cloudflared/webcap.yml
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

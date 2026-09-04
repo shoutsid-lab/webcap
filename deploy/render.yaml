@@ -1,0 +1,20 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Deploy: in the Render dashboard, "New > Blueprint", point it at this repo + deploy/render.yaml.
+# Set the merchant secret in the dashboard (USDC_MERCHANT_PRIVATE_KEY) — never commit it.
+services:
+  - type: web
+    name: webcap
+    runtime: docker
+    plan: starter            # a free/hobby tier works to start; the image is Debian node:24 (Chrome)
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /v1/health
+    autoDeploy: true
+    envVars:
+      - key: WEBCAP_CHAIN
+        value: base-sepolia
+      - key: WEBCAP_X402_PRICE_USDC
+        value: "0.001"
+      - key: X402_FACILITATOR_URL
+        value: https://x402.org/facilitator
+      # USDC_MERCHANT_PRIVATE_KEY is a secret — set it in the Render dashboard (Env > Secrets).
+      # Base MAINNET real money: WEBCAP_CHAIN=base + CDP facilitator + CDP key.

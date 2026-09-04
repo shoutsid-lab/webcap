@@ -1,0 +1,18 @@
+[Unit]
+Description=webcap (x402 USDC capture API)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+# The env is read by the compose file from <repo>/.env (env_file).
+# The DB lives on the webcap-data volume (survives image rebuilds + restarts).
+WorkingDirectory=/opt/webcap
+ExecStart=/usr/bin/docker compose up
+ExecStop=/usr/bin/docker compose stop
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
