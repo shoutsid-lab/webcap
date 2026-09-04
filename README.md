@@ -235,5 +235,11 @@ X402_CUSTOMER_PRIVATE_KEY=0x… \
 - `WEBCAP_CHAIN=base` → `eip155:8453` (mainnet), USDC `0x8335…2913` (name `USD Coin`, v2) — **real money**; point `X402_FACILITATOR_URL` at the CDP facilitator.
 - `WEBCAP_CHAIN=local` → the x402 route returns `503` (no public facilitator).
 
+### `GET /v1/x402/service` — agent-discoverable catalog
+
+A free, machine-readable service descriptor (no payment) so AI agents can discover the
+service + its payment terms: endpoint, USDC price, network, asset, `payTo`, facilitator,
+and the exact x402 payment flow. Returns `503` when x402 is disabled.
+
 Live proof (a real public 402 challenge + a real facilitator on-chain verification) is
 in [`artifacts/PROOF.md`](artifacts/PROOF.md).

@@ -176,3 +176,18 @@ X402_CUSTOMER_PRIVATE_KEY=0x… npx tsx scripts/x402-pay.ts https://example.com 
 ## External dependencies (honest)
 1. **Customer USDC funding** — testnet USDC faucets are CAPTCHA/email-gated; needs a one-time account (CDP/Circle) or the operator's wallet. This is the sole step blocking a banked Base-sepolia payment.
 2. **24/7 persistent host** — the current endpoint is a Cloudflare Quick Tunnel (ephemeral URL, process-scoped). A stable always-on URL needs a VPS / Cloudflare named tunnel (an account).
+
+## Agent-discoverable service catalog (live + public)
+
+GET /v1/x402/service is a FREE, machine-readable descriptor (no payment) so AI agents can
+discover the service + its payment terms before paying. Live + public (in Docker, through
+the tunnel) — returns:
+  { "service":"webcap", "paymentProtocol":"x402", "x402Version":2,
+    "paidEndpoint":{ "method":"POST", "path":"/v1/x402/capture" },
+    "price":{ "usdc":0.001, "atomicUnits":"1000",
+              "asset":"0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+              "network":"eip155:84532", "payTo":"0xB25572D7317eb98EBb39c45Da40eAAEA2A56c25e",
+              "scheme":"exact" },
+    "facilitator":"https://x402.org/facilitator", ... }
+This makes the revenue path agent-DISCOVERABLE: an agent GETs the catalog, learns the price
++ how to pay, then POSTs /v1/x402/capture and pays per request (x402 v2). 109/109 tests.

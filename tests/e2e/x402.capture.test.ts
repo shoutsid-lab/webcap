@@ -134,6 +134,34 @@ describe('x402 capture (v2 wire, mock facilitator, no chain)', () => {
     expect(mock.calls.settle).toBe(before.settle);
   });
 
+  it('S4: GET /v1/x402/service returns the agent-discoverable catalog', async () => {
+    const res = await app.inject({ method: 'GET', url: '/v1/x402/service' });
+    expect(res.statusCode).toBe(200);
+    const svc = res.json() as {
+      service: string;
+      paymentProtocol: string;
+      x402Version: number;
+      paidEndpoint: { method: string; path: string };
+      price: { usdc: number; atomicUnits: string; asset: string; network: string; payTo: string; scheme: string };
+      facilitator: string;
+      howToPay: string;
+    };
+    expect(svc.service).toBe('webcap');
+    expect(svc.paymentProtocol).toBe('x402');
+    expect(svc.x402Version).toBe(2);
+    expect(svc.paidEndpoint).toMatchObject({ method: 'POST', path: '/v1/x402/capture' });
+    expect(svc.price).toMatchObject({
+      usdc: 0.001,
+      atomicUnits: '1000',
+      asset: SEPOLIA_USDC,
+      network: 'eip155:84532',
+      payTo: MERCHANT_ADDRESS,
+      scheme: 'exact',
+    });
+    expect(svc.facilitator).toBe('https://x402.org/facilitator');
+    expect(typeof svc.howToPay).toBe('string');
+  });
+
   it('S2: a real EOA pays gaslessly (EIP-3009) and gets the capture + settlement receipt', async () => {
     const { account, client } = makePayer(PAYER_KEY_A);
     const api = wrapAxiosWithPayment(axios.create({ baseURL: baseUrl }), client);

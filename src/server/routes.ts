@@ -130,6 +130,38 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     };
   });
 
+  app.get('/v1/x402/service', async () => {
+    if (config.x402Network === undefined) {
+      throw new HttpError(503, 'x402_disabled', 'x402 payment requires WEBCAP_CHAIN=base-sepolia or base');
+    }
+    return {
+      service: 'webcap',
+      description: 'Capture any URL as PNG/JPEG/PDF (+ free OG metadata), paid per-request in USDC via x402 (HTTP 402).',
+      paymentProtocol: 'x402',
+      x402Version: 2,
+      paidEndpoint: {
+        method: 'POST',
+        path: '/v1/x402/capture',
+        body: { url: 'string (required)', format: 'png|jpeg|pdf (optional)' },
+      },
+      price: {
+        usdc: config.x402PriceUsdcUnits / USDC_SCALE,
+        atomicUnits: String(config.x402PriceUsdcUnits),
+        asset: config.x402Asset,
+        network: config.x402Network,
+        payTo: config.x402PayTo,
+        scheme: 'exact',
+      },
+      howToPay:
+        'POST /v1/x402/capture unpaid -> HTTP 402 with a base64 x402 v2 challenge (payment-required header) -> sign a gasless EIP-3009 transferWithAuthorization (from=your wallet, to=price.payTo, value=price.atomicUnits) -> retry with the PAYMENT-SIGNATURE header. The facilitator verifies + settles on-chain; USDC lands in the merchant wallet and the capture is returned. Works with any x402 v2 client (@x402/axios) or scripts/x402-pay.ts.',
+      facilitator: config.x402FacilitatorUrl,
+      freeEndpoints: [
+        { method: 'GET', path: '/v1/og?url=...', note: 'free OG metadata, no payment' },
+        { method: 'GET', path: '/v1/health', note: 'liveness + chain' },
+      ],
+    };
+  });
+
   app.get('/v1/og', async (req) => {
     const rawUrl = isRecord(req.query) ? req.query.url : undefined;
     if (typeof rawUrl !== 'string') throw unprocessable('url query parameter is required');
