@@ -12,10 +12,7 @@
     "test:watch": "vitest",
     "dev": "tsx src/main.ts",
     "start": "tsx src/main.ts",
-    "chain:up": "tsx scripts/devchain.ts",
-    "chain:usdc:deploy": "tsx scripts/deploy-usdc.ts",
-    "chain:pay": "tsx scripts/pay-invoice.ts",
-    "chain:verify": "tsx scripts/verify-chain.ts"
+    "chain:up": "tsx scripts/devchain.ts"
   },
   "dependencies": {
     "better-sqlite3": "^12.0.0",

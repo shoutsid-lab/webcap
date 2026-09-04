@@ -1,0 +1,29 @@
+services:
+  webcap:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      # In-container DB lives on the persistent volume, not the image layer.
+      WEBCAP_DB: /data/webcap.db
+    volumes:
+      - webcap-data:/data
+    # Local dev chain on the host (npm run chain:up): uncomment these, then set
+    # WEBCAP_RPC_URL=http://host.docker.internal:8545 in .env.
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+    # depends_on:
+    #   - anvil
+
+  # Local dev chain (Anvil). Prefer `npm run chain:up` on the host, which also
+  # deploys + mints the USDC referenced by WEBCAP_USDC_ADDRESS.
+  # anvil:
+  #   image: ghcr.io/foundry-rs/foundry:latest
+  #   command: ["anvil", "--host", "0.0.0.0", "--port", "8545"]
+  #   ports:
+  #     - "8545:8545"
+
+volumes:
+  webcap-data:
