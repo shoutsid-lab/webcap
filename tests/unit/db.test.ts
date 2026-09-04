@@ -7,6 +7,8 @@ import { makePaymentsRepo, type PaymentInput } from '../../src/db/payments.js';
 
 function sampleInvoice(over: Partial<NewInvoice> = {}): NewInvoice {
   return {
+    // account_id 1 exists in each fresh :memory: fixture once an account is created
+    account_id: 1,
     pack: 'starter',
     chain: 'local',
     usdc_contract: `0x${'11'.repeat(20)}`,
@@ -84,6 +86,7 @@ describe('db: accounts + credits', () => {
 describe('db: invoices', () => {
   it('create/get round-trips an open invoice', () => {
     const db = openDb(':memory:');
+    makeAccountsRepo(db).create();
     const invoices = makeInvoicesRepo(db);
     const id = invoices.create(sampleInvoice());
     expect(invoices.get(id)).toMatchObject({ pack: 'starter', status: 'open', usdc_amount: 500_000 });
@@ -92,6 +95,7 @@ describe('db: invoices', () => {
 
   it('markInvoicePaid flips the status and closes the invoice', () => {
     const db = openDb(':memory:');
+    makeAccountsRepo(db).create();
     const invoices = makeInvoicesRepo(db);
     const id = invoices.create(sampleInvoice());
     invoices.markInvoicePaid(id, '0xabc123');
@@ -102,6 +106,7 @@ describe('db: invoices', () => {
 
   it('findOpenInvoiceByUsdcAmount matches by exact amount and skips paid invoices', () => {
     const db = openDb(':memory:');
+    makeAccountsRepo(db).create();
     const invoices = makeInvoicesRepo(db);
     const starterId = invoices.create(sampleInvoice());
     const proId = invoices.create(sampleInvoice({ pack: 'pro', usdc_amount: 3_000_000 }));

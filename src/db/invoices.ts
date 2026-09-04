@@ -2,6 +2,7 @@ import type { Db } from './index.js';
 
 export interface InvoiceRow {
   readonly id: number;
+  readonly account_id: number;
   readonly pack: string;
   readonly chain: string;
   readonly usdc_contract: string;
@@ -15,6 +16,7 @@ export interface InvoiceRow {
 }
 
 export interface NewInvoice {
+  readonly account_id?: number;
   readonly pack: string;
   readonly chain: string;
   readonly usdc_contract: string;
@@ -31,6 +33,8 @@ export interface InvoicesRepo {
   /** Set status to 'paid' and link any unlinked payment row for txHash. */
   markInvoicePaid(id: number, txHash: string): void;
   listOpenInvoices(): InvoiceRow[];
+  /** All invoices of one account (any status), newest first. */
+  listByAccount(accountId: number): InvoiceRow[];
   /** First open invoice with the exact USDC amount (6-decimal units). */
   findOpenInvoiceByUsdcAmount(value: number): InvoiceRow | undefined;
 }
@@ -39,17 +43,17 @@ const now = (): string => new Date().toISOString();
 
 export function makeInvoicesRepo(db: Db): InvoicesRepo {
   const insert = db.prepare<
-    [string, string, string, string, number, number, string, string, string],
+    [number, string, string, string, string, number, number, string, string, string],
     unknown
   >(
     `INSERT INTO invoices
-       (pack, chain, usdc_contract, usdc_address, amount_usd, usdc_amount, recipient, status, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
+        (account_id, pack, chain, usdc_contract, usdc_address, amount_usd, usdc_amount, recipient, status, created_at, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
   );
+  const invoiceColumns =
+    'id, account_id, pack, chain, usdc_contract, usdc_address, amount_usd, usdc_amount, recipient, status, created_at, expires_at';
   const select = db.prepare<[number], InvoiceRow>(
-    `SELECT id, pack, chain, usdc_contract, usdc_address, amount_usd, usdc_amount,
-            recipient, status, created_at, expires_at
-     FROM invoices WHERE id = ?`,
+    `SELECT ${invoiceColumns} FROM invoices WHERE id = ?`,
   );
   const markPaid = db.prepare<[number], unknown>(
     "UPDATE invoices SET status = 'paid' WHERE id = ? AND status = 'open'",
@@ -58,19 +62,19 @@ export function makeInvoicesRepo(db: Db): InvoicesRepo {
     'UPDATE payments SET invoice_id = ? WHERE tx_hash = ? AND invoice_id IS NULL',
   );
   const listOpen = db.prepare<[], InvoiceRow>(
-    `SELECT id, pack, chain, usdc_contract, usdc_address, amount_usd, usdc_amount,
-            recipient, status, created_at, expires_at
-     FROM invoices WHERE status = 'open' ORDER BY id`,
+    `SELECT ${invoiceColumns} FROM invoices WHERE status = 'open' ORDER BY id`,
+  );
+  const listByAccountStmt = db.prepare<[number], InvoiceRow>(
+    `SELECT ${invoiceColumns} FROM invoices WHERE account_id = ? ORDER BY id DESC`,
   );
   const findByAmount = db.prepare<[number], InvoiceRow>(
-    `SELECT id, pack, chain, usdc_contract, usdc_address, amount_usd, usdc_amount,
-            recipient, status, created_at, expires_at
-     FROM invoices WHERE status = 'open' AND usdc_amount = ? ORDER BY id LIMIT 1`,
+    `SELECT ${invoiceColumns} FROM invoices WHERE status = 'open' AND usdc_amount = ? ORDER BY id LIMIT 1`,
   );
 
   return {
     create(inv: NewInvoice): number {
       const info = insert.run(
+        inv.account_id ?? 0,
         inv.pack,
         inv.chain,
         inv.usdc_contract,
@@ -93,6 +97,9 @@ export function makeInvoicesRepo(db: Db): InvoicesRepo {
     },
     listOpenInvoices(): InvoiceRow[] {
       return listOpen.all();
+    },
+    listByAccount(accountId: number): InvoiceRow[] {
+      return listByAccountStmt.all(accountId);
     },
     findOpenInvoiceByUsdcAmount(value: number): InvoiceRow | undefined {
       return findByAmount.get(value);

@@ -3,12 +3,13 @@ import type { Db } from './index.js';
 export interface AccountRow {
   readonly id: number;
   readonly credits: number;
+  readonly address: string;
   readonly created_at: string;
 }
 
 export interface AccountsRepo {
-  /** Create an account with 0 credits; returns its id. */
-  create(): number;
+  /** Create an account with 0 credits (optionally bound to a customer address); returns its id. */
+  create(address?: string): number;
   get(id: number): AccountRow | undefined;
   getBalance(id: number): number;
   /**
@@ -23,11 +24,11 @@ export interface AccountsRepo {
 const now = (): string => new Date().toISOString();
 
 export function makeAccountsRepo(db: Db): AccountsRepo {
-  const insertAccount = db.prepare<[string], unknown>(
-    'INSERT INTO accounts (credits, created_at) VALUES (0, ?)',
+  const insertAccount = db.prepare<[string, string], unknown>(
+    'INSERT INTO accounts (credits, address, created_at) VALUES (0, ?, ?)',
   );
   const selectAccount = db.prepare<[number], AccountRow>(
-    'SELECT id, credits, created_at FROM accounts WHERE id = ?',
+    'SELECT id, credits, address, created_at FROM accounts WHERE id = ?',
   );
   const selectBalance = db.prepare<[number], { credits: number }>(
     'SELECT credits FROM accounts WHERE id = ?',
@@ -49,8 +50,8 @@ export function makeAccountsRepo(db: Db): AccountsRepo {
   });
 
   return {
-    create(): number {
-      const info = insertAccount.run(now());
+    create(address: string = ''): number {
+      const info = insertAccount.run(address, now());
       return Number(info.lastInsertRowid);
     },
     get(id: number): AccountRow | undefined {
