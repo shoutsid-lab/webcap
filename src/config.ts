@@ -60,6 +60,27 @@ export function getPack(name: string): CreditPack {
   throw new Error(`unknown pack: ${name}`);
 }
 
+export const CREDITS_PER_USDC = 100;
+export const USDC_SCALE = 1_000_000;
+export const USDC_UNITS_PER_CREDIT = USDC_SCALE / CREDITS_PER_USDC;
+export const PRICE_PER_CREDIT = 1 / CREDITS_PER_USDC;
+export const CAPTURE_COST_CREDITS = 1;
+
+/** Credits granted for a settled USDC payment: floor(paidUsdc * CREDITS_PER_USDC). */
+export function creditsForUsdc(usdcUnits: bigint): number {
+  return Number(usdcUnits / BigInt(USDC_UNITS_PER_CREDIT));
+}
+
+/** 6-decimal USDC units required to buy `credits`. */
+export function usdcUnitsForCredits(credits: number): number {
+  return credits * USDC_UNITS_PER_CREDIT;
+}
+
+/** USDC (human units) required to buy `credits`. */
+export function usdcForCredits(credits: number): number {
+  return credits / CREDITS_PER_USDC;
+}
+
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
   if (raw === undefined || raw.trim() === '') return fallback;
   const value = Number.parseInt(raw, 10);

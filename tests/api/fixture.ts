@@ -1,0 +1,98 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type { FastifyInstance } from 'fastify';
+import { openDb, type Db } from '../../src/db/index.js';
+import { makeAccountsRepo, type AccountsRepo } from '../../src/db/accounts.js';
+import { makeApiKeysRepo, type ApiKeysRepo } from '../../src/db/api_keys.js';
+import { makeCreditsRepo, type CreditsRepo } from '../../src/db/credits.js';
+import { makeInvoicesRepo, type InvoicesRepo } from '../../src/db/invoices.js';
+import type { WebcapConfig } from '../../src/config.js';
+import { generateApiKey, hashKey } from '../../src/util/keys.js';
+import { buildApp } from '../../src/server/server.js';
+import type { CaptureRequest, CaptureResult } from '../../src/capture/pipeline.js';
+import type { OgResult } from '../../src/capture/og.js';
+
+import { Wallet } from 'ethers';
+
+// anvil account #1 (public test key)
+export const MERCHANT_PRIVATE_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b786900';
+export const MERCHANT_ADDRESS = new Wallet(MERCHANT_PRIVATE_KEY).address;
+export const CUSTOMER_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+export const USDC_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+
+export const FAKE_PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+export interface ApiFixture {
+  readonly app: FastifyInstance;
+  readonly db: Db;
+  readonly accounts: AccountsRepo;
+  readonly keys: ApiKeysRepo;
+  readonly credits: CreditsRepo;
+  readonly invoices: InvoicesRepo;
+  readonly config: WebcapConfig;
+  readonly apiKey: string;
+  readonly accountId: number;
+  readonly dir: string;
+}
+
+export interface FixtureOverrides {
+  readonly capture?: (req: CaptureRequest) => Promise<CaptureResult>;
+  readonly og?: (req: { url: string }) => Promise<OgResult>;
+}
+
+export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
+  const dir = mkdtempSync(join(tmpdir(), 'webcap-api-'));
+  const db = openDb(join(dir, 'test.db'));
+  const config: WebcapConfig = {
+    chain: { name: 'local', rpcUrl: 'http://127.0.0.1:8545', chainId: 31337, usdcContract: USDC_ADDRESS, explorer: '' },
+    port: 0,
+    pollIntervalMs: 5_000,
+    merchantPrivateKey: MERCHANT_PRIVATE_KEY,
+    dbPath: join(dir, 'test.db'),
+  };
+  const accounts = makeAccountsRepo(db);
+  const keys = makeApiKeysRepo(db);
+  const accountId = accounts.create(CUSTOMER_ADDRESS);
+  const apiKey = generateApiKey();
+  keys.create(accountId, hashKey(apiKey));
+  const capture =
+    overrides.capture ??
+    (async (req: CaptureRequest): Promise<CaptureResult> => ({
+      buffer: FAKE_PNG,
+      format: req.format ?? 'png',
+      bytes: FAKE_PNG.length,
+    }));
+  const og = overrides.og ?? (async (req: { url: string }): Promise<OgResult> => ({ url: req.url, title: 'Stub Title' }));
+  const app = buildApp({ db, config, capture, og });
+  return {
+    app,
+    db,
+    accounts,
+    keys,
+    credits: makeCreditsRepo(db),
+    invoices: makeInvoicesRepo(db),
+    config,
+    apiKey,
+    accountId,
+    dir,
+  };
+}
+
+export async function closeApiFixture(fx: ApiFixture): Promise<void> {
+  await fx.app.close();
+  fx.db.close();
+  rmSync(fx.dir, { recursive: true, force: true });
+}
+
+export interface ErrorEnvelope {
+  readonly code: string;
+  readonly message: string;
+  readonly detail?: Record<string, unknown>;
+}
+
+/** Parse the {error:{code,message,detail?}} envelope from a fastify response. */
+export function errorEnvelope(res: { json(): unknown }): ErrorEnvelope {
+  const parsed = res.json() as { error: ErrorEnvelope };
+  return parsed.error;
+}
