@@ -15,11 +15,11 @@ import {
   usdcUnitsForCredits,
   type WebcapConfig,
 } from '../config.js';
-import type { CaptureFormat, CaptureOptions } from '../capture/pipeline.js';
 import { CaptureError } from '../capture/errors.js';
 import { HttpError, unprocessable } from '../util/errors.js';
 import { generateApiKey, hashKey } from '../util/keys.js';
-import { validateCaptureUrl } from '../util/url.js';
+import { isRecord, parseFormat, parseOptions, validatedUrl } from './capture-parse.js';
+import { x402Payer } from './x402.js';
 import { authenticate } from './auth.js';
 import type { AppDeps } from './server.js';
 
@@ -106,6 +106,30 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     };
   });
 
+  app.post('/v1/x402/capture', async (req) => {
+    if (config.x402Network === undefined) {
+      throw new HttpError(503, 'x402_disabled', 'x402 payment requires WEBCAP_CHAIN=base-sepolia or base');
+    }
+    const body = req.body;
+    const rawUrl = isRecord(body) ? body.url : undefined;
+    if (typeof rawUrl !== 'string') throw unprocessable('url is required');
+    const normalized = validatedUrl(rawUrl, allowHosts);
+    const format = parseFormat(body);
+    const options = parseOptions(body);
+
+    let result;
+    try {
+      result = await deps.capture({ url: normalized, format, options });
+    } catch (err) {
+      if (err instanceof CaptureError) throw new HttpError(502, 'capture_failed', err.message);
+      throw err;
+    }
+    return {
+      artifact: { format: result.format, bytes: result.bytes, data: result.buffer.toString('base64') },
+      payment: { payer: x402Payer(req), priceUsdcUnits: config.x402PriceUsdcUnits },
+    };
+  });
+
   app.get('/v1/og', async (req) => {
     const rawUrl = isRecord(req.query) ? req.query.url : undefined;
     if (typeof rawUrl !== 'string') throw unprocessable('url query parameter is required');
@@ -177,37 +201,4 @@ function parseCredits(body: unknown): number {
   return raw;
 }
 
-function parseFormat(body: unknown): CaptureFormat {
-  const raw = isRecord(body) ? body.format : undefined;
-  if (raw === undefined) return 'png';
-  if (raw === 'png' || raw === 'jpeg' || raw === 'pdf') return raw;
-  throw unprocessable(`unsupported format: ${String(raw)}`);
-}
 
-function parseOptions(body: unknown): CaptureOptions | undefined {
-  const raw = isRecord(body) ? body.options : undefined;
-  if (raw === undefined) return undefined;
-  if (!isRecord(raw)) throw unprocessable('options must be an object');
-  const timeoutMs = raw.timeoutMs;
-  const fullPage = raw.fullPage;
-  if (timeoutMs !== undefined && (typeof timeoutMs !== 'number' || !Number.isInteger(timeoutMs) || timeoutMs <= 0)) {
-    throw unprocessable('timeoutMs must be a positive integer');
-  }
-  if (fullPage !== undefined && typeof fullPage !== 'boolean') {
-    throw unprocessable('fullPage must be a boolean');
-  }
-  if (timeoutMs === undefined && fullPage === undefined) return undefined;
-  return { timeoutMs, fullPage };
-}
-
-function validatedUrl(raw: string, allowHosts: readonly string[] | undefined): string {
-  try {
-    return validateCaptureUrl(raw, { allowHosts });
-  } catch {
-    throw unprocessable('invalid url');
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}

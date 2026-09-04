@@ -1,10 +1,12 @@
 import Fastify, { type FastifyInstance } from 'fastify';
+import type { FacilitatorClient } from '@x402/core/server';
 import type { Db } from '../db/index.js';
 import type { WebcapConfig } from '../config.js';
 import { toResponse, type ErrorBody, HttpError } from '../util/errors.js';
 import type { CaptureRequest, CaptureResult } from '../capture/pipeline.js';
 import type { OgResult } from '../capture/og.js';
 import { registerRoutes } from './routes.js';
+import { registerX402Middleware } from './x402.js';
 
 export interface AppDeps {
   readonly db: Db;
@@ -13,6 +15,8 @@ export interface AppDeps {
   readonly og: (req: { url: string }) => Promise<OgResult>;
   /** Private hosts that may still be captured (local dev); default: none. */
   readonly captureAllowHosts?: readonly string[];
+  /** x402 verify/settle client; required when config.x402Network is set. */
+  readonly x402Facilitator?: FacilitatorClient;
 }
 
 /** Build the webcap Fastify app with routes and the central error mapping. */
@@ -31,6 +35,9 @@ export function buildApp(deps: AppDeps): FastifyInstance {
         : { error: { code: 'bad_request', message: 'malformed request' } };
     void reply.status(status).send(body);
   });
+  // Payment hooks must be installed before routes so onRequest/onSend/onError
+  // cover the gated /v1/x402/capture handler.
+  registerX402Middleware(app, deps.config, deps.x402Facilitator);
   registerRoutes(app, deps);
   return app;
 }

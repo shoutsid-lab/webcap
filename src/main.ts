@@ -1,5 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { HTTPFacilitatorClient } from '@x402/core/server';
 import { loadConfig } from './config.js';
 import { openDb } from './db/index.js';
 import { buildApp } from './server/server.js';
@@ -27,17 +28,25 @@ async function main(): Promise<void> {
     merchantAddress: config.merchantAddress,
     intervalMs: config.pollIntervalMs,
   });
+  const x402Facilitator =
+    config.x402Network === undefined
+      ? undefined
+      : new HTTPFacilitatorClient({ url: config.x402FacilitatorUrl, timeoutMs: 30_000 });
   const app = buildApp({
     db,
     config,
     capture,
     og: ogMetadata,
     captureAllowHosts: parseAllowHosts(process.env),
+    x402Facilitator,
   });
 
   await app.listen({ port: config.port, host: '0.0.0.0' });
   console.log(
-    `webcap listening on :${config.port} chain=${config.chainId} usdc=${config.usdcAddress} merchant=${config.merchantAddress}`,
+    `webcap listening on :${config.port} chain=${config.chainId} usdc=${config.usdcAddress} merchant=${config.merchantAddress}` +
+      (config.x402Network === undefined
+        ? ' x402=disabled'
+        : ` x402=${config.x402Network} payTo=${config.x402PayTo} priceUsdc=${config.x402PriceUsdcUnits} facilitator=${config.x402FacilitatorUrl}`),
   );
 
   let shuttingDown = false;
