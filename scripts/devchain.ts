@@ -70,7 +70,8 @@ function spawnAnvil(detached: boolean): ChildProcess {
     ['--port', String(ANVIL_PORT), '--silent', '--chain-id', String(CHAIN_ID)],
     { detached, stdio: 'ignore' },
   );
-  if (detached) child.unref();
+  // Unref so anvil never holds the vitest process open (teardown kills it).
+  child.unref();
   return child;
 }
 
