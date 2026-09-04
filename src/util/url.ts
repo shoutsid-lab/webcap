@@ -8,7 +8,12 @@ import { badRequest } from './errors.js';
  * documented residual risk and must be re-checked where the actual fetch
  * happens. Do not add async DNS resolution to this function.
  */
-export function validateCaptureUrl(raw: string): string {
+export interface CaptureUrlOptions {
+  /** Exact hosts (case-insensitive) that may be captured even when private — local dev mode. */
+  readonly allowHosts?: readonly string[];
+}
+
+export function validateCaptureUrl(raw: string, opts: CaptureUrlOptions = {}): string {
   let url: URL;
   try {
     url = new URL(raw);
@@ -19,7 +24,7 @@ export function validateCaptureUrl(raw: string): string {
     throw badRequest(`unsupported URL scheme: ${url.protocol}`);
   }
   const host = stripBrackets(url.hostname);
-  if (host === '' || isBlockedHost(host)) {
+  if (host === '' || isBlockedHost(host, opts.allowHosts)) {
     throw badRequest(`capture host is not allowed: ${url.hostname || raw}`);
   }
   return url.toString();
@@ -29,7 +34,13 @@ function stripBrackets(hostname: string): string {
   return hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname;
 }
 
-function isBlockedHost(host: string): boolean {
+function isBlockedHost(host: string, allowHosts: readonly string[] | undefined): boolean {
+  if (allowHosts !== undefined) {
+    const normalized = host.toLowerCase();
+    for (const allowed of allowHosts) {
+      if (allowed.toLowerCase() === normalized) return false;
+    }
+  }
   if (host === 'localhost') return true;
   if (host.endsWith('.local')) return true;
   if (host === '::1' || host === '0.0.0.0') return true;

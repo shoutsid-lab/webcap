@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
-import { Wallet, ZeroAddress } from 'ethers';
+import { getAddress, Wallet, ZeroAddress } from 'ethers';
 import { makeAccountsRepo } from '../db/accounts.js';
+import { makeApiKeysRepo } from '../db/api_keys.js';
 import { makeCreditsRepo } from '../db/credits.js';
 import { makeInvoicesRepo, type InvoiceRow } from '../db/invoices.js';
 import {
@@ -17,6 +18,7 @@ import {
 import type { CaptureFormat, CaptureOptions } from '../capture/pipeline.js';
 import { CaptureError } from '../capture/errors.js';
 import { HttpError, unprocessable } from '../util/errors.js';
+import { generateApiKey, hashKey } from '../util/keys.js';
 import { validateCaptureUrl } from '../util/url.js';
 import { authenticate } from './auth.js';
 import type { AppDeps } from './server.js';
@@ -24,9 +26,11 @@ import type { AppDeps } from './server.js';
 export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
   const { db, config } = deps;
   const accounts = makeAccountsRepo(db);
+  const keys = makeApiKeysRepo(db);
   const credits = makeCreditsRepo(db);
   const invoices = makeInvoicesRepo(db);
   const merchantAddress = merchantAddressOf(config);
+  const allowHosts = deps.captureAllowHosts;
 
   app.get('/v1/health', async () => ({
     ok: true,
@@ -34,6 +38,21 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     creditsPerUsdc: CREDITS_PER_USDC,
     pricePerCredit: PRICE_PER_CREDIT,
   }));
+
+  app.post('/v1/register', async (req, reply) => {
+    const raw = isRecord(req.body) ? req.body.address : undefined;
+    if (typeof raw !== 'string') throw unprocessable('address is required');
+    let address: string;
+    try {
+      address = getAddress(raw);
+    } catch {
+      throw unprocessable('invalid address');
+    }
+    const accountId = accounts.findByAddress(address) ?? accounts.create(address);
+    const apiKey = generateApiKey();
+    keys.create(accountId, hashKey(apiKey));
+    return reply.status(201).send({ address, apiKey, balance: 0 });
+  });
 
   app.post('/v1/invoice', async (req, reply) => {
     const { account } = authenticate(req, db);
@@ -55,7 +74,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     const body = req.body;
     const rawUrl = isRecord(body) ? body.url : undefined;
     if (typeof rawUrl !== 'string') throw unprocessable('url is required');
-    const normalized = validatedUrl(rawUrl);
+    const normalized = validatedUrl(rawUrl, allowHosts);
     const format = parseFormat(body);
     const options = parseOptions(body);
 
@@ -91,7 +110,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     const rawUrl = isRecord(req.query) ? req.query.url : undefined;
     if (typeof rawUrl !== 'string') throw unprocessable('url query parameter is required');
     try {
-      return await deps.og({ url: validatedUrl(rawUrl) });
+      return await deps.og({ url: validatedUrl(rawUrl, allowHosts) });
     } catch (err) {
       if (err instanceof CaptureError) throw new HttpError(502, 'capture_failed', err.message);
       throw err;
@@ -181,9 +200,9 @@ function parseOptions(body: unknown): CaptureOptions | undefined {
   return { timeoutMs, fullPage };
 }
 
-function validatedUrl(raw: string): string {
+function validatedUrl(raw: string, allowHosts: readonly string[] | undefined): string {
   try {
-    return validateCaptureUrl(raw);
+    return validateCaptureUrl(raw, { allowHosts });
   } catch {
     throw unprocessable('invalid url');
   }

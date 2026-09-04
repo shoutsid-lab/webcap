@@ -7,6 +7,7 @@ import {
   isAddress,
   zeroPadValue,
   type BaseContractMethod,
+  type Provider,
 } from 'ethers';
 
 /** Read-only + balance ABI subset the service needs (payments are detected, not sent). */
@@ -66,10 +67,20 @@ export function decodeTransferLog(log: TransferLog): TransferPayload {
   };
 }
 
-export function makeUsdcContract(rpcUrl: string, address: string): Contract {
-  // cacheTimeout: -1 — the service must read fresh on-chain state (balances,
-  // nonces); ethers 6.17's default 250ms response cache is stale by design
-  // here (see scripts/devchain.ts).
-  const provider = new JsonRpcProvider(rpcUrl, undefined, { cacheTimeout: -1 });
+/**
+ * RPC provider for the service. cacheTimeout: -1 — the service must read
+ * fresh on-chain state (balances, nonces); ethers 6.17's default 250ms
+ * response cache is stale by design here (see scripts/devchain.ts).
+ */
+export function makeProvider(rpcUrl: string): JsonRpcProvider {
+  return new JsonRpcProvider(rpcUrl, undefined, { cacheTimeout: -1 });
+}
+
+/** Read-only USDC contract bound to an existing provider. */
+export function getUsdc(provider: Provider, address: string): Contract {
   return new Contract(address, usdcAbi, provider);
+}
+
+export function makeUsdcContract(rpcUrl: string, address: string): Contract {
+  return getUsdc(makeProvider(rpcUrl), address);
 }

@@ -11,7 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "dev": "tsx src/main.ts",
-    "start": "node --env-file-if-exists=.env dist/main.js",
+    "start": "tsx src/main.ts",
     "chain:up": "tsx scripts/devchain.ts",
     "chain:usdc:deploy": "tsx scripts/deploy-usdc.ts",
     "chain:pay": "tsx scripts/pay-invoice.ts",

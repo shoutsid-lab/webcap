@@ -11,6 +11,8 @@ export interface AppDeps {
   readonly config: WebcapConfig;
   readonly capture: (req: CaptureRequest) => Promise<CaptureResult>;
   readonly og: (req: { url: string }) => Promise<OgResult>;
+  /** Private hosts that may still be captured (local dev); default: none. */
+  readonly captureAllowHosts?: readonly string[];
 }
 
 /** Build the webcap Fastify app with routes and the central error mapping. */

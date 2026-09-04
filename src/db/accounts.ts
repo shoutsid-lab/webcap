@@ -11,6 +11,8 @@ export interface AccountsRepo {
   /** Create an account with 0 credits (optionally bound to a customer address); returns its id. */
   create(address?: string): number;
   get(id: number): AccountRow | undefined;
+  /** Account id for a registered customer address; undefined when unregistered. */
+  findByAddress(address: string): number | undefined;
   getBalance(id: number): number;
   /**
    * Atomically spend exactly one credit, writing a 'capture_charged' ledger
@@ -32,6 +34,9 @@ export function makeAccountsRepo(db: Db): AccountsRepo {
   );
   const selectBalance = db.prepare<[number], { credits: number }>(
     'SELECT credits FROM accounts WHERE id = ?',
+  );
+  const selectByAddress = db.prepare<[string], { id: number }>(
+    'SELECT id FROM accounts WHERE address = ? LIMIT 1',
   );
   const spendCredit = db.prepare<[number], unknown>(
     'UPDATE accounts SET credits = credits - 1 WHERE id = ? AND credits >= 1',
@@ -56,6 +61,9 @@ export function makeAccountsRepo(db: Db): AccountsRepo {
     },
     get(id: number): AccountRow | undefined {
       return selectAccount.get(id);
+    },
+    findByAddress(address: string): number | undefined {
+      return selectByAddress.get(address)?.id;
     },
     getBalance(id: number): number {
       const row = selectBalance.get(id);

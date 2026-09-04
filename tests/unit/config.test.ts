@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { loadConfig, PACKS, getPack } from '../../src/config.js';
 
 const LOCAL_CONTRACT = `0x${'11'.repeat(20)}`;
+const MERCHANT_ADDR = `0x${'44'.repeat(20)}`;
+const ANVIL_KEY_0 = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+const ANVIL_ADDR_0 = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 const localEnv: NodeJS.ProcessEnv = { WEBCAP_CHAIN: 'local', LOCAL_USDC_CONTRACT: LOCAL_CONTRACT };
 
 describe('config: chain map', () => {
@@ -46,6 +49,49 @@ describe('config: chain map', () => {
     expect(defaults.port).toBe(8080);
     expect(defaults.pollIntervalMs).toBe(30_000);
     expect(defaults.dbPath).toBe('data/webcap.db');
+  });
+});
+
+describe('config: server run fields (chainId/rpcUrl/usdcAddress/merchantAddress)', () => {
+  it('base-sepolia exposes chainId, rpcUrl and usdcAddress at top level', () => {
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia' });
+    expect(cfg.chainId).toBe(84532);
+    expect(cfg.rpcUrl).toBe('https://sepolia.base.org');
+    expect(cfg.usdcAddress).toBe('0x036CbD53842c5426634e7929541eC2318f3dCF7e');
+    expect(cfg.merchantAddress).toBe('');
+  });
+
+  it('base exposes mainnet chainId, rpcUrl and usdcAddress at top level', () => {
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base' });
+    expect(cfg.chainId).toBe(8453);
+    expect(cfg.rpcUrl).toBe('https://mainnet.base.org');
+    expect(cfg.usdcAddress).toBe('0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913');
+  });
+
+  it('local resolves WEBCAP_RPC_URL, WEBCAP_USDC_ADDRESS and WEBCAP_MERCHANT_ADDRESS', () => {
+    const cfg = loadConfig({
+      WEBCAP_CHAIN: 'local',
+      WEBCAP_RPC_URL: 'http://10.1.1.1:8545',
+      WEBCAP_USDC_ADDRESS: LOCAL_CONTRACT,
+      WEBCAP_MERCHANT_ADDRESS: MERCHANT_ADDR,
+    });
+    expect(cfg.chainId).toBe(31337);
+    expect(cfg.rpcUrl).toBe('http://10.1.1.1:8545');
+    expect(cfg.usdcAddress).toBe(LOCAL_CONTRACT);
+    expect(cfg.chain.usdcContract).toBe(LOCAL_CONTRACT);
+    expect(cfg.merchantAddress).toBe(MERCHANT_ADDR);
+  });
+
+  it('local keeps the 127.0.0.1:8545 default rpcUrl when WEBCAP_RPC_URL is unset', () => {
+    const cfg = loadConfig({ ...localEnv, WEBCAP_MERCHANT_ADDRESS: MERCHANT_ADDR });
+    expect(cfg.rpcUrl).toBe('http://127.0.0.1:8545');
+    expect(cfg.merchantAddress).toBe(MERCHANT_ADDR);
+  });
+
+  it('merchantAddress is derived from USDC_MERCHANT_PRIVATE_KEY when provided', () => {
+    const cfg = loadConfig({ ...localEnv, USDC_MERCHANT_PRIVATE_KEY: ANVIL_KEY_0, WEBCAP_MERCHANT_ADDRESS: MERCHANT_ADDR });
+    expect(cfg.merchantAddress).toBe(ANVIL_ADDR_0);
+    expect(cfg.merchantPrivateKey).toBe(ANVIL_KEY_0);
   });
 });
 

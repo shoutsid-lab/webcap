@@ -46,6 +46,10 @@ export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
   const db = openDb(join(dir, 'test.db'));
   const config: WebcapConfig = {
     chain: { name: 'local', rpcUrl: 'http://127.0.0.1:8545', chainId: 31337, usdcContract: USDC_ADDRESS, explorer: '' },
+    chainId: 31337,
+    rpcUrl: 'http://127.0.0.1:8545',
+    usdcAddress: USDC_ADDRESS,
+    merchantAddress: MERCHANT_ADDRESS,
     port: 0,
     pollIntervalMs: 5_000,
     merchantPrivateKey: MERCHANT_PRIVATE_KEY,

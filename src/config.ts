@@ -1,4 +1,4 @@
-import { isAddress } from 'ethers';
+import { isAddress, Wallet } from 'ethers';
 
 export type ChainName = 'base-sepolia' | 'base' | 'local';
 export type PackName = 'starter' | 'pro' | 'max';
@@ -20,6 +20,11 @@ export interface CreditPack {
 
 export interface WebcapConfig {
   readonly chain: ChainConfig;
+  /** Denormalized run fields: what main.ts needs without digging into `chain`. */
+  readonly chainId: number;
+  readonly rpcUrl: string;
+  readonly usdcAddress: string;
+  readonly merchantAddress: string;
   readonly port: number;
   readonly pollIntervalMs: number;
   readonly merchantPrivateKey: string;
@@ -98,10 +103,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WebcapConfig {
   const base = CHAINS[chainName];
 
   let usdcContract = base.usdcContract;
+  let rpcUrl = base.rpcUrl;
   if (chainName === 'local') {
-    const localUsdc = env.LOCAL_USDC_CONTRACT;
+    rpcUrl = env.WEBCAP_RPC_URL ?? 'http://127.0.0.1:8545';
+    const localUsdc = env.LOCAL_USDC_CONTRACT ?? env.WEBCAP_USDC_ADDRESS;
     if (localUsdc === undefined || localUsdc === '') {
-      throw new Error('LOCAL_USDC_CONTRACT is required when WEBCAP_CHAIN=local');
+      throw new Error('LOCAL_USDC_CONTRACT (or WEBCAP_USDC_ADDRESS) is required when WEBCAP_CHAIN=local');
     }
     if (!isAddress(localUsdc)) {
       throw new Error(`LOCAL_USDC_CONTRACT is not a valid address: ${localUsdc}`);
@@ -109,11 +116,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WebcapConfig {
     usdcContract = localUsdc;
   }
 
+  const merchantPrivateKey = env.USDC_MERCHANT_PRIVATE_KEY ?? '';
+  const merchantAddress =
+    merchantPrivateKey !== '' ? new Wallet(merchantPrivateKey).address : (env.WEBCAP_MERCHANT_ADDRESS ?? '');
+
   return {
-    chain: { name: chainName, rpcUrl: base.rpcUrl, chainId: base.chainId, usdcContract, explorer: base.explorer },
+    chain: { name: chainName, rpcUrl, chainId: base.chainId, usdcContract, explorer: base.explorer },
+    chainId: base.chainId,
+    rpcUrl,
+    usdcAddress: usdcContract,
+    merchantAddress,
     port: parsePositiveInt(env.WEBCAP_PORT, 8080),
     pollIntervalMs: parsePositiveInt(env.POLL_INTERVAL_MS, 30_000),
-    merchantPrivateKey: env.USDC_MERCHANT_PRIVATE_KEY ?? '',
+    merchantPrivateKey,
     dbPath: env.WEBCAP_DB ?? 'data/webcap.db',
   };
 }
