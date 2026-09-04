@@ -39,6 +39,11 @@ describe('boot: app with real capture+og serves health, and register upserts acc
       pollIntervalMs: 5_000,
       merchantPrivateKey: '',
       dbPath: join(dir, 'boot.db'),
+      x402Network: undefined,
+      x402Asset: USDC,
+      x402PayTo: MERCHANT,
+      x402PriceUsdcUnits: 1_000,
+      x402FacilitatorUrl: 'https://x402.org/facilitator',
     };
     app = buildApp({ db, config, capture, og: ogMetadata });
     await app.listen({ port: 0, host: '127.0.0.1' });

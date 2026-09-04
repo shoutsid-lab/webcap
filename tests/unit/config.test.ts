@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { loadConfig, PACKS, getPack } from '../../src/config.js';
+import {
+  DEFAULT_X402_FACILITATOR_URL,
+  DEFAULT_X402_PRICE_USDC_UNITS,
+  loadConfig,
+  PACKS,
+  getPack,
+} from '../../src/config.js';
 
 const LOCAL_CONTRACT = `0x${'11'.repeat(20)}`;
 const MERCHANT_ADDR = `0x${'44'.repeat(20)}`;
@@ -107,5 +113,60 @@ describe('config: credit packs', () => {
     expect(getPack('pro').usdc).toBe(3_000_000);
     expect(getPack('max').credits).toBe(10_000);
     expect(() => getPack('gold')).toThrow(/unknown pack/);
+  });
+});
+
+describe('config: x402', () => {
+  it('base-sepolia enables x402 on eip155:84532 with sepolia USDC and merchant payTo', () => {
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', USDC_MERCHANT_PRIVATE_KEY: ANVIL_KEY_0 });
+    expect(cfg.x402Network).toBe('eip155:84532');
+    expect(cfg.x402Asset).toBe('0x036CbD53842c5426634e7929541eC2318f3dCF7e');
+    expect(cfg.x402PayTo).toBe(ANVIL_ADDR_0);
+    expect(cfg.x402PriceUsdcUnits).toBe(DEFAULT_X402_PRICE_USDC_UNITS);
+    expect(cfg.x402FacilitatorUrl).toBe(DEFAULT_X402_FACILITATOR_URL);
+  });
+
+  it('base enables x402 on eip155:8453 with mainnet USDC', () => {
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base', USDC_MERCHANT_PRIVATE_KEY: ANVIL_KEY_0 });
+    expect(cfg.x402Network).toBe('eip155:8453');
+    expect(cfg.x402Asset).toBe('0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913');
+  });
+
+  it('local disables x402 (x402Network undefined) but keeps the other fields defaulted', () => {
+    const cfg = loadConfig({ ...localEnv, WEBCAP_MERCHANT_ADDRESS: MERCHANT_ADDR });
+    expect(cfg.x402Network).toBeUndefined();
+    expect(cfg.x402Asset).toBe(LOCAL_CONTRACT);
+    expect(cfg.x402PayTo).toBe(MERCHANT_ADDR);
+    expect(cfg.x402PriceUsdcUnits).toBe(1_000);
+  });
+
+  it('converts WEBCAP_X402_PRICE_USDC human units to atomic units (0.002 -> 2000)', () => {
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_X402_PRICE_USDC: '0.002' });
+    expect(cfg.x402PriceUsdcUnits).toBe(2_000);
+  });
+
+  it('rejects zero, negative, or non-numeric x402 prices', () => {
+    for (const bad of ['0', '-1', 'abc', '1.2.3']) {
+      expect(() => loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_X402_PRICE_USDC: bad })).toThrow(
+        /WEBCAP_X402_PRICE_USDC/,
+      );
+    }
+  });
+
+  it('honors X402_FACILITATOR_URL, WEBCAP_X402_ASSET and WEBCAP_X402_PAY_TO overrides', () => {
+    const cfg = loadConfig({
+      WEBCAP_CHAIN: 'base-sepolia',
+      X402_FACILITATOR_URL: 'https://facilitator.example.com/x402',
+      WEBCAP_X402_ASSET: MERCHANT_ADDR,
+      WEBCAP_X402_PAY_TO: ANVIL_ADDR_0,
+    });
+    expect(cfg.x402FacilitatorUrl).toBe('https://facilitator.example.com/x402');
+    expect(cfg.x402Asset).toBe(MERCHANT_ADDR);
+    expect(cfg.x402PayTo).toBe(ANVIL_ADDR_0);
+  });
+
+  it('rejects invalid x402 override addresses', () => {
+    expect(() => loadConfig({ WEBCAP_CHAIN: 'base', WEBCAP_X402_ASSET: '0x123' })).toThrow(/WEBCAP_X402_ASSET/);
+    expect(() => loadConfig({ WEBCAP_CHAIN: 'base', WEBCAP_X402_PAY_TO: 'not-an-address' })).toThrow(/WEBCAP_X402_PAY_TO/);
   });
 });

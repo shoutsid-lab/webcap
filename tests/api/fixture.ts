@@ -54,6 +54,11 @@ export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
     pollIntervalMs: 5_000,
     merchantPrivateKey: MERCHANT_PRIVATE_KEY,
     dbPath: join(dir, 'test.db'),
+    x402Network: undefined,
+    x402Asset: USDC_ADDRESS,
+    x402PayTo: MERCHANT_ADDRESS,
+    x402PriceUsdcUnits: 1_000,
+    x402FacilitatorUrl: 'https://x402.org/facilitator',
   };
   const accounts = makeAccountsRepo(db);
   const keys = makeApiKeysRepo(db);

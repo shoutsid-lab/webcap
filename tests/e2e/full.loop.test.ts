@@ -52,6 +52,11 @@ describe('S1: full loop register -> invoice -> USDC pay -> settle -> real captur
       pollIntervalMs: 5_000,
       merchantPrivateKey: merchant.privateKey,
       dbPath: join(dir, 's1.db'),
+      x402Network: undefined,
+      x402Asset: chain.usdcContract,
+      x402PayTo: merchant.address,
+      x402PriceUsdcUnits: 1_000,
+      x402FacilitatorUrl: 'https://x402.org/facilitator',
     };
     app = buildApp({ db, config, capture, og: ogMetadata, captureAllowHosts: ['127.0.0.1'] });
 

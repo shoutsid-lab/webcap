@@ -46,6 +46,11 @@ describe('S4: underpayment does not settle and does not unlock capture', () => {
       pollIntervalMs: 5_000,
       merchantPrivateKey: merchant.privateKey,
       dbPath: join(dir, 's4.db'),
+      x402Network: undefined,
+      x402Asset: chain.usdcContract,
+      x402PayTo: merchant.address,
+      x402PriceUsdcUnits: 1_000,
+      x402FacilitatorUrl: 'https://x402.org/facilitator',
     };
     app = buildApp({ db, config, capture, og: ogMetadata });
 
