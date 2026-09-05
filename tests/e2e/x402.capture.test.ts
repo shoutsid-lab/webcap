@@ -296,3 +296,41 @@ describe('x402 capture (v2 wire, mock facilitator, no chain)', () => {
     }
   });
 });
+
+describe('x402 GET-route discoverability (402 challenge on GET, identical to POST)', () => {
+  it('GET /v1/x402/capture returns 402 (not 404) with the x402 challenge', async () => {
+    const res = await app.inject({ method: 'GET', url: '/v1/x402/capture' });
+    expect(res.statusCode).toBe(402);
+    const body = res.json() as { error: string; resource: { url: string }; accepts: unknown[] };
+    expect(body.error).toBe('Payment required');
+    expect(body.resource.url).toContain('/v1/x402/capture');
+    expect(Array.isArray(body.accepts)).toBe(true);
+    expect(body.accepts.length).toBeGreaterThan(0);
+  });
+
+  it('GET /v1/x402/extract returns 402 (not 404) with the x402 challenge', async () => {
+    const res = await app.inject({ method: 'GET', url: '/v1/x402/extract' });
+    expect(res.statusCode).toBe(402);
+    const body = res.json() as { error: string; resource: { url: string } };
+    expect(body.error).toBe('Payment required');
+    expect(body.resource.url).toContain('/v1/x402/extract');
+  });
+
+  it('GET /v1/x402/watches/topup returns 402 (not 404) with the x402 challenge', async () => {
+    const res = await app.inject({ method: 'GET', url: '/v1/x402/watches/topup' });
+    expect(res.statusCode).toBe(402);
+    const body = res.json() as { error: string; resource: { url: string } };
+    expect(body.error).toBe('Payment required');
+    expect(body.resource.url).toContain('/v1/x402/watches/topup');
+  });
+
+  it('POST /v1/x402/capture still returns the identical 402 challenge (no behavior change)', async () => {
+    const getRes = await app.inject({ method: 'GET', url: '/v1/x402/capture' });
+    const postRes = await app.inject({ method: 'POST', url: '/v1/x402/capture', payload: { url: CAPTURE_URL } });
+    expect(getRes.statusCode).toBe(402);
+    expect(postRes.statusCode).toBe(402);
+    const getBody = getRes.json() as { accepts: Array<{ amount: string }> };
+    const postBody = postRes.json() as { accepts: Array<{ amount: string }> };
+    expect(getBody.accepts[0]?.amount).toBe(postBody.accepts[0]?.amount);
+  });
+});

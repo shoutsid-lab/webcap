@@ -238,14 +238,17 @@ ${topBar()}
 <main>
   <section class="hero wrap">
     <div>
-      <p class="kicker"><span class="rec">●</span> REC — pay-per-call web capture</p>
+      <p class="kicker"><span class="rec">●</span> LIVE ON BASE MAINNET — real USDC · x402 v2 · gasless EIP-3009</p>
       <h1>Screenshot any URL.<br>Pay per call, on-chain.</h1>
-      <p class="lede">webcap is a web capture API: point it at a URL and get a
-        <strong>PNG / JPEG / PDF screenshot</strong> plus free Open Graph metadata — or a
-        <strong>batch extract</strong> that returns structured text/JSON (title, headings,
-        paragraphs, links, images, document-order markdown). Every call is paid in
-        <strong>USDC over x402 micropayments</strong> (HTTP 402): no API keys, no accounts,
-        no gas — the facilitator settles the gasless EIP-3009 transfer for the payer.</p>
+      <p class="lede">Live on <strong>Base mainnet</strong>: every call is an HTTP 402
+        micro-payment in <strong>real USDC over x402 v2</strong>, settled
+        <strong>gasless</strong> — you sign an EIP-3009
+        <code>transferWithAuthorization</code> and the facilitator submits it and pays the
+        gas; no API keys, no accounts, no ETH. The full suite in one service:
+        <strong>one-time capture</strong> (PNG / JPEG / PDF screenshot + free Open Graph
+        metadata), <strong>structured extraction</strong> (title, headings, paragraphs,
+        links, images, document-order markdown), and <strong>scheduled monitoring with
+        change alerts</strong> (100-run pre-paid packs, webhook diff on change).</p>
       <div class="cta-row">
         <a class="btn" href="#pay">How to pay</a>
         <a class="btn ghost" href="/openapi.json">OpenAPI spec</a>

@@ -191,3 +191,44 @@ the tunnel) — returns:
     "facilitator":"https://x402.org/facilitator", ... }
 This makes the revenue path agent-DISCOVERABLE: an agent GETs the catalog, learns the price
 + how to pay, then POSTs /v1/x402/capture and pays per request (x402 v2). 109/109 tests.
+
+---
+
+## Base mainnet (live since 2026-09-05)
+
+The rail flipped from Base-sepolia to **Base mainnet — real USDC, real money**. The flip
+was **config-only**: `WEBCAP_CHAIN=base`, the **same CDP facilitator and the same merchant
+keys** — no code, no route, no protocol change.
+
+| Item | Value |
+|---|---|
+| Flip | config-only: `WEBCAP_CHAIN=base` (same CDP facilitator + keys) |
+| Chain | Base mainnet `eip155:8453` |
+| USDC (mainnet) | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
+| Merchant (payTo, self-custody EOA) | `0xB25572D7317eb98EBb39c45Da40eAAEA2A56c25e` |
+| Public service | `https://nickname-trident-driveway.ngrok-free.dev` |
+
+**Live challenges.** The live public service's unpaid calls now challenge on
+`eip155:8453` with mainnet USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` and
+`payTo 0xB25572D7317eb98EBb39c45Da40eAAEA2A56c25e` — the identical x402 v2 `exact`
+scheme + gasless EIP-3009 flow proven on sepolia, now carrying real USDC.
+
+**CDP validator evidence (2026-09-05).** All three paid routes were run through the CDP
+validator against `eip155:8453`; each returned `valid: true` + `simulation: accepted` +
+`index.active` with **zero failed preflight checks**:
+
+| Route | CDP validator (eip155:8453) |
+|---|---|
+| `POST /v1/x402/capture` | `valid: true` · `simulation: accepted` · `index.active` · 0 failed preflight checks |
+| `POST /v1/x402/extract` | `valid: true` · `simulation: accepted` · `index.active` · 0 failed preflight checks |
+| `POST /v1/x402/watches/topup` | `valid: true` · `simulation: accepted` · `index.active` · 0 failed preflight checks |
+
+**Merchant wallet is recipient-only.** With gasless EIP-3009 settlement the merchant EOA
+never signs or broadcasts a tx — it holds no gas and needed **no seed funding**; it only
+receives the settled USDC.
+
+**Status (honest).** The service is **live on Base mainnet**; the **first on-chain
+mainnet settlement is pending the first real customer payment**. The sepolia settlements
+(#1–#7) already proved the settlement path end-to-end through the **same CDP
+facilitator**, so mainnet settlement is that same flow on `eip155:8453` — the rail is
+valid, simulated and indexed; only the first real payment is outstanding.

@@ -366,25 +366,33 @@ export function buildX402Routes(config: WebcapConfig): Record<string, RouteConfi
   const captureReq = buildX402Requirement(config, config.x402PriceUsdcUnits);
   const extractReq = buildX402Requirement(config, config.x402ExtractPriceUsdcUnits);
   const iconUrl = `${config.publicBaseUrl}/icon.png`;
+  // Register both POST and GET for each route. POST is the real payment method;
+  // GET returns an identical 402 challenge so GET-based crawlers (402index, search
+  // indexers) can discover and verify the route without a payer — byte-identical
+  // challenge, no behavior change for POST callers.
+  const captureRoute = x402RouteConfig({
+    requirement: captureReq,
+    resourceUrl: `${config.publicBaseUrl}${X402_CAPTURE_PATH}`,
+    description: X402_CAPTURE_DESCRIPTION,
+    serviceName: BAZAAR_SERVICE_NAME,
+    tags: BAZAAR_TAGS,
+    iconUrl,
+    bazaar: buildCaptureBazaarExtension(),
+  });
+  const extractRoute = x402RouteConfig({
+    requirement: extractReq,
+    resourceUrl: `${config.publicBaseUrl}${X402_EXTRACT_PATH}`,
+    description: X402_EXTRACT_DESCRIPTION,
+    serviceName: BAZAAR_SERVICE_NAME,
+    tags: BAZAAR_TAGS,
+    iconUrl,
+    bazaar: buildExtractBazaarExtension(),
+  });
   const routes: RoutesConfig = {
-    [X402_CAPTURE_PATTERN]: x402RouteConfig({
-      requirement: captureReq,
-      resourceUrl: `${config.publicBaseUrl}${X402_CAPTURE_PATH}`,
-      description: X402_CAPTURE_DESCRIPTION,
-      serviceName: BAZAAR_SERVICE_NAME,
-      tags: BAZAAR_TAGS,
-      iconUrl,
-      bazaar: buildCaptureBazaarExtension(),
-    }),
-    [X402_EXTRACT_PATTERN]: x402RouteConfig({
-      requirement: extractReq,
-      resourceUrl: `${config.publicBaseUrl}${X402_EXTRACT_PATH}`,
-      description: X402_EXTRACT_DESCRIPTION,
-      serviceName: BAZAAR_SERVICE_NAME,
-      tags: BAZAAR_TAGS,
-      iconUrl,
-      bazaar: buildExtractBazaarExtension(),
-    }),
+    [X402_CAPTURE_PATTERN]: captureRoute,
+    [`GET ${X402_CAPTURE_PATH}`]: captureRoute,
+    [X402_EXTRACT_PATTERN]: extractRoute,
+    [`GET ${X402_EXTRACT_PATH}`]: extractRoute,
   };
   // Startup guard: flag malformed bazaar metadata at boot (the fastify middleware
   // independently auto-registers the bazaar resource server extension for these routes).
@@ -398,7 +406,9 @@ export function buildX402Routes(config: WebcapConfig): Record<string, RouteConfi
  */
 export function buildAllX402Routes(config: WebcapConfig, watchRepo: WatchRepo): Record<string, RouteConfig> {
   const routes = buildX402Routes(config);
-  routes[X402_TOPUP_PATTERN] = buildX402TopUpRoute(config, watchRepo);
+  const topUpRoute = buildX402TopUpRoute(config, watchRepo);
+  routes[X402_TOPUP_PATTERN] = topUpRoute;
+  routes[`GET ${X402_TOPUP_PATH}`] = topUpRoute;
   validateBazaarRouteExtensions(routes);
   return routes;
 }

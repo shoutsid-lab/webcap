@@ -12,8 +12,10 @@ import {
   PRICE_PER_CREDIT,
   USDC_SCALE,
   USDC_UNITS_PER_CREDIT,
+  WATCH_TOPUP_RUNS,
   usdcForCredits,
   usdcUnitsForCredits,
+  watchTopUpPriceUsdcUnits,
   type WebcapConfig,
 } from '../config.js';
 import { CaptureError } from '../capture/errors.js';
@@ -91,6 +93,29 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     reply.header('content-type', 'image/png');
     reply.header('cache-control', 'public, max-age=86400');
     return reply.send(icon);
+  });
+
+  // SEO surface: robots.txt + sitemap.xml, both driven by config.publicBaseUrl.
+  app.get('/robots.txt', async (_req, reply) => {
+    reply.header('content-type', 'text/plain; charset=utf-8');
+    return reply.send(`User-agent: *\nAllow: /\nSitemap: ${config.publicBaseUrl}/sitemap.xml\n`);
+  });
+
+  app.get('/sitemap.xml', async (_req, reply) => {
+    reply.header('content-type', 'application/xml; charset=utf-8');
+    return reply.send(sitemapXml(config));
+  });
+
+  app.get('/.well-known/x402', async (_req, reply) => {
+    reply.header('content-type', 'application/json; charset=utf-8');
+    reply.header('cache-control', 'public, max-age=300');
+    return reply.send(x402WellKnown(config));
+  });
+
+  app.get('/.well-known/agent-card.json', async (_req, reply) => {
+    reply.header('content-type', 'application/json; charset=utf-8');
+    reply.header('cache-control', 'public, max-age=300');
+    return reply.send(agentCard(config));
   });
 
   app.post('/v1/register', async (req, reply) => {
@@ -394,6 +419,133 @@ function loadIconPng(): Buffer | undefined {
     }
   }
   return iconPng;
+}
+
+/** Public paths advertised in the sitemap (the stable service surface). */
+const SITEMAP_PATHS = [
+  '/',
+  '/openapi.json',
+  '/icon.png',
+  '/v1/x402/service',
+  '/v1/x402/capture',
+  '/v1/x402/extract',
+  '/v1/x402/watches/topup',
+  '/v1/watches',
+  '/v1/extract/preview',
+] as const;
+
+/** XML-escape a value before embedding it in the sitemap (fixed list, stay correct). */
+function xmlEscape(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;');
+}
+
+/** The sitemap must be protocol-absolute https, even for an http:// dev base URL. */
+function httpsBase(base: string): string {
+  return base.startsWith('http://') ? `https://${base.slice('http://'.length)}` : base;
+}
+
+/** Build the sitemap.xml payload: one <url> per public path, https-absolute. */
+function sitemapXml(config: WebcapConfig): string {
+  const base = httpsBase(config.publicBaseUrl);
+  const entries = SITEMAP_PATHS.map(
+    (path) => `  <url>\n    <loc>${xmlEscape(`${base}${path}`)}</loc>\n  </url>`,
+  ).join('\n');
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    entries,
+    '</urlset>',
+    '',
+  ].join('\n');
+}
+
+/** x402 machine-discovery catalog: what to call, what it costs, how to pay. */
+function x402WellKnown(config: WebcapConfig) {
+  const base = httpsBase(config.publicBaseUrl);
+  return {
+    service: 'webcap',
+    description:
+      'Pay-per-call web capture on Base mainnet: one-time screenshots (PNG/JPEG/PDF + free Open Graph metadata), structured content extraction, and scheduled monitoring with change-detection webhooks. All paid routes settle gasless USDC via x402 (HTTP 402).',
+    network: config.x402Network ?? null,
+    asset: config.x402Network === undefined ? null : config.x402Asset,
+    payTo: config.x402Network === undefined ? null : config.x402PayTo,
+    facilitator: config.x402FacilitatorUrl,
+    endpoints: [
+      {
+        path: 'POST /v1/x402/capture',
+        usdc: config.x402PriceUsdcUnits / USDC_SCALE,
+        description: 'Screenshot any URL (PNG/JPEG/PDF) + free Open Graph metadata',
+      },
+      {
+        path: 'POST /v1/x402/extract',
+        usdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE,
+        description:
+          'Structured extraction (title, headings, paragraphs, links, images, document-order markdown); batch up to 10 URLs per payment',
+      },
+      {
+        path: 'POST /v1/x402/watches/topup',
+        usdc:
+          watchTopUpPriceUsdcUnits('capture', config) / USDC_SCALE,
+        usdcMax: watchTopUpPriceUsdcUnits('extract', config) / USDC_SCALE,
+        description: `Pre-pay ${WATCH_TOPUP_RUNS} scheduled monitor runs (capture-pack price shown; extract-pack is usdcMax; exact price quoted per watch via ?watchId=)`,
+      },
+    ],
+    free: [
+      { path: 'GET /v1/extract/preview?url=...', note: 'bounded structured preview (rate-limited)' },
+      { path: 'GET /v1/og?url=...', note: 'Open Graph metadata' },
+      { path: 'GET /v1/health', note: 'liveness + chain' },
+    ],
+    openapi: `${base}/openapi.json`,
+    sitemap: `${base}/sitemap.xml`,
+  };
+}
+
+/** A2A-style agent card with an x402/AP2 payments section, for agent-card consumers. */
+function agentCard(config: WebcapConfig) {
+  const base = httpsBase(config.publicBaseUrl);
+  return {
+    protocolVersion: '0.3.0',
+    name: 'webcap',
+    description: x402WellKnown(config).description,
+    url: base,
+    icon: `${base}/icon.png`,
+    version: '1.0.0',
+    roles: ['merchant'],
+    capabilities: { streaming: false, pushNotifications: true },
+    authentication: { schemes: ['x402'] },
+    payments: {
+      provider: 'x402',
+      network: config.x402Network ?? null,
+      asset: config.x402Network === undefined ? null : config.x402Asset,
+      payTo: config.x402Network === undefined ? null : config.x402PayTo,
+      facilitator: config.x402FacilitatorUrl,
+    },
+    skills: [
+      {
+        id: 'capture',
+        name: 'Web capture',
+        description: `Screenshot any URL as PNG/JPEG/PDF + free OG metadata — ${config.x402PriceUsdcUnits / USDC_SCALE} USDC via x402`,
+        tags: ['screenshot', 'capture', 'x402', 'usdc'],
+      },
+      {
+        id: 'extract',
+        name: 'Structured extraction',
+        description: `Title, headings, paragraphs, links, images, document-order markdown; batch up to 10 URLs — ${config.x402ExtractPriceUsdcUnits / USDC_SCALE} USDC via x402`,
+        tags: ['scraping', 'extraction', 'markdown', 'x402', 'usdc'],
+      },
+      {
+        id: 'watch',
+        name: 'Scheduled monitoring',
+        description: `Pre-pay ${WATCH_TOPUP_RUNS} runs of a capture/extract monitor with change-detection webhooks — ${watchTopUpPriceUsdcUnits('capture', config) / USDC_SCALE}–${watchTopUpPriceUsdcUnits('extract', config) / USDC_SCALE} USDC per pack via x402`,
+        tags: ['monitoring', 'diff', 'webhook', 'x402', 'usdc'],
+      },
+    ],
+  };
 }
 
 /** The JSON front-door payload, unchanged byte-for-byte for pure-JSON clients. */
