@@ -1,5 +1,48 @@
 import { describe, expect, it } from 'vitest';
-import { closeApiFixture, makeApiFixture } from './fixture.js';
+import { closeApiFixture, makeApiFixture, USDC_ADDRESS } from './fixture.js';
+import { landingHtml } from '../../src/server/pages.js';
+import {
+  loadConfig,
+  USDC_SCALE,
+  WATCH_TOPUP_RUNS,
+  watchTopUpPriceUsdcUnits,
+  type WebcapConfig,
+} from '../../src/config.js';
+
+/** A real config for a live chain (exactly what loadConfig produces in that deploy). */
+function chainConfig(chain: 'base' | 'base-sepolia', extra: NodeJS.ProcessEnv = {}): WebcapConfig {
+  return loadConfig({ WEBCAP_CHAIN: chain, WEBCAP_PUBLIC_BASE_URL: 'https://webcap.example.com', ...extra });
+}
+
+/** WCAG 2.x relative luminance of a #rrggbb sRGB color. */
+function relativeLuminance(hex: string): number {
+  const channel = (v: number): number => {
+    const c = v / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const r = Number.parseInt(hex.slice(1, 3), 16);
+  const g = Number.parseInt(hex.slice(3, 5), 16);
+  const b = Number.parseInt(hex.slice(5, 7), 16);
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+}
+
+/** WCAG 2.x contrast ratio between two #rrggbb sRGB colors. */
+function contrastRatio(a: string, b: string): number {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  const hi = Math.max(la, lb);
+  const lo = Math.min(la, lb);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** Read a #rrggbb custom property out of served CSS; throws if absent. */
+function cssVar(css: string, name: string): string {
+  const m = css.match(new RegExp(`--${name}:(#[0-9a-fA-F]{6})`));
+  if (m === null) throw new Error(`css var --${name} not found in served CSS`);
+  const value = m[1];
+  if (value === undefined) throw new Error(`css var --${name} match has no capture group`);
+  return value;
+}
 
 describe('GET / (content negotiation: landing page + JSON front door)', () => {
   it('returns the landing page (200 text/html) by default, with pricing, OpenAPI and Bazaar links', async () => {
@@ -69,9 +112,92 @@ describe('GET / (content negotiation: landing page + JSON front door)', () => {
   it('serves HTML for wildcard Accept (curl/browser default)', async () => {
     const fx = makeApiFixture();
     try {
-      const res = await fx.app.inject({ method: 'GET', url: '/', headers: { accept: '*/*' } });
+      const res = await fx.app.inject({ method: 'GET', url: '/' });
       expect(res.statusCode).toBe(200);
       expect(String(res.headers['content-type'])).toBe('text/html; charset=utf-8');
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+});
+
+describe('landing copy follows the configured chain', () => {
+  it('base config: hero claims mainnet and the page contains no sepolia/testnet wording', () => {
+    const html = landingHtml(chainConfig('base'));
+    const upper = html.toUpperCase();
+    expect(upper).toContain('LIVE ON BASE MAINNET');
+    expect(upper).not.toContain('SEPOLIA');
+    expect(upper).not.toContain('TESTNET');
+  });
+
+  it('base config: copy-paste examples target eip155:8453 and never 84532', () => {
+    const html = landingHtml(chainConfig('base'));
+    expect(html).toMatch(/eip155:8453(?!\d)/);
+    expect(html).not.toMatch(/84532/);
+  });
+
+  it('sepolia config: hero claims testnet and copy-paste examples target eip155:84532', () => {
+    const html = landingHtml(chainConfig('base-sepolia'));
+    const upper = html.toUpperCase();
+    expect(upper).toContain('BASE SEPOLIA');
+    expect(upper).toContain('TESTNET');
+    expect(html).toContain('eip155:84532');
+    expect(html).not.toMatch(/eip155:8453(?!\d)/);
+  });
+
+  it('local config: hero claims local dev, not mainnet or sepolia', () => {
+    const config = loadConfig({
+      WEBCAP_CHAIN: 'local',
+      LOCAL_USDC_CONTRACT: USDC_ADDRESS,
+      WEBCAP_PUBLIC_BASE_URL: 'http://localhost:8080',
+    });
+    const upper = landingHtml(config).toUpperCase();
+    expect(upper).toContain('LOCAL DEV');
+    expect(upper).not.toContain('MAINNET');
+  });
+
+  it('top-up price text equals the value computed from the config helpers', () => {
+    // non-default prices: a hardcoded "$0.10"/"$1.00" page would fail these.
+    const config = chainConfig('base', {
+      WEBCAP_X402_PRICE_USDC: '0.002',
+      WEBCAP_X402_EXTRACT_PRICE_USDC: '0.015',
+    });
+    const html = landingHtml(config);
+    const captureTopUpUsd = (watchTopUpPriceUsdcUnits('capture', config) / USDC_SCALE).toFixed(2);
+    const extractTopUpUsd = (watchTopUpPriceUsdcUnits('extract', config) / USDC_SCALE).toFixed(2);
+    expect(captureTopUpUsd).toBe('0.20');
+    expect(extractTopUpUsd).toBe('1.50');
+    expect(html).toContain(`$${captureTopUpUsd} <small>/ ${WATCH_TOPUP_RUNS} runs</small>`);
+    expect(html).toContain(`$${extractTopUpUsd} <small>/ ${WATCH_TOPUP_RUNS} runs</small>`);
+    expect(html).toContain(`${WATCH_TOPUP_RUNS} × $0.002`);
+    expect(html).toContain(`${WATCH_TOPUP_RUNS} × $0.015`);
+  });
+
+  it('capture copy does not claim OG metadata inside the capture (names GET /v1/og instead)', () => {
+    const html = landingHtml(chainConfig('base'));
+    expect(html).not.toContain('plus free OG metadata');
+    expect(html).toContain('GET /v1/og');
+  });
+});
+
+describe('landing CSS accessibility (served /)', () => {
+  it('served CSS: --faint has >= 4.5:1 contrast against --bg (WCAG AA for small text)', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await fx.app.inject({ method: 'GET', url: '/' });
+      const css = res.payload;
+      const ratio = contrastRatio(cssVar(css, 'faint'), cssVar(css, 'bg'));
+      expect(ratio).toBeGreaterThanOrEqual(4.5);
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('served CSS defines a :focus-visible rule (visible keyboard focus ring)', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await fx.app.inject({ method: 'GET', url: '/' });
+      expect(res.payload).toContain(':focus-visible');
     } finally {
       await closeApiFixture(fx);
     }

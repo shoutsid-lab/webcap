@@ -11,8 +11,8 @@
  * All user-influenced values (source URLs, ids, formats, timestamps) pass
  * through esc() before interpolation.
  */
-import type { WebcapConfig } from '../config.js';
-import { USDC_SCALE } from '../config.js';
+import type { ChainName, WebcapConfig } from '../config.js';
+import { USDC_SCALE, WATCH_TOPUP_RUNS, watchTopUpPriceUsdcUnits } from '../config.js';
 import type { ArtifactRow } from '../db/artifacts.js';
 
 /** CDP Bazaar catalog where settled webcap payments get indexed. */
@@ -57,7 +57,7 @@ const BASE_CSS = `
 :root{
   --bg:#0a0e17; --panel:#101624; --panel-2:#0d1322;
   --line:#232d44; --line-soft:#182034;
-  --text:#eaf0fa; --muted:#94a1b9; --faint:#5c6982;
+  --text:#eaf0fa; --muted:#94a1b9; --faint:#76839c;
   --accent:#f5b84b; --accent-dim:#8a6a24; --accent-ink:#181205; --rec:#ff6159; --ok:#59d499;
   --code:#c7d2e8; --code-link:#9ecbff;
   --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
@@ -70,6 +70,7 @@ const BASE_CSS = `
 body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.6}
 a{color:var(--accent);text-decoration:none}
 a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 code{font-family:var(--mono);font-size:.9em;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:var(--r-s);padding:1px 6px}
 h1,h2,h3{margin:0;line-height:1.15}
 h2{font-size:clamp(24px,3.4vw,34px);letter-spacing:-.01em}
@@ -173,13 +174,48 @@ const termBar = (label: string): string =>
 // GET / — product landing page
 // ---------------------------------------------------------------------------
 
+/**
+ * Chain-conditional landing copy: a deploy must never advertise a network it
+ * isn't on (mainnet copy on a sepolia deploy would send real USDC to a test
+ * network and vice versa). Record<ChainName, …> makes the split exhaustive —
+ * a new chain in config.ts is a compile error here until it has copy.
+ */
+const CHAIN_COPY: Record<
+  ChainName,
+  { readonly kicker: string; readonly lede: string; readonly settlement: string; readonly snippetNote: string }
+> = {
+  base: {
+    kicker: 'LIVE ON BASE MAINNET — real USDC · x402 v2 · gasless EIP-3009',
+    lede: 'Live on <strong>Base mainnet</strong>: every call is an HTTP 402 micro-payment in <strong>real USDC over x402 v2</strong>, settled <strong>gasless</strong> — you sign an EIP-3009 <code>transferWithAuthorization</code> and the facilitator submits it and pays the gas; no API keys, no accounts, no ETH.',
+    settlement: 'settled in USDC on Base mainnet',
+    snippetNote: 'Base mainnet USDC · x402 v2 "exact" scheme · gasless EIP-3009',
+  },
+  'base-sepolia': {
+    kicker: 'LIVE ON BASE SEPOLIA — testnet USDC · x402 v2 · gasless EIP-3009',
+    lede: 'Live on <strong>Base Sepolia</strong> (testnet): every call is an HTTP 402 micro-payment in <strong>testnet USDC over x402 v2</strong>, settled <strong>gasless</strong> — you sign an EIP-3009 <code>transferWithAuthorization</code> and the facilitator submits it and pays the gas; no API keys, no accounts, no ETH.',
+    settlement: 'settled in USDC on Base Sepolia (testnet)',
+    snippetNote: 'Base Sepolia USDC · x402 v2 "exact" scheme · gasless EIP-3009',
+  },
+  local: {
+    kicker: 'LOCAL DEV CHAIN — x402 disabled · same flow in production',
+    lede: 'Running on a <strong>local dev chain</strong> — x402 payments are disabled in this mode. Capture, extraction and watches run unchanged, and the payment flow below is exactly what clients do on <strong>Base</strong> in production: HTTP 402 → sign → retry; no API keys, no accounts.',
+    settlement: 'x402 settlement is disabled locally — the prices below are the production USDC prices',
+    snippetNote: 'x402 disabled locally — the sample below uses the Base Sepolia testnet network',
+  },
+};
+
 export function landingHtml(config: WebcapConfig): string {
   const base = config.publicBaseUrl;
+  const copy = CHAIN_COPY[config.chain.name];
+  // Network shown in the copy-paste examples; local has no x402 network, so
+  // the samples demonstrate the sepolia testnet (matching the local note).
+  const network = config.x402Network ?? 'eip155:84532';
   const capturePrice = usd(config.x402PriceUsdcUnits);
   const extractPrice = usd(config.x402ExtractPriceUsdcUnits);
-  // 100-run top-up packs (the monitoring prices), always two-decimal.
-  const captureTopUpPrice = `$${(config.x402PriceUsdcUnits * 100 / USDC_SCALE).toFixed(2)}`;
-  const extractTopUpPrice = `$${(config.x402ExtractPriceUsdcUnits * 100 / USDC_SCALE).toFixed(2)}`;
+  // WATCH_TOPUP_RUNS-run top-up packs (the monitoring prices), always two-decimal.
+  const topUpUsd = (usdcUnits: number): string => `$${(usdcUnits / USDC_SCALE).toFixed(2)}`;
+  const captureTopUpPrice = topUpUsd(watchTopUpPriceUsdcUnits('capture', config));
+  const extractTopUpPrice = topUpUsd(watchTopUpPriceUsdcUnits('extract', config));
 
   const curlFlow = `<span class="c"># 1) POST without payment — you get HTTP 402 + a PAYMENT-REQUIRED</span>
 <span class="c">#    response header: a base64-encoded JSON challenge</span>
@@ -191,8 +227,8 @@ curl -si -X POST "${base}/v1/x402/capture" \\
 <span class="k">PAYMENT-REQUIRED:</span> &lt;base64&gt;
 base64 -d &lt;&lt;&lt; <span class="s">'$PAYMENT_REQUIRED'</span>
 <span class="c">#  → {"x402Version":2,"error":"Payment required",</span>
-<span class="c">#     "accepts":[{"scheme":"exact","network":"eip155:84532","asset":"0x…USDC",</span>
-<span class="c">#                 "amount":"1000","payTo":"0x…","maxTimeoutSeconds":300,</span>
+<span class="c">#     "accepts":[{"scheme":"exact","network":"${network}","asset":"0x…USDC",</span>
+<span class="c">#                 "amount":"${config.x402PriceUsdcUnits}","payTo":"0x…","maxTimeoutSeconds":300,</span>
 <span class="c">#                 "extra":{"name":"USDC","version":"2"}],</span>
 <span class="c">#     "resource":{…}, "extensions":{"bazaar":{…}}}</span>
 
@@ -206,17 +242,17 @@ curl -s -X POST "${base}/v1/x402/capture" \\
   -H <span class="s">'PAYMENT-SIGNATURE: &lt;base64 payment payload&gt;'</span> \\
   -d <span class="s">'{"url":"https://example.com/"}'</span>
 <span class="ok">→ 200</span> {"artifact":{"format":"png","bytes":…,"data":"&lt;base64&gt;","url":"…/v1/artifacts/&lt;id&gt;"},
-       "payment":{"payer":"0x…","priceUsdcUnits":1000}}`;
+        "payment":{"payer":"0x…","priceUsdcUnits":${config.x402PriceUsdcUnits}}}`;
 
   const agentSnippet = `<span class="c">// any x402 v2 HTTP client works — example with @x402/axios:</span>
-<span class="c">// Base Sepolia USDC · x402 v2 "exact" scheme · gasless EIP-3009</span>
+<span class="c">// ${copy.snippetNote}</span>
 import axios from 'axios';
 import { x402Client, wrapAxiosWithPayment } from '@x402/axios';
 import { ExactEvmScheme } from '@x402/evm';
 import { privateKeyToAccount } from 'viem/accounts';
 
 const account = privateKeyToAccount(process.env.PAYER_PRIVATE_KEY);
-const client = new x402Client().register('eip155:84532', new ExactEvmScheme(account));
+const client = new x402Client().register('${network}', new ExactEvmScheme(account));
 
 <span class="c">// the wrapper handles 402 → sign PAYMENT-SIGNATURE → retry automatically</span>
 const api = wrapAxiosWithPayment(axios.create({ baseURL: '${base}' }), client);
@@ -238,17 +274,13 @@ ${topBar()}
 <main>
   <section class="hero wrap">
     <div>
-      <p class="kicker"><span class="rec">●</span> LIVE ON BASE MAINNET — real USDC · x402 v2 · gasless EIP-3009</p>
+      <p class="kicker"><span class="rec">●</span> ${copy.kicker}</p>
       <h1>Screenshot any URL.<br>Pay per call, on-chain.</h1>
-      <p class="lede">Live on <strong>Base mainnet</strong>: every call is an HTTP 402
-        micro-payment in <strong>real USDC over x402 v2</strong>, settled
-        <strong>gasless</strong> — you sign an EIP-3009
-        <code>transferWithAuthorization</code> and the facilitator submits it and pays the
-        gas; no API keys, no accounts, no ETH. The full suite in one service:
-        <strong>one-time capture</strong> (PNG / JPEG / PDF screenshot + free Open Graph
-        metadata), <strong>structured extraction</strong> (title, headings, paragraphs,
+      <p class="lede">${copy.lede} The full suite in one service:
+        <strong>one-time capture</strong> (PNG / JPEG / PDF screenshot; Open Graph
+        metadata via <code>GET /v1/og</code>), <strong>structured extraction</strong> (title, headings, paragraphs,
         links, images, document-order markdown), and <strong>scheduled monitoring with
-        change alerts</strong> (100-run pre-paid packs, webhook diff on change).</p>
+        change alerts</strong> (${WATCH_TOPUP_RUNS}-run pre-paid packs, webhook diff on change).</p>
       <div class="cta-row">
         <a class="btn" href="#pay">How to pay</a>
         <a class="btn ghost" href="/openapi.json">OpenAPI spec</a>
@@ -264,15 +296,14 @@ ${topBar()}
   <section class="section wrap" id="pricing">
     <h2>Pricing</h2>
     <p class="hint">Flat per-call prices. Compute costs are covered by us — you pay only
-      for the capture, settled in USDC on the chain your client targets (Base Sepolia /
-      Base mainnet).</p>
+      for the capture, ${copy.settlement}.</p>
     <div class="price-grid">
       <div class="price">
         <h3>Capture</h3>
         <div class="amount">${esc(capturePrice)} <small>/ URL</small></div>
-        <p>PNG, JPEG or PDF screenshot of any public URL, plus free OG metadata.
-          The artifact is stored and served at <code>/v1/artifacts/&lt;id&gt;</code>
-          with a shareable page.</p>
+        <p>PNG, JPEG or PDF screenshot of any public URL. Open Graph metadata is a
+          separate free endpoint: <code>GET /v1/og</code>. The artifact is stored and
+          served at <code>/v1/artifacts/&lt;id&gt;</code> with a shareable page.</p>
         <span class="tag">POST /v1/x402/capture</span>
       </div>
       <div class="price">
@@ -330,23 +361,23 @@ ${topBar()}
     <h2>Monitoring — scheduled watches</h2>
     <p class="hint">Point webcap at a URL on a schedule and it re-runs the capture or extract pipeline for
       you: every run is compared against the previous one (screenshot bytes sha256-fingerprinted, or field-by-field
-      for structured content) and a webhook fires when something changed. Runs are pre-paid in 100-run packs over
+      for structured content) and a webhook fires when something changed. Runs are pre-paid in ${WATCH_TOPUP_RUNS}-run packs over
       x402 — the same 402 → sign → retry flow as every paid endpoint.</p>
     <div class="price-grid">
       <div class="price">
         <h3>Capture watch</h3>
-        <div class="amount">${esc(captureTopUpPrice)} <small>/ 100 runs</small></div>
-        <p>100 scheduled re-captures of a URL. The artifact bytes are fingerprinted with sha256 — any byte
+        <div class="amount">${esc(captureTopUpPrice)} <small>/ ${WATCH_TOPUP_RUNS} runs</small></div>
+        <p>${WATCH_TOPUP_RUNS} scheduled re-captures of a URL. The artifact bytes are fingerprinted with sha256 — any byte
           difference counts as a change (diff summary <code>artifact</code>).</p>
-        <span class="tag">100 × ${esc(capturePrice)} — POST /v1/x402/watches/topup</span>
+        <span class="tag">${WATCH_TOPUP_RUNS} × ${esc(capturePrice)} — POST /v1/x402/watches/topup</span>
       </div>
       <div class="price">
         <h3>Extract watch</h3>
-        <div class="amount">${esc(extractTopUpPrice)} <small>/ 100 runs</small></div>
-        <p>100 scheduled re-extractions (title, headings, paragraphs, links, images, markdown — plus optional
+        <div class="amount">${esc(extractTopUpPrice)} <small>/ ${WATCH_TOPUP_RUNS} runs</small></div>
+        <p>${WATCH_TOPUP_RUNS} scheduled re-extractions (title, headings, paragraphs, links, images, markdown — plus optional
           model extraction via a natural-language schema). Field-level diff: the alert lists the changed paths,
           e.g. <code>title, paragraphs[2], links[0]</code>.</p>
-        <span class="tag">100 × ${esc(extractPrice)} — POST /v1/x402/watches/topup</span>
+        <span class="tag">${WATCH_TOPUP_RUNS} × ${esc(extractPrice)} — POST /v1/x402/watches/topup</span>
       </div>
       <div class="price">
         <h3>Change alerts</h3>
@@ -364,9 +395,9 @@ ${topBar()}
         <code>{"url":"https://…","every":"1h","mode":"extract","schema":"…","webhook":"https://…"}</code> —
         <code>every</code> is <code>15m</code>, <code>1h</code>, <code>6h</code> or <code>24h</code>. The first
         run is due on the next scheduler tick.</p></li>
-      <li><b>Top up a 100-run pack (x402).</b>
+       <li><b>Top up a ${WATCH_TOPUP_RUNS}-run pack (x402).</b>
         <p>POST <code>/v1/x402/watches/topup?watchId=…</code> with
-        <code>{"watchId":"…","runs":100}</code> — the 402 challenge prices the pack at the watch mode
+        <code>{"watchId":"…","runs":${WATCH_TOPUP_RUNS}}</code> — the 402 challenge prices the pack at the watch mode
         (${esc(captureTopUpPrice)} capture / ${esc(extractTopUpPrice)} extract). Pay like every other endpoint
         with the PAYMENT-SIGNATURE header; the watch resumes and its next run is rescheduled.</p></li>
       <li><b>Runs + change alerts.</b>
