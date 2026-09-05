@@ -6,7 +6,11 @@ artifacts/
 out/
 cache/
 .env
+.env.bak-*
 *.log
 *.pid
+state/
+logs/
+backups/
 .DS_Store
 coverage/
