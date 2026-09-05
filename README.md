@@ -322,6 +322,27 @@ pays gas), so the merchant EOA (`USDC_MERCHANT_PRIVATE_KEY` /
 **3. Restart** (`npm start`) — the startup log prints `chain=8453`, the mainnet USDC
 address, and the CDP facilitator URL, confirming the switch.
 
+**One-command flip (recommended):**
+
+1. Fund the merchant EOA `0xB25572D7317eb98EBb39c45Da40eAAEA2A56c25e` with USDC on Base
+   mainnet (10 USDC ≈ 10k captures / 1k extracts; receiving needs no ETH).
+2. `bin/go-mainnet.sh` — dry run: prints the exact `.env` changes and checks the
+   merchant's on-chain USDC balance (public RPC). Changes nothing.
+3. `bin/go-mainnet.sh --confirm` — re-checks the balance on-chain (hard gate: aborts at
+   0 USDC), sets `WEBCAP_CHAIN=base` (+ CDP facilitator URL if not already set), runs
+   `docker compose up -d`, and waits until `/v1/x402/service` returns 200 and a 402
+   challenge carries `eip155:8453`. Logs to `/tmp/webcap-go-mainnet.log`.
+4. Verify: one paid call settles on-chain (basescan.org), and CDP's validator reports
+   `"valid": true` for both routes on `eip155:8453` — the Bazaar listing follows the
+   live network.
+
+Verified 2026-09-05: a throwaway mainnet instance (same image, `WEBCAP_CHAIN=base`,
+separate data dir, port 8081) booted with `chain=8453`, mainnet USDC
+`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, the same merchant EOA, and `cdpAuth=yes`
+(our Ed25519 JWT accepted by CDP, no auth errors). CDP's public validator returned
+`valid: true` with `simulation: accepted` for **both** routes on `eip155:8453` — zero
+failed preflight checks.
+
 ## CDP Bazaar listing
 
 Both paid routes carry the x402 Bazaar discovery extension (serviceName "Webcap", tags,

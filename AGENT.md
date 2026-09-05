@@ -60,6 +60,12 @@ EOA must hold real USDC on Base (gasless EIP-3009 transfers settle to it). Bazaa
 discovery metadata is embedded in the 402 challenges; CDP facilitator auth is optional
 via CDP_API_KEY_ID/CDP_API_KEY_SECRET (Ed25519 JWT, default off).
 
+One-command flip: `bin/go-mainnet.sh` (dry run, prints exact .env changes + checks the
+merchant's on-chain USDC balance) / `bin/go-mainnet.sh --confirm` (on-chain balance hard
+gate → .env switch → `docker compose up -d` → waits for 200 service + 402 carrying
+`eip155:8453`). Verified 2026-09-05 with a throwaway mainnet instance: CDP validator
+`valid: true` + `simulation: accepted` for both routes on `eip155:8453`.
+
 ## Notes
 - `WEBCAP_CHAIN=base-sepolia` → testnet USDC (default, safe); `base` → live
   USDC (real money; point the facilitator at CDP).
