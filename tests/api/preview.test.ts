@@ -4,10 +4,10 @@ import type { StructuredCapture } from '../../src/capture/pipeline.js';
 import { closeApiFixture, makeApiFixture } from './fixture.js';
 
 describe('GET /v1/extract/preview (free, rate-limited funnel)', () => {
-  it('GET / returns the service map (front door)', async () => {
+  it('GET / with Accept: application/json returns the service map (JSON front door)', async () => {
     const fx = makeApiFixture();
     try {
-      const res = await fx.app.inject({ method: 'GET', url: '/' });
+      const res = await fx.app.inject({ method: 'GET', url: '/', headers: { accept: 'application/json' } });
       expect(res.statusCode).toBe(200);
       const body = res.json() as { service: string; endpoints: { paid: Array<{ path: string }> } };
       expect(body.service).toBe('webcap');
