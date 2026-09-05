@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { HTTPFacilitatorClient } from '@x402/core/server';
 import { loadConfig } from './config.js';
 import { openDb } from './db/index.js';
+import { makeArtifactRepo } from './db/artifacts.js';
 import { buildApp } from './server/server.js';
 import { capture, captureStructured } from './capture/pipeline.js';
 import { closeBrowser } from './capture/browser.js';
@@ -18,6 +19,7 @@ async function main(): Promise<void> {
 
   mkdirSync(dirname(config.dbPath), { recursive: true });
   const db = openDb(config.dbPath);
+  const artifacts = makeArtifactRepo(db);
   const provider = makeProvider(config.rpcUrl);
   const usdc = getUsdc(provider, config.usdcAddress);
   const poller: Poller = startPoller({
@@ -34,6 +36,7 @@ async function main(): Promise<void> {
       : new HTTPFacilitatorClient({ url: config.x402FacilitatorUrl, timeoutMs: 30_000 });
   const app = buildApp({
     db,
+    artifacts,
     config,
     capture,
     captureStructured,

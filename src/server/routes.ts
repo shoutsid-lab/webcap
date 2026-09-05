@@ -24,12 +24,17 @@ import { authenticate } from './auth.js';
 import { makeRevenueRepo } from '../db/revenue.js';
 import { RateLimiter } from '../util/ratelimit.js';
 import { modelExtract } from '../extract/model.js';
-import type { StructuredCapture } from '../capture/pipeline.js';
+import type { CaptureFormat, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
 import { parseExtractSchema, parseExtractUrls, type ExtractedContent, type ExtractResult } from './extract-parse.js';
 import type { AppDeps } from './server.js';
 
 const PREVIEW_RATE_LIMIT = 10;
 const PREVIEW_RATE_WINDOW_MS = 60_000;
+const MIME_BY_FORMAT: Record<CaptureFormat, string> = {
+  png: 'image/png',
+  jpeg: 'image/jpeg',
+  pdf: 'application/pdf',
+};
 
 export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
   const { db, config } = deps;
@@ -41,6 +46,18 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
   const merchantAddress = merchantAddressOf(config);
   const allowHosts = deps.captureAllowHosts;
   const previewLimiter = new RateLimiter(PREVIEW_RATE_LIMIT, PREVIEW_RATE_WINDOW_MS);
+
+  const storeArtifact = (sourceUrl: string, result: CaptureResult): string => {
+    const id = crypto.randomUUID();
+    deps.artifacts.store({
+      id,
+      sourceUrl,
+      format: result.format,
+      mime: MIME_BY_FORMAT[result.format],
+      bytes: result.buffer,
+    });
+    return `${config.publicBaseUrl}/v1/artifacts/${id}`;
+  };
 
   app.get('/', async () => ({
     service: 'webcap',
@@ -132,8 +149,9 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       if (err instanceof CaptureError) throw new HttpError(502, 'capture_failed', err.message);
       throw err;
     }
+    const url = storeArtifact(normalized, result);
     return {
-      artifact: { format: result.format, bytes: result.bytes, data: result.buffer.toString('base64') },
+      artifact: { format: result.format, bytes: result.bytes, data: result.buffer.toString('base64'), url },
       creditsCharged: CAPTURE_COST_CREDITS,
       balance: accounts.getBalance(account.id),
     };
@@ -164,10 +182,21 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       revenueUsdcUnits: config.x402PriceUsdcUnits,
       costUsdcUnits: config.computeCostUsdcUnitsPerRequest,
     });
+    const url = storeArtifact(normalized, result);
     return {
-      artifact: { format: result.format, bytes: result.bytes, data: result.buffer.toString('base64') },
+      artifact: { format: result.format, bytes: result.bytes, data: result.buffer.toString('base64'), url },
       payment: { payer, priceUsdcUnits: config.x402PriceUsdcUnits },
     };
+  });
+
+  app.get('/v1/artifacts/:id', async (req, reply) => {
+    const rawId = isRecord(req.params) ? req.params.id : undefined;
+    if (typeof rawId !== 'string') throw unprocessable('id is required');
+    const artifact = deps.artifacts.get(rawId);
+    if (artifact === null) throw new HttpError(404, 'not_found', 'artifact not found');
+    reply.header('content-type', artifact.mime);
+    reply.header('content-length', artifact.bytes.length);
+    return reply.send(artifact.bytes);
   });
 
   app.post('/v1/x402/extract', async (req) => {

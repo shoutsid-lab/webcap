@@ -7,6 +7,7 @@ import { makeAccountsRepo, type AccountsRepo } from '../../src/db/accounts.js';
 import { makeApiKeysRepo, type ApiKeysRepo } from '../../src/db/api_keys.js';
 import { makeCreditsRepo, type CreditsRepo } from '../../src/db/credits.js';
 import { makeInvoicesRepo, type InvoicesRepo } from '../../src/db/invoices.js';
+import { makeArtifactRepo } from '../../src/db/artifacts.js';
 import type { WebcapConfig } from '../../src/config.js';
 import { generateApiKey, hashKey } from '../../src/util/keys.js';
 import { buildApp } from '../../src/server/server.js';
@@ -77,6 +78,7 @@ export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
     modelApiKey: '',
     modelName: '',
     x402FacilitatorUrl: 'https://x402.org/facilitator',
+    publicBaseUrl: 'http://localhost:8080',
   };
   const accounts = makeAccountsRepo(db);
   const keys = makeApiKeysRepo(db);
@@ -93,7 +95,7 @@ export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
   const captureStructured =
     overrides.captureStructured ?? (async (): Promise<StructuredCapture> => ({ html: FAKE_HTML, structure: FAKE_STRUCTURE }));
   const og = overrides.og ?? (async (req: { url: string }): Promise<OgResult> => ({ url: req.url, title: 'Stub Title' }));
-  const app = buildApp({ db, config, capture, captureStructured, og });
+  const app = buildApp({ db, config, capture, captureStructured, og, artifacts: makeArtifactRepo(db) });
   return {
     app,
     db,

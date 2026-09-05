@@ -5,6 +5,7 @@ import { makeCreditsRepo } from '../../src/db/credits.js';
 import { makeInvoicesRepo, type NewInvoice } from '../../src/db/invoices.js';
 import { makePaymentsRepo, type PaymentInput } from '../../src/db/payments.js';
 import { makeRevenueRepo } from '../../src/db/revenue.js';
+import { makeArtifactRepo } from '../../src/db/artifacts.js';
 
 function sampleInvoice(over: Partial<NewInvoice> = {}): NewInvoice {
   return {
@@ -210,6 +211,28 @@ describe('db: revenue ledger (x402 P&L)', () => {
     expect(rows).toHaveLength(3);
     expect(rows[0]?.payer).toBe('0x4');
     expect(rows[2]?.payer).toBe('0x2');
+    db.close();
+  });
+});
+
+describe('db: artifacts', () => {
+  it('store/get round-trips the bytes and metadata', () => {
+    const db = openDb(':memory:');
+    const artifacts = makeArtifactRepo(db);
+    const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xde, 0xad]);
+    artifacts.store({ id: 'a1', sourceUrl: 'https://example.com/', format: 'png', mime: 'image/png', bytes });
+    const row = artifacts.get('a1');
+    expect(row).toMatchObject({ id: 'a1', source_url: 'https://example.com/', format: 'png', mime: 'image/png' });
+    if (row === null) throw new Error('artifact row is null');
+    expect(Buffer.compare(row.bytes, bytes)).toBe(0);
+    expect(typeof row.created_at).toBe('string');
+    db.close();
+  });
+
+  it('get returns null for an unknown id', () => {
+    const db = openDb(':memory:');
+    const artifacts = makeArtifactRepo(db);
+    expect(artifacts.get('does-not-exist')).toBeNull();
     db.close();
   });
 });

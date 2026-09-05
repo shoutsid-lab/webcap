@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { openDb, type Db } from '../../src/db/index.js';
 import { makeAccountsRepo } from '../../src/db/accounts.js';
+import { makeArtifactRepo } from '../../src/db/artifacts.js';
 import { makeCreditsRepo } from '../../src/db/credits.js';
 import type { WebcapConfig } from '../../src/config.js';
 import { buildApp } from '../../src/server/server.js';
@@ -49,8 +50,9 @@ describe('boot: app with real capture+og serves health, and register upserts acc
       modelApiKey: '',
       modelName: '',
       x402FacilitatorUrl: 'https://x402.org/facilitator',
+      publicBaseUrl: 'http://localhost:8080',
     };
-    app = buildApp({ db, config, capture, captureStructured, og: ogMetadata });
+    app = buildApp({ db, config, capture, captureStructured, og: ogMetadata, artifacts: makeArtifactRepo(db) });
     await app.listen({ port: 0, host: '127.0.0.1' });
   });
 

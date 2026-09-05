@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { FacilitatorClient } from '@x402/core/server';
 import type { Db } from '../db/index.js';
+import type { ArtifactRepo } from '../db/artifacts.js';
 import type { WebcapConfig } from '../config.js';
 import { toResponse, type ErrorBody, HttpError } from '../util/errors.js';
 import type { CaptureRequest, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
@@ -10,6 +11,7 @@ import { registerX402Middleware } from './x402.js';
 
 export interface AppDeps {
   readonly db: Db;
+  readonly artifacts: ArtifactRepo;
   readonly config: WebcapConfig;
   readonly capture: (req: CaptureRequest) => Promise<CaptureResult>;
   readonly captureStructured: (req: CaptureRequest) => Promise<StructuredCapture>;

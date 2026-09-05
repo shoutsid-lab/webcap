@@ -13,11 +13,16 @@ const LOCAL_CONTRACT = `0x${'11'.repeat(20)}`;
 const MERCHANT_ADDR = `0x${'44'.repeat(20)}`;
 const ANVIL_KEY_0 = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 const ANVIL_ADDR_0 = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
-const localEnv: NodeJS.ProcessEnv = { WEBCAP_CHAIN: 'local', LOCAL_USDC_CONTRACT: LOCAL_CONTRACT };
+const PUBLIC_URL = 'http://localhost:8080';
+const localEnv: NodeJS.ProcessEnv = {
+  WEBCAP_CHAIN: 'local',
+  LOCAL_USDC_CONTRACT: LOCAL_CONTRACT,
+  WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL,
+};
 
 describe('config: chain map', () => {
   it('base-sepolia resolves with the sepolia RPC, chainId 84532 and sepolia USDC', () => {
-    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia' });
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL });
     expect(cfg.chain.rpcUrl).toBe('https://sepolia.base.org');
     expect(cfg.chain.chainId).toBe(84532);
     expect(cfg.chain.usdcContract).toBe('0x036CbD53842c5426634e7929541eC2318f3dCF7e');
@@ -25,7 +30,7 @@ describe('config: chain map', () => {
   });
 
   it('base resolves with the mainnet RPC, chainId 8453 and mainnet USDC', () => {
-    const cfg = loadConfig({ WEBCAP_CHAIN: 'base' });
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base', WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL });
     expect(cfg.chain.rpcUrl).toBe('https://mainnet.base.org');
     expect(cfg.chain.chainId).toBe(8453);
     expect(cfg.chain.usdcContract).toBe('0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913');
@@ -60,9 +65,20 @@ describe('config: chain map', () => {
   });
 });
 
+describe('config: public base url (artifact links)', () => {
+  it('throws when WEBCAP_PUBLIC_BASE_URL is missing', () => {
+    expect(() => loadConfig({ WEBCAP_CHAIN: 'base-sepolia' })).toThrow(/WEBCAP_PUBLIC_BASE_URL/);
+  });
+
+  it('parses WEBCAP_PUBLIC_BASE_URL into publicBaseUrl', () => {
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_PUBLIC_BASE_URL: 'https://cap.example.dev' });
+    expect(cfg.publicBaseUrl).toBe('https://cap.example.dev');
+  });
+});
+
 describe('config: server run fields (chainId/rpcUrl/usdcAddress/merchantAddress)', () => {
   it('base-sepolia exposes chainId, rpcUrl and usdcAddress at top level', () => {
-    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia' });
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL });
     expect(cfg.chainId).toBe(84532);
     expect(cfg.rpcUrl).toBe('https://sepolia.base.org');
     expect(cfg.usdcAddress).toBe('0x036CbD53842c5426634e7929541eC2318f3dCF7e');
@@ -70,7 +86,7 @@ describe('config: server run fields (chainId/rpcUrl/usdcAddress/merchantAddress)
   });
 
   it('base exposes mainnet chainId, rpcUrl and usdcAddress at top level', () => {
-    const cfg = loadConfig({ WEBCAP_CHAIN: 'base' });
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base', WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL });
     expect(cfg.chainId).toBe(8453);
     expect(cfg.rpcUrl).toBe('https://mainnet.base.org');
     expect(cfg.usdcAddress).toBe('0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913');
@@ -82,6 +98,7 @@ describe('config: server run fields (chainId/rpcUrl/usdcAddress/merchantAddress)
       WEBCAP_RPC_URL: 'http://10.1.1.1:8545',
       WEBCAP_USDC_ADDRESS: LOCAL_CONTRACT,
       WEBCAP_MERCHANT_ADDRESS: MERCHANT_ADDR,
+      WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL,
     });
     expect(cfg.chainId).toBe(31337);
     expect(cfg.rpcUrl).toBe('http://10.1.1.1:8545');
@@ -120,7 +137,7 @@ describe('config: credit packs', () => {
 
 describe('config: x402', () => {
   it('base-sepolia enables x402 on eip155:84532 with sepolia USDC and merchant payTo', () => {
-    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', USDC_MERCHANT_PRIVATE_KEY: ANVIL_KEY_0 });
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', USDC_MERCHANT_PRIVATE_KEY: ANVIL_KEY_0, WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL });
     expect(cfg.x402Network).toBe('eip155:84532');
     expect(cfg.x402Asset).toBe('0x036CbD53842c5426634e7929541eC2318f3dCF7e');
     expect(cfg.x402PayTo).toBe(ANVIL_ADDR_0);
@@ -129,7 +146,7 @@ describe('config: x402', () => {
   });
 
   it('base enables x402 on eip155:8453 with mainnet USDC', () => {
-    const cfg = loadConfig({ WEBCAP_CHAIN: 'base', USDC_MERCHANT_PRIVATE_KEY: ANVIL_KEY_0 });
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base', USDC_MERCHANT_PRIVATE_KEY: ANVIL_KEY_0, WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL });
     expect(cfg.x402Network).toBe('eip155:8453');
     expect(cfg.x402Asset).toBe('0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913');
   });
@@ -143,7 +160,7 @@ describe('config: x402', () => {
   });
 
   it('converts WEBCAP_X402_PRICE_USDC human units to atomic units (0.002 -> 2000)', () => {
-    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_X402_PRICE_USDC: '0.002' });
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_X402_PRICE_USDC: '0.002', WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL });
     expect(cfg.x402PriceUsdcUnits).toBe(2_000);
   });
 
@@ -161,6 +178,7 @@ describe('config: x402', () => {
       X402_FACILITATOR_URL: 'https://facilitator.example.com/x402',
       WEBCAP_X402_ASSET: MERCHANT_ADDR,
       WEBCAP_X402_PAY_TO: ANVIL_ADDR_0,
+      WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL,
     });
     expect(cfg.x402FacilitatorUrl).toBe('https://facilitator.example.com/x402');
     expect(cfg.x402Asset).toBe(MERCHANT_ADDR);
@@ -175,7 +193,7 @@ describe('config: x402', () => {
 
 describe('config: extract pricing + compute cost + model', () => {
   it('defaults the extract price above capture and the compute cost below both', () => {
-    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia' });
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL });
     expect(cfg.x402ExtractPriceUsdcUnits).toBe(DEFAULT_X402_EXTRACT_PRICE_USDC_UNITS);
     expect(cfg.computeCostUsdcUnitsPerRequest).toBe(DEFAULT_COMPUTE_COST_USDC_UNITS_PER_REQUEST);
     expect(cfg.x402ExtractPriceUsdcUnits).toBeGreaterThan(cfg.x402PriceUsdcUnits);
@@ -183,14 +201,14 @@ describe('config: extract pricing + compute cost + model', () => {
   });
 
   it('converts WEBCAP_X402_EXTRACT_PRICE_USDC human units to atomic units (0.01 -> 10000)', () => {
-    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_X402_EXTRACT_PRICE_USDC: '0.01' });
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_X402_EXTRACT_PRICE_USDC: '0.01', WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL });
     expect(cfg.x402ExtractPriceUsdcUnits).toBe(10_000);
   });
 
   it('converts WEBCAP_COMPUTE_COST_USDC_PER_REQUEST to atomic units and allows zero', () => {
-    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_COMPUTE_COST_USDC_PER_REQUEST: '0.0005' });
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_COMPUTE_COST_USDC_PER_REQUEST: '0.0005', WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL });
     expect(cfg.computeCostUsdcUnitsPerRequest).toBe(500);
-    const zero = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_COMPUTE_COST_USDC_PER_REQUEST: '0' });
+    const zero = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_COMPUTE_COST_USDC_PER_REQUEST: '0', WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL });
     expect(zero.computeCostUsdcUnitsPerRequest).toBe(0);
   });
 
@@ -201,7 +219,7 @@ describe('config: extract pricing + compute cost + model', () => {
   });
 
   it('defaults model config to empty (deterministic only) and honors overrides', () => {
-    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia' });
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL });
     expect(cfg.modelApiBaseUrl).toBe('');
     expect(cfg.modelApiKey).toBe('');
     expect(cfg.modelName).toBe('');
@@ -210,6 +228,7 @@ describe('config: extract pricing + compute cost + model', () => {
       MODEL_API_BASE_URL: 'https://api.example.com/v1',
       MODEL_API_KEY: 'sk-test',
       MODEL_NAME: 'gpt-4o-mini',
+      WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL,
     });
     expect(overridden.modelApiBaseUrl).toBe('https://api.example.com/v1');
     expect(overridden.modelApiKey).toBe('sk-test');

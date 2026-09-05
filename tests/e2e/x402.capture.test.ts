@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { openDb, type Db } from '../../src/db/index.js';
+import { makeArtifactRepo } from '../../src/db/artifacts.js';
 import type { WebcapConfig } from '../../src/config.js';
 import { buildApp } from '../../src/server/server.js';
 import type { CaptureRequest, CaptureResult, PageStructure, StructuredCapture } from '../../src/capture/pipeline.js';
@@ -111,6 +112,7 @@ beforeAll(async () => {
     modelApiKey: '',
     modelName: '',
     x402FacilitatorUrl: 'https://x402.org/facilitator',
+    publicBaseUrl: 'http://localhost:8080',
   };
   app = buildApp({
     db,
@@ -119,6 +121,7 @@ beforeAll(async () => {
     captureStructured: fakeCaptureStructured,
     og: async ({ url }) => ({ url, title: 'Stub' }),
     x402Facilitator: mock.facilitator,
+    artifacts: makeArtifactRepo(db),
   });
   // Fastify 5's listen() resolves with the full URL (http://127.0.0.1:port).
   baseUrl = await app.listen({ port: 0, host: '127.0.0.1' });
@@ -203,6 +206,15 @@ describe('x402 capture (v2 wire, mock facilitator, no chain)', () => {
     expect(settlement.success).toBe(true);
     expect(settlement.transaction).toBe(MOCK_SETTLE_TX);
     expect(settlement.payer).toBe(account.address);
+  });
+
+  it('S5: the paid 200 response carries a persistent public artifact.url', async () => {
+    const { client } = makePayer(PAYER_KEY_B);
+    const api = wrapAxiosWithPayment(axios.create({ baseURL: baseUrl }), client);
+    const res = await api.post('/v1/x402/capture', { url: CAPTURE_URL });
+    expect(res.status).toBe(200);
+    const url = res.data.artifact.url as string;
+    expect(url).toMatch(/^https?:\/\/[^/]+\/v1\/artifacts\/[0-9a-f-]{36}$/);
   });
 
   it('S3a: an underpaid authorization is rejected (402, no handler, no settle)', async () => {

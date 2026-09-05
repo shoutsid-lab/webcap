@@ -35,6 +35,8 @@ export interface WebcapConfig {
   readonly x402Network: X402Network | undefined;
   /** ERC-20 asset paid on the x402 route (default: chain USDC). */
   readonly x402Asset: string;
+  /** Public base URL this deployment is reachable at; artifact.url links are built from it. */
+  readonly publicBaseUrl: string;
   /** x402 recipient address (default: merchant address). */
   readonly x402PayTo: string;
   /** x402 per-capture price in atomic 6-decimal USDC units. */
@@ -154,6 +156,15 @@ function x402FacilitatorUrl(raw: string | undefined): string {
   return trimmed !== '' ? trimmed : DEFAULT_X402_FACILITATOR_URL;
 }
 
+/** Public base URL (required); every capture's artifact.url is built from it. */
+function parsePublicBaseUrl(raw: string | undefined): string {
+  const trimmed = (raw ?? '').trim();
+  if (trimmed === '') {
+    throw new Error('WEBCAP_PUBLIC_BASE_URL is required (public base URL for artifact links)');
+  }
+  return trimmed;
+}
+
 /** Parse and validate the webcap environment. Throws on invalid config. */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): WebcapConfig {
   const rawChain = env.WEBCAP_CHAIN ?? 'base-sepolia';
@@ -208,5 +219,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WebcapConfig {
     modelApiKey: (env.MODEL_API_KEY ?? '').trim(),
     modelName: (env.MODEL_NAME ?? '').trim(),
     x402FacilitatorUrl: x402FacilitatorUrl(env.X402_FACILITATOR_URL),
+    publicBaseUrl: parsePublicBaseUrl(env.WEBCAP_PUBLIC_BASE_URL),
   };
 }

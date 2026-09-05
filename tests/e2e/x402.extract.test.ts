@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { openDb, type Db } from '../../src/db/index.js';
+import { makeArtifactRepo } from '../../src/db/artifacts.js';
 import type { WebcapConfig } from '../../src/config.js';
 import { buildApp } from '../../src/server/server.js';
 import { CaptureError } from '../../src/capture/errors.js';
@@ -102,6 +103,7 @@ beforeAll(async () => {
     modelApiKey: '',
     modelName: '',
     x402FacilitatorUrl: 'https://x402.org/facilitator',
+    publicBaseUrl: 'http://localhost:8080',
   };
   app = buildApp({
     db,
@@ -112,6 +114,7 @@ beforeAll(async () => {
     captureStructured: fakeCaptureStructured,
     og: async ({ url }) => ({ url, title: 'Stub' }),
     x402Facilitator: mock.facilitator,
+    artifacts: makeArtifactRepo(db),
   });
   baseUrl = await app.listen({ port: 0, host: '127.0.0.1' });
 });

@@ -68,3 +68,12 @@ CREATE TABLE IF NOT EXISTS revenue_ledger (
   net_margin_usdc INTEGER NOT NULL,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS artifacts (
+  id TEXT PRIMARY KEY,
+  source_url TEXT NOT NULL,
+  format TEXT NOT NULL,
+  mime TEXT NOT NULL,
+  bytes BLOB NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

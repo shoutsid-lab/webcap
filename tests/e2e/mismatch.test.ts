@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { openDb, type Db } from '../../src/db/index.js';
+import { makeArtifactRepo } from '../../src/db/artifacts.js';
 import type { WebcapConfig } from '../../src/config.js';
 import { buildApp } from '../../src/server/server.js';
 import { capture, captureStructured } from '../../src/capture/pipeline.js';
@@ -56,8 +57,9 @@ describe('S4: underpayment does not settle and does not unlock capture', () => {
       modelApiKey: '',
       modelName: '',
       x402FacilitatorUrl: 'https://x402.org/facilitator',
+      publicBaseUrl: 'http://localhost:8080',
     };
-    app = buildApp({ db, config, capture, captureStructured, og: ogMetadata });
+    app = buildApp({ db, config, capture, captureStructured, og: ogMetadata, artifacts: makeArtifactRepo(db) });
 
     await app.listen({ port: 0, host: '127.0.0.1' });
     const registered = await registerAccount(app, chain.customer.address);

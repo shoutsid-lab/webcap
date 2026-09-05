@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { openDb, type Db } from '../../src/db/index.js';
+import { makeArtifactRepo } from '../../src/db/artifacts.js';
 import type { WebcapConfig } from '../../src/config.js';
 import { buildApp } from '../../src/server/server.js';
 import { capture, captureStructured } from '../../src/capture/pipeline.js';
@@ -62,8 +63,17 @@ describe('S1: full loop register -> invoice -> USDC pay -> settle -> real captur
       modelApiKey: '',
       modelName: '',
       x402FacilitatorUrl: 'https://x402.org/facilitator',
+      publicBaseUrl: 'http://localhost:8080',
     };
-    app = buildApp({ db, config, capture, captureStructured, og: ogMetadata, captureAllowHosts: ['127.0.0.1'] });
+    app = buildApp({
+      db,
+      config,
+      capture,
+      captureStructured,
+      og: ogMetadata,
+      captureAllowHosts: ['127.0.0.1'],
+      artifacts: makeArtifactRepo(db),
+    });
 
     server = createServer((_req, res) => {
       res.writeHead(200, { 'content-type': 'text/html' });
