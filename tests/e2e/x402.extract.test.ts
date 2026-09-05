@@ -5,7 +5,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { openDb, type Db } from '../../src/db/index.js';
+import { makeAccountsRepo } from '../../src/db/accounts.js';
+import { makeApiKeysRepo } from '../../src/db/api_keys.js';
 import { makeArtifactRepo } from '../../src/db/artifacts.js';
+import { generateApiKey, hashKey } from '../../src/util/keys.js';
 import type { WebcapConfig } from '../../src/config.js';
 import { buildApp } from '../../src/server/server.js';
 import { CaptureError } from '../../src/capture/errors.js';
@@ -210,8 +213,12 @@ describe('x402 extract (v2 wire, mock facilitator, no chain)', () => {
     const otherKey = (other.json() as { apiKey: string }).apiKey;
     const forbidden = await app.inject({ method: 'GET', url: '/v1/ledger', headers: { authorization: `Bearer ${otherKey}` } });
     expect(forbidden.statusCode).toBe(403);
-    const merchant = await app.inject({ method: 'POST', url: '/v1/register', payload: { address: MERCHANT_ADDRESS } });
-    const merchantKey = (merchant.json() as { apiKey: string }).apiKey;
+    // Live chains block merchant self-registration (abuse guard) — seed the
+    // merchant account + key directly, as the ops runbook does.
+    const accounts = makeAccountsRepo(db);
+    const merchantId = accounts.findByAddress(MERCHANT_ADDRESS) ?? accounts.create(MERCHANT_ADDRESS);
+    const merchantKey = generateApiKey();
+    makeApiKeysRepo(db).create(merchantId, hashKey(merchantKey));
     const ok = await app.inject({ method: 'GET', url: '/v1/ledger', headers: { authorization: `Bearer ${merchantKey}` } });
     expect(ok.statusCode).toBe(200);
     const body = ok.json() as {

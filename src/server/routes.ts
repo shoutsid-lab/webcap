@@ -8,6 +8,7 @@ import { makeInvoicesRepo, type InvoiceRow } from '../db/invoices.js';
 import {
   CAPTURE_COST_CREDITS,
   CREDITS_PER_USDC,
+  DEFAULT_PREVIEW_RATE_LIMIT,
   PACKS,
   PRICE_PER_CREDIT,
   USDC_SCALE,
@@ -26,7 +27,7 @@ import { isRecord, parseFormat, parseOptions, validatedUrl } from './capture-par
 import { x402Payer } from './x402.js';
 import { authenticate } from './auth.js';
 import { makeRevenueRepo } from '../db/revenue.js';
-import { RateLimiter } from '../util/ratelimit.js';
+import { RateLimiter, rejectRateLimited } from '../util/ratelimit.js';
 import { modelExtract } from '../extract/model.js';
 import type { CaptureFormat, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
 import { parseExtractSchema, parseExtractUrls, type ExtractedContent, type ExtractResult } from './extract-parse.js';
@@ -34,8 +35,10 @@ import type { AppDeps } from './server.js';
 import { landingHtml, artifactPageHtml } from './pages.js';
 import { openapiDocument } from './openapi.js';
 
-const PREVIEW_RATE_LIMIT = 10;
-const PREVIEW_RATE_WINDOW_MS = 60_000;
+// Fixed 60s windows for all per-peer budgets below; the preview limit itself
+// is configurable (WEBCAP_PREVIEW_RATE_LIMIT, default DEFAULT_PREVIEW_RATE_LIMIT).
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const REGISTER_RATE_LIMIT = 3;
 const MIME_BY_FORMAT: Record<CaptureFormat, string> = {
   png: 'image/png',
   jpeg: 'image/jpeg',
@@ -51,7 +54,8 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
   const revenue = makeRevenueRepo(db);
   const merchantAddress = merchantAddressOf(config);
   const allowHosts = deps.captureAllowHosts;
-  const previewLimiter = new RateLimiter(PREVIEW_RATE_LIMIT, PREVIEW_RATE_WINDOW_MS);
+  const previewLimiter = new RateLimiter(config.previewRateLimit ?? DEFAULT_PREVIEW_RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
+  const registerLimiter = new RateLimiter(REGISTER_RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
 
   const storeArtifact = (sourceUrl: string, result: CaptureResult): string => {
     const id = crypto.randomUUID();
@@ -120,6 +124,9 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
   });
 
   app.post('/v1/register', async (req, reply) => {
+    if (!registerLimiter.allow(req.ip)) {
+      rejectRateLimited(reply, registerLimiter, req.ip, 'registration rate limit exceeded');
+    }
     const raw = isRecord(req.body) ? req.body.address : undefined;
     if (typeof raw !== 'string') throw unprocessable('address is required');
     let address: string;
@@ -127,6 +134,13 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       address = getAddress(raw);
     } catch {
       throw unprocessable('invalid address');
+    }
+    // A merchant/ledger-bearing account is exactly one whose address matches
+    // config.merchantAddress (the /v1/ledger gate compares the same pair). On
+    // live chains that identity is granted out-of-band by ops, never via this
+    // unauthenticated endpoint.
+    if (config.chain.name !== 'local' && address.toLowerCase() === config.merchantAddress.toLowerCase()) {
+      throw new HttpError(403, 'forbidden', 'merchant registration is disabled on live chains; see the README ops runbook');
     }
     const accountId = accounts.findByAddress(address) ?? accounts.create(address);
     const apiKey = generateApiKey();
@@ -290,15 +304,11 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
   app.get('/v1/extract/preview', async (req, reply) => {
     const rawUrl = isRecord(req.query) ? req.query.url : undefined;
     if (typeof rawUrl !== 'string') throw unprocessable('url query parameter is required');
-    const forwarded = req.headers['x-forwarded-for'];
-    const firstForwarded = typeof forwarded === 'string' ? forwarded.split(',')[0]?.trim() : undefined;
-    const clientKey = firstForwarded !== undefined && firstForwarded !== '' ? firstForwarded : req.ip;
-    if (!previewLimiter.allow(clientKey)) {
-      const retryAfterSeconds = Math.max(1, Math.ceil(previewLimiter.retryAfterMs(clientKey) / 1000));
-      reply.header('retry-after', String(retryAfterSeconds));
-      throw new HttpError(429, 'rate_limited', 'preview rate limit exceeded; use the paid extract endpoint', {
-        retryAfterSeconds,
-      });
+    // Key on the actual peer IP only: behind the ngrok tunnel req.ip is the
+    // tunnel peer, while X-Forwarded-For is attacker-controlled (spoofing it
+    // previously minted an unlimited free-capture budget per header value).
+    if (!previewLimiter.allow(req.ip)) {
+      rejectRateLimited(reply, previewLimiter, req.ip, 'preview rate limit exceeded; use the paid extract endpoint');
     }
     let structure;
     try {

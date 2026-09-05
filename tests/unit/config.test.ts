@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_COMPUTE_COST_USDC_UNITS_PER_REQUEST,
+  DEFAULT_PREVIEW_RATE_LIMIT,
   DEFAULT_X402_EXTRACT_PRICE_USDC_UNITS,
   DEFAULT_X402_FACILITATOR_URL,
   DEFAULT_X402_PRICE_USDC_UNITS,
@@ -132,6 +133,27 @@ describe('config: credit packs', () => {
     expect(getPack('pro').usdc).toBe(3_000_000);
     expect(getPack('max').credits).toBe(10_000);
     expect(() => getPack('gold')).toThrow(/unknown pack/);
+  });
+});
+
+describe('config: preview rate limit', () => {
+  it('defaults previewRateLimit to DEFAULT_PREVIEW_RATE_LIMIT (10)', () => {
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL });
+    expect(cfg.previewRateLimit).toBe(DEFAULT_PREVIEW_RATE_LIMIT);
+    expect(DEFAULT_PREVIEW_RATE_LIMIT).toBe(10);
+  });
+
+  it('honors a WEBCAP_PREVIEW_RATE_LIMIT override', () => {
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_PREVIEW_RATE_LIMIT: '25', WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL });
+    expect(cfg.previewRateLimit).toBe(25);
+  });
+
+  it('rejects a non-positive or non-numeric WEBCAP_PREVIEW_RATE_LIMIT', () => {
+    for (const bad of ['0', '-5', 'abc']) {
+      expect(() => loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_PREVIEW_RATE_LIMIT: bad, WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL })).toThrow(
+        /invalid numeric env value/,
+      );
+    }
   });
 });
 

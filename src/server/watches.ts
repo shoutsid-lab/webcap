@@ -11,6 +11,7 @@
 import type { FastifyInstance } from 'fastify';
 import { WATCH_TOPUP_RUNS, watchTopUpPriceUsdcUnits } from '../config.js';
 import { HttpError, badRequest } from '../util/errors.js';
+import { RateLimiter, rejectRateLimited } from '../util/ratelimit.js';
 import { validateCaptureUrl } from '../util/url.js';
 import { makeRevenueRepo } from '../db/revenue.js';
 import { makeWatchRepo, type WatchRepo, type WatchRow, type WatchRunRow, type WatchMode } from '../watch/store.js';
@@ -20,6 +21,8 @@ import { x402Payer } from './x402.js';
 import type { AppDeps } from './server.js';
 
 const RUNS_PER_PAGE = 10;
+const WATCH_MUTATION_RATE_LIMIT = 10;
+const RATE_LIMIT_WINDOW_MS = 60_000;
 
 export interface WatchRunView {
   readonly id: number;
@@ -52,8 +55,14 @@ export function registerWatchRoutes(app: FastifyInstance, deps: AppDeps): void {
   const repo = makeWatchRepo(db);
   const revenue = makeRevenueRepo(db);
   const allowHosts = deps.captureAllowHosts;
+  // One shared budget per peer IP across both mutation routes (create + delete),
+  // keyed on req.ip: the header-spoofing hole of X-Forwarded-For keying.
+  const watchMutationLimiter = new RateLimiter(WATCH_MUTATION_RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
 
   app.post('/v1/watches', async (req, reply) => {
+    if (!watchMutationLimiter.allow(req.ip)) {
+      rejectRateLimited(reply, watchMutationLimiter, req.ip, 'watch mutation rate limit exceeded');
+    }
     const spec = parseCreateWatchBody(req.body, allowHosts);
     const id = crypto.randomUUID();
     const createdAt = new Date().toISOString();
@@ -82,6 +91,9 @@ export function registerWatchRoutes(app: FastifyInstance, deps: AppDeps): void {
   });
 
   app.delete('/v1/watches/:id', async (req, reply) => {
+    if (!watchMutationLimiter.allow(req.ip)) {
+      rejectRateLimited(reply, watchMutationLimiter, req.ip, 'watch mutation rate limit exceeded');
+    }
     const id = watchIdOf(req);
     if (!repo.delete(id)) throw new HttpError(404, 'not_found', 'watch not found');
     return reply.status(204).send();

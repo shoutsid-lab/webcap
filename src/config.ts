@@ -53,6 +53,12 @@ export interface WebcapConfig {
   readonly modelApiBaseUrl: string;
   readonly modelApiKey: string;
   readonly modelName: string;
+  /**
+   * Free preview endpoint: max requests per 60s window per peer IP
+   * (WEBCAP_PREVIEW_RATE_LIMIT). loadConfig always sets this; hand-built test
+   * configs may omit it, in which case DEFAULT_PREVIEW_RATE_LIMIT applies.
+   */
+  readonly previewRateLimit?: number;
 }
 
 const CHAINS: Record<ChainName, Omit<ChainConfig, 'name'>> = {
@@ -87,6 +93,7 @@ export const DEFAULT_X402_FACILITATOR_URL = 'https://x402.org/facilitator';
 export const DEFAULT_X402_PRICE_USDC_UNITS = 1_000; // $0.001 in 6-decimal atomic units
 export const DEFAULT_X402_EXTRACT_PRICE_USDC_UNITS = 10_000; // $0.01 — a "meaning" price, above raw capture
 export const DEFAULT_COMPUTE_COST_USDC_UNITS_PER_REQUEST = 200; // $0.0002 amortized compute cost/page-load (override with your real infra/TPU cost)
+export const DEFAULT_PREVIEW_RATE_LIMIT = 10; // free preview requests/min/peer (override with WEBCAP_PREVIEW_RATE_LIMIT)
 
 export const PACKS: Record<PackName, CreditPack> = {
   starter: { credits: 100, usd: 0.5, usdc: 500_000 },
@@ -244,6 +251,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WebcapConfig {
     modelApiBaseUrl: (env.MODEL_API_BASE_URL ?? '').trim(),
     modelApiKey: (env.MODEL_API_KEY ?? '').trim(),
     modelName: (env.MODEL_NAME ?? '').trim(),
+    previewRateLimit: parsePositiveInt(env.WEBCAP_PREVIEW_RATE_LIMIT, DEFAULT_PREVIEW_RATE_LIMIT),
     x402FacilitatorUrl: x402FacilitatorUrl(env.X402_FACILITATOR_URL),
     cdpApiKey: parseCdpApiKey(env),
     publicBaseUrl: parsePublicBaseUrl(env.WEBCAP_PUBLIC_BASE_URL),
