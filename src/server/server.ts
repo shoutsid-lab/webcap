@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import type { FacilitatorClient } from '@x402/core/server';
 import type { Db } from '../db/index.js';
 import type { ArtifactRepo } from '../db/artifacts.js';
@@ -42,6 +42,9 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   // Payment hooks must be installed before routes so onRequest/onSend/onError
   // cover the gated /v1/x402/capture + /v1/x402/watches/topup handlers.
   registerX402Middleware(app, deps.config, deps.x402Facilitator, deps.db);
+  // After the x402 hooks on purpose: the x402 402 challenge must win for the
+  // GET /v1/x402/* discovery paths, which register no GET route of their own.
+  registerNotFoundEnvelope(app);
   registerRoutes(app, deps);
   registerWatchRoutes(app, deps);
   return app;
@@ -53,4 +56,40 @@ function fastifyStatus(err: unknown): number {
     if (typeof statusCode === 'number' && statusCode >= 400 && statusCode < 600) return statusCode;
   }
   return 500;
+}
+
+/** Canonical method order for the Allow header of a 405 response. */
+const ALLOW_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'TRACE'] as const;
+
+/**
+ * Envelope responses for unmatched requests. Fastify 5 deliberately has no
+ * native 405 (fastify/fastify#862): a wrong method on a known path lands in
+ * the not-found handler, so the router is probed to tell the two cases apart.
+ *
+ * The decision must also run in onRequest, because the not-found handler is
+ * only reached after Fastify's content-type parser has run in the 404 context:
+ * a body-carrying verb (DELETE/PUT/PATCH) with `Content-Type: application/json`
+ * and an empty body would otherwise fail body parsing (400 "malformed request")
+ * before any 405 could be sent.
+ */
+function registerNotFoundEnvelope(app: FastifyInstance): void {
+  // Async on purpose: a sync onRequest hook must call done() itself, and the
+  // matched-route early-return would stall the request pipeline without it.
+  app.addHook('onRequest', async (req, reply) => {
+    if (app.findRoute({ method: req.method, url: req.url }) !== null) return;
+    replyNotFoundOrMethodNotAllowed(app, req, reply);
+  });
+  app.setNotFoundHandler((req, reply) => replyNotFoundOrMethodNotAllowed(app, req, reply));
+}
+
+function replyNotFoundOrMethodNotAllowed(app: FastifyInstance, req: FastifyRequest, reply: FastifyReply): void {
+  const allowed = ALLOW_METHODS.filter((method) => app.findRoute({ method, url: req.url }) !== null);
+  if (allowed.length > 0) {
+    reply.header('allow', allowed.join(', '));
+    const body: ErrorBody = { error: { code: 'method_not_allowed', message: 'method not allowed' } };
+    void reply.status(405).send(body);
+    return;
+  }
+  const body: ErrorBody = { error: { code: 'not_found', message: 'route not found' } };
+  void reply.status(404).send(body);
 }
