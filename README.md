@@ -291,3 +291,44 @@ flow. Returns `503` when x402 is disabled.
 
 Live proof (a real public 402 challenge + a real facilitator on-chain verification) is
 in [`artifacts/PROOF.md`](artifacts/PROOF.md).
+
+## Running on Base mainnet
+
+The live service runs on Base Sepolia: testnet USDC settled through the
+`https://x402.org/facilitator` facilitator (no auth, Base Sepolia only). Going live on
+Base mainnet is a config-only switch — no code change is required to point the service
+at mainnet, because `CHAINS.base` in `src/config.ts` already contains the mainnet USDC
+address `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, chainId `8453`, and the
+`eip155:8453` network (including the `USD Coin` v2 EIP-712 domain). The one code-level
+gap is passing the CDP API key (below).
+
+**1. Switch chain + facilitator in `.env`:**
+```
+WEBCAP_CHAIN=base          # was: base-sepolia
+X402_FACILITATOR_URL=https://api.cdp.coinbase.com/platform/v2/x402
+```
+- `https://x402.org/facilitator` — the testnet default: no auth, Base Sepolia only.
+- `https://api.cdp.coinbase.com/platform/v2/x402` — the CDP facilitator (recommended for
+  mainnet): supports Base mainnet and the testnets; requires CDP API keys (free tier —
+  create a project at cdp.coinbase.com and generate API credentials).
+
+**2. Merchant funding:** settlement is a gasless EIP-3009
+`transferWithAuthorization` transfer payer → merchant (the facilitator submits it and
+pays gas), so the merchant EOA (`USDC_MERCHANT_PRIVATE_KEY` /
+`WEBCAP_MERCHANT_ADDRESS`) must be a live Base mainnet wallet holding real USDC
+(`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`). Receiving needs no ETH.
+
+**3. Restart** (`npm start`) — the startup log prints `chain=8453`, the mainnet USDC
+address, and the CDP facilitator URL, confirming the switch.
+
+### Known gap: CDP API keys are not wired up yet
+
+The CDP facilitator requires API credentials, but the current facilitator client has no
+way to send them: `src/main.ts` constructs `new HTTPFacilitatorClient({ url, timeoutMs })`
+from the `X402_FACILITATOR_URL` string, and `src/config.ts` reads no key. The client
+library does support auth — `createAuthHeaders`, returning per-path headers for
+`verify` / `settle` / `supported` — so the minimal change is to plumb the CDP key
+through config and pass a `createAuthHeaders` callback to the `HTTPFacilitatorClient`
+constructor in `src/main.ts`; routes and settlement logic are unchanged. Until then,
+expect CDP to reject `verify`/`settle` calls, so mainnet x402 payments cannot settle
+end-to-end.

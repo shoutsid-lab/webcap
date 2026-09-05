@@ -49,6 +49,17 @@ Any x402 v2 client works (`@x402/axios` `wrapAxiosWithPayment`). The payer EOA
 only needs a USDC balance on the challenge's network (e.g. Base Sepolia faucet)
 — no ETH.
 
+## Mainnet
+
+`WEBCAP_CHAIN=base` → Base mainnet: real USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
+(`eip155:8453`) — the sepolia and mainnet USDC addresses are already handled in code, so
+this is a config-only switch. Also set
+`X402_FACILITATOR_URL=https://api.cdp.coinbase.com/platform/v2/x402` (CDP; requires CDP
+API keys) instead of the testnet default `https://x402.org/facilitator`, and the merchant
+EOA must hold real USDC on Base (gasless EIP-3009 transfers settle to it). Known gap: the
+server cannot send the CDP key yet (no auth-header wiring in `src/main.ts`), so mainnet
+x402 payments won't settle until that's added.
+
 ## Notes
 - `WEBCAP_CHAIN=base-sepolia` → testnet USDC (default, safe); `base` → live
   USDC (real money; point the facilitator at CDP).
