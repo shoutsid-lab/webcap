@@ -26,4 +26,14 @@ export class RateLimiter {
     window.count += 1;
     return true;
   }
+
+  /**
+   * Milliseconds until the key's current window resets: the back-off a blocked
+   * caller should wait before retrying. 0 when no active window blocks the key.
+   */
+  retryAfterMs(key: string): number {
+    const window = this.windows.get(key);
+    if (window === undefined) return 0;
+    return Math.max(0, window.resetsAt - Date.now());
+  }
 }

@@ -16,6 +16,7 @@ import {
   usdcForCredits,
   usdcUnitsForCredits,
   watchTopUpPriceUsdcUnits,
+  type ChainName,
   type WebcapConfig,
 } from '../config.js';
 import { CaptureError } from '../capture/errors.js';
@@ -286,14 +287,18 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     };
   });
 
-  app.get('/v1/extract/preview', async (req) => {
+  app.get('/v1/extract/preview', async (req, reply) => {
     const rawUrl = isRecord(req.query) ? req.query.url : undefined;
     if (typeof rawUrl !== 'string') throw unprocessable('url query parameter is required');
     const forwarded = req.headers['x-forwarded-for'];
     const firstForwarded = typeof forwarded === 'string' ? forwarded.split(',')[0]?.trim() : undefined;
     const clientKey = firstForwarded !== undefined && firstForwarded !== '' ? firstForwarded : req.ip;
     if (!previewLimiter.allow(clientKey)) {
-      throw new HttpError(429, 'rate_limited', 'preview rate limit exceeded; use the paid extract endpoint');
+      const retryAfterSeconds = Math.max(1, Math.ceil(previewLimiter.retryAfterMs(clientKey) / 1000));
+      reply.header('retry-after', String(retryAfterSeconds));
+      throw new HttpError(429, 'rate_limited', 'preview rate limit exceeded; use the paid extract endpoint', {
+        retryAfterSeconds,
+      });
     }
     let structure;
     try {
@@ -356,6 +361,15 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           priceUsdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE,
           atomicUnits: String(config.x402ExtractPriceUsdcUnits),
           note: 'structured content (title, headings, paragraphs, links, images) as JSON; one payment covers a batch',
+        },
+        {
+          method: 'POST',
+          path: '/v1/x402/watches/topup',
+          body: { watchId: 'string (required)', runs: `${WATCH_TOPUP_RUNS} (required; one pack)` },
+          priceUsdc: watchTopUpPriceUsdcUnits('capture', config) / USDC_SCALE,
+          atomicUnits: String(watchTopUpPriceUsdcUnits('capture', config)),
+          usdcMax: watchTopUpPriceUsdcUnits('extract', config) / USDC_SCALE,
+          note: `Pre-pay ${WATCH_TOPUP_RUNS} scheduled monitor runs of an existing watch (capture-pack price shown; extract-pack is usdcMax; exact price quoted per watch via ?watchId=)`,
         },
       ],
       price: {
@@ -464,13 +478,19 @@ function sitemapXml(config: WebcapConfig): string {
   ].join('\n');
 }
 
+/** The chain phrase of the well-known catalog description, per configured chain (compiler-checked exhaustive). */
+const CHAIN_COPY: Record<ChainName, string> = {
+  base: 'Base mainnet',
+  'base-sepolia': 'Base Sepolia (testnet)',
+  local: 'a local Anvil dev chain',
+};
+
 /** x402 machine-discovery catalog: what to call, what it costs, how to pay. */
 function x402WellKnown(config: WebcapConfig) {
   const base = httpsBase(config.publicBaseUrl);
   return {
     service: 'webcap',
-    description:
-      'Pay-per-call web capture on Base mainnet: one-time screenshots (PNG/JPEG/PDF + free Open Graph metadata), structured content extraction, and scheduled monitoring with change-detection webhooks. All paid routes settle gasless USDC via x402 (HTTP 402).',
+    description: `Pay-per-call web capture on ${CHAIN_COPY[config.chain.name]}: one-time screenshots (PNG/JPEG/PDF + free Open Graph metadata), structured content extraction, and scheduled monitoring with change-detection webhooks. All paid routes settle gasless USDC via x402 (HTTP 402).`,
     network: config.x402Network ?? null,
     asset: config.x402Network === undefined ? null : config.x402Asset,
     payTo: config.x402Network === undefined ? null : config.x402PayTo,

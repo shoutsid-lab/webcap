@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { openDb, type Db } from '../../src/db/index.js';
 import { makeArtifactRepo } from '../../src/db/artifacts.js';
+import { USDC_SCALE, WATCH_TOPUP_RUNS } from '../../src/config.js';
 import type { WebcapConfig } from '../../src/config.js';
 import { buildApp } from '../../src/server/server.js';
 import type { CaptureRequest, CaptureResult, PageStructure, StructuredCapture } from '../../src/capture/pipeline.js';
@@ -196,6 +197,13 @@ describe('x402 capture (v2 wire, mock facilitator, no chain)', () => {
     expect(svc.paidEndpoints).toEqual([
       expect.objectContaining({ method: 'POST', path: '/v1/x402/capture', priceUsdc: 0.001, atomicUnits: '1000' }),
       expect.objectContaining({ method: 'POST', path: '/v1/x402/extract', priceUsdc: 0.01, atomicUnits: '10000' }),
+      // Watch top-up pack: WATCH_TOPUP_RUNS × capture unit price (config-derived in routes.ts).
+      expect.objectContaining({
+        method: 'POST',
+        path: '/v1/x402/watches/topup',
+        priceUsdc: (1_000 * WATCH_TOPUP_RUNS) / USDC_SCALE,
+        atomicUnits: String(1_000 * WATCH_TOPUP_RUNS),
+      }),
     ]);
     expect(svc.price).toMatchObject({
       asset: SEPOLIA_USDC,

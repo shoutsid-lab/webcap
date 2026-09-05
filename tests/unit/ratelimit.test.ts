@@ -23,4 +23,17 @@ describe('util/ratelimit', () => {
     await new Promise((resolve) => setTimeout(resolve, 40));
     expect(limiter.allow('k')).toBe(true);
   });
+
+  it('reports retryAfterMs > 0 while blocked, 0 for unknown keys, and 0 once the window resets', async () => {
+    const limiter = new RateLimiter(1, 30);
+    expect(limiter.allow('k')).toBe(true);
+    expect(limiter.allow('k')).toBe(false);
+    const whileBlocked = limiter.retryAfterMs('k');
+    expect(whileBlocked).toBeGreaterThan(0);
+    expect(whileBlocked).toBeLessThanOrEqual(30);
+    expect(limiter.retryAfterMs('other')).toBe(0);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(limiter.retryAfterMs('k')).toBe(0);
+    expect(limiter.allow('k')).toBe(true);
+  });
 });
