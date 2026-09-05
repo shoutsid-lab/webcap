@@ -21,7 +21,15 @@ import { generateApiKey, hashKey } from '../util/keys.js';
 import { isRecord, parseFormat, parseOptions, validatedUrl } from './capture-parse.js';
 import { x402Payer } from './x402.js';
 import { authenticate } from './auth.js';
+import { makeRevenueRepo } from '../db/revenue.js';
+import { RateLimiter } from '../util/ratelimit.js';
+import { modelExtract } from '../extract/model.js';
+import type { StructuredCapture } from '../capture/pipeline.js';
+import { parseExtractSchema, parseExtractUrls, type ExtractedContent, type ExtractResult } from './extract-parse.js';
 import type { AppDeps } from './server.js';
+
+const PREVIEW_RATE_LIMIT = 10;
+const PREVIEW_RATE_WINDOW_MS = 60_000;
 
 export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
   const { db, config } = deps;
@@ -29,8 +37,33 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
   const keys = makeApiKeysRepo(db);
   const credits = makeCreditsRepo(db);
   const invoices = makeInvoicesRepo(db);
+  const revenue = makeRevenueRepo(db);
   const merchantAddress = merchantAddressOf(config);
   const allowHosts = deps.captureAllowHosts;
+  const previewLimiter = new RateLimiter(PREVIEW_RATE_LIMIT, PREVIEW_RATE_WINDOW_MS);
+
+  app.get('/', async () => ({
+    service: 'webcap',
+    tagline:
+      'Capture any URL as a screenshot, or extract its structured content + clean document-order markdown — paid per-request in USDC over x402 (HTTP 402).',
+    endpoints: {
+      free: [
+        { path: 'GET /v1/extract/preview?url=...', note: 'bounded structured preview (rate-limited)' },
+        { path: 'GET /v1/og?url=...', note: 'OG metadata' },
+        { path: 'GET /v1/health', note: 'liveness + chain' },
+      ],
+      paid: [
+        { path: 'POST /v1/x402/capture', usdc: config.x402PriceUsdcUnits / USDC_SCALE, note: 'PNG/JPEG/PDF screenshot + free OG' },
+        { path: 'POST /v1/x402/extract', usdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE, note: 'structured JSON; batch up to 10 URLs for one payment' },
+      ],
+    },
+    catalog: 'GET /v1/x402/service — full agent-discoverable descriptor + the exact x402 payment flow',
+    agentGuide: 'AGENT.md — how an AI agent discovers + pays (gasless EIP-3009, no ETH)',
+    payment:
+      config.x402Network === undefined
+        ? 'x402 disabled (WEBCAP_CHAIN=local)'
+        : `x402 v2 on ${config.x402Network}, asset ${config.x402Asset}, payTo ${config.x402PayTo}`,
+  }));
 
   app.get('/v1/health', async () => ({
     ok: true,
@@ -124,10 +157,106 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       if (err instanceof CaptureError) throw new HttpError(502, 'capture_failed', err.message);
       throw err;
     }
+    const payer = x402Payer(req) ?? 'unknown';
+    revenue.record({
+      endpoint: 'capture',
+      payer,
+      revenueUsdcUnits: config.x402PriceUsdcUnits,
+      costUsdcUnits: config.computeCostUsdcUnitsPerRequest,
+    });
     return {
       artifact: { format: result.format, bytes: result.bytes, data: result.buffer.toString('base64') },
-      payment: { payer: x402Payer(req), priceUsdcUnits: config.x402PriceUsdcUnits },
+      payment: { payer, priceUsdcUnits: config.x402PriceUsdcUnits },
     };
+  });
+
+  app.post('/v1/x402/extract', async (req) => {
+    if (config.x402Network === undefined) {
+      throw new HttpError(503, 'x402_disabled', 'x402 payment requires WEBCAP_CHAIN=base-sepolia or base');
+    }
+    const urls = parseExtractUrls(req.body, allowHosts);
+    const schema = parseExtractSchema(req.body);
+    const wantsModel =
+      schema !== undefined && config.modelApiKey !== '' && config.modelApiBaseUrl !== '' && config.modelName !== '';
+    const results: ExtractResult[] = [];
+    let failures = 0;
+    for (const url of urls) {
+      let captured: StructuredCapture;
+      try {
+        captured = await deps.captureStructured({ url, options: { includeHtml: wantsModel } });
+      } catch (err) {
+        failures += 1;
+        results.push({ url, status: 'error', error: err instanceof CaptureError ? err.message : 'capture failed' });
+        continue;
+      }
+      let extracted: Record<string, unknown> | undefined;
+      if (schema !== undefined) {
+        extracted = await modelExtract(captured.html, schema, {
+          baseUrl: config.modelApiBaseUrl,
+          apiKey: config.modelApiKey,
+          model: config.modelName,
+        });
+      }
+      const data: ExtractedContent =
+        extracted === undefined ? { ...captured.structure } : { ...captured.structure, extracted };
+      results.push({ url, status: 'ok', data });
+    }
+    if (failures === urls.length) {
+      throw new HttpError(502, 'extract_failed', 'all urls failed to extract');
+    }
+    const payer = x402Payer(req) ?? 'unknown';
+    revenue.record({
+      endpoint: 'extract',
+      payer,
+      revenueUsdcUnits: config.x402ExtractPriceUsdcUnits,
+      costUsdcUnits: config.computeCostUsdcUnitsPerRequest * urls.length,
+    });
+    return {
+      results,
+      payment: { payer, priceUsdcUnits: config.x402ExtractPriceUsdcUnits },
+    };
+  });
+
+  app.get('/v1/extract/preview', async (req) => {
+    const rawUrl = isRecord(req.query) ? req.query.url : undefined;
+    if (typeof rawUrl !== 'string') throw unprocessable('url query parameter is required');
+    const forwarded = req.headers['x-forwarded-for'];
+    const firstForwarded = typeof forwarded === 'string' ? forwarded.split(',')[0]?.trim() : undefined;
+    const clientKey = firstForwarded !== undefined && firstForwarded !== '' ? firstForwarded : req.ip;
+    if (!previewLimiter.allow(clientKey)) {
+      throw new HttpError(429, 'rate_limited', 'preview rate limit exceeded; use the paid extract endpoint');
+    }
+    let structure;
+    try {
+      ({ structure } = await deps.captureStructured({ url: validatedUrl(rawUrl, allowHosts), options: { includeHtml: false } }));
+    } catch (err) {
+      if (err instanceof CaptureError) throw new HttpError(502, 'capture_failed', err.message);
+      throw err;
+    }
+    return {
+      url: rawUrl,
+      preview: {
+        title: structure.title,
+        description: structure.description,
+        headings: structure.headings.slice(0, 5),
+        links: structure.links.slice(0, 10),
+        wordCount: structure.wordCount,
+        markdown: structure.markdown.slice(0, 1500),
+      },
+      truncated: true,
+      upgrade: {
+        endpoint: 'POST /v1/x402/extract',
+        note: 'paid: full paragraphs + images + batch (up to 10 URLs) + optional model extraction',
+      },
+    };
+  });
+
+  app.get('/v1/ledger', async (req) => {
+    const { account } = authenticate(req, db);
+    if (account.address.toLowerCase() !== config.merchantAddress.toLowerCase()) {
+      throw new HttpError(403, 'forbidden', 'ledger is merchant-only');
+    }
+    return { summary: revenue.summary(), recent: revenue.recent(50) };
   });
 
   app.get('/v1/x402/service', async () => {
@@ -139,24 +268,43 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       description: 'Capture any URL as PNG/JPEG/PDF (+ free OG metadata), paid per-request in USDC via x402 (HTTP 402).',
       paymentProtocol: 'x402',
       x402Version: 2,
-      paidEndpoint: {
-        method: 'POST',
-        path: '/v1/x402/capture',
-        body: { url: 'string (required)', format: 'png|jpeg|pdf (optional)' },
-      },
+      paidEndpoints: [
+        {
+          method: 'POST',
+          path: '/v1/x402/capture',
+          body: { url: 'string (required)', format: 'png|jpeg|pdf (optional)' },
+          priceUsdc: config.x402PriceUsdcUnits / USDC_SCALE,
+          atomicUnits: String(config.x402PriceUsdcUnits),
+          note: 'screenshot artifact (base64) + free OG metadata',
+        },
+        {
+          method: 'POST',
+          path: '/v1/x402/extract',
+          body: {
+            url: 'string (required, or urls: string[] up to 10 for a batch)',
+            schema: 'string (optional) — natural-language description of the JSON to extract; uses a model when one is configured',
+          },
+          priceUsdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE,
+          atomicUnits: String(config.x402ExtractPriceUsdcUnits),
+          note: 'structured content (title, headings, paragraphs, links, images) as JSON; one payment covers a batch',
+        },
+      ],
       price: {
-        usdc: config.x402PriceUsdcUnits / USDC_SCALE,
-        atomicUnits: String(config.x402PriceUsdcUnits),
         asset: config.x402Asset,
         network: config.x402Network,
         payTo: config.x402PayTo,
         scheme: 'exact',
       },
       howToPay:
-        'POST /v1/x402/capture unpaid -> HTTP 402 with a base64 x402 v2 challenge (payment-required header) -> sign a gasless EIP-3009 transferWithAuthorization (from=your wallet, to=price.payTo, value=price.atomicUnits) -> retry with the PAYMENT-SIGNATURE header. The facilitator verifies + settles on-chain; USDC lands in the merchant wallet and the capture is returned. Works with any x402 v2 client (@x402/axios) or scripts/x402-pay.ts.',
+        'POST /v1/x402/capture or /v1/x402/extract unpaid -> HTTP 402 with a base64 x402 v2 challenge (payment-required header) -> sign a gasless EIP-3009 transferWithAuthorization (from=your wallet, to=price.payTo, value=price.atomicUnits) -> retry with the PAYMENT-SIGNATURE header. The facilitator verifies + settles on-chain; USDC lands in the merchant wallet and the result is returned. Works with any x402 v2 client (@x402/axios) or scripts/x402-pay.ts (capture) / scripts/extract-pay.ts (extract). Free, no-payment preview: GET /v1/extract/preview?url=... (rate-limited).',
       facilitator: config.x402FacilitatorUrl,
       freeEndpoints: [
         { method: 'GET', path: '/v1/og?url=...', note: 'free OG metadata, no payment' },
+        {
+          method: 'GET',
+          path: '/v1/extract/preview?url=...',
+          note: 'free bounded structured preview (rate-limited); the paid extract returns full text + images + batch + model',
+        },
         { method: 'GET', path: '/v1/health', note: 'liveness + chain' },
       ],
     };

@@ -41,6 +41,14 @@ export interface WebcapConfig {
   readonly x402PriceUsdcUnits: number;
   /** Facilitator that verifies + settles x402 payments (gasless payer). */
   readonly x402FacilitatorUrl: string;
+  /** x402 per-extract price in atomic 6-decimal USDC units (the "meaning" price, above capture). */
+  readonly x402ExtractPriceUsdcUnits: number;
+  /** Amortized compute cost per paid request, in atomic 6-decimal USDC units (for the P&L ledger). */
+  readonly computeCostUsdcUnitsPerRequest: number;
+  /** Optional LLM endpoint for model-based extraction (OpenAI-compatible); empty = deterministic only. */
+  readonly modelApiBaseUrl: string;
+  readonly modelApiKey: string;
+  readonly modelName: string;
 }
 
 const CHAINS: Record<ChainName, Omit<ChainConfig, 'name'>> = {
@@ -73,6 +81,8 @@ export const X402_NETWORKS: Record<Exclude<ChainName, 'local'>, X402Network> = {
 
 export const DEFAULT_X402_FACILITATOR_URL = 'https://x402.org/facilitator';
 export const DEFAULT_X402_PRICE_USDC_UNITS = 1_000; // $0.001 in 6-decimal atomic units
+export const DEFAULT_X402_EXTRACT_PRICE_USDC_UNITS = 10_000; // $0.01 — a "meaning" price, above raw capture
+export const DEFAULT_COMPUTE_COST_USDC_UNITS_PER_REQUEST = 200; // $0.0002 amortized compute cost/page-load (override with your real infra/TPU cost)
 
 export const PACKS: Record<PackName, CreditPack> = {
   starter: { credits: 100, usd: 0.5, usdc: 500_000 },
@@ -114,14 +124,22 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
   return value;
 }
 
-/** WEBCAP_X402_PRICE_USDC (human USD, e.g. "0.001") -> atomic 6-decimal units. */
-function parseX402PriceUsdc(raw: string | undefined): number {
-  if (raw === undefined || raw.trim() === '') return DEFAULT_X402_PRICE_USDC_UNITS;
+/** A human USDC price env (e.g. "0.001") -> atomic 6-decimal units; empty -> defaultUnits. */
+function parseX402PriceUsdc(raw: string | undefined, defaultUnits: number, envName: string): number {
+  if (raw === undefined || raw.trim() === '') return defaultUnits;
   const usd = Number(raw);
-  if (!Number.isFinite(usd) || usd <= 0) throw new Error(`invalid WEBCAP_X402_PRICE_USDC: ${raw}`);
+  if (!Number.isFinite(usd) || usd <= 0) throw new Error(`invalid ${envName}: ${raw}`);
   const units = Math.round(usd * USDC_SCALE);
-  if (units < 1) throw new Error(`WEBCAP_X402_PRICE_USDC too small (min 1 atomic unit): ${raw}`);
+  if (units < 1) throw new Error(`${envName} too small (min 1 atomic unit): ${raw}`);
   return units;
+}
+
+/** A human USDC cost env (e.g. "0.002", may be "0") -> atomic 6-decimal units; empty -> defaultUnits. */
+function parseComputeCostUsdcUnits(raw: string | undefined, defaultUnits: number): number {
+  if (raw === undefined || raw.trim() === '') return defaultUnits;
+  const usd = Number(raw);
+  if (!Number.isFinite(usd) || usd < 0) throw new Error(`invalid WEBCAP_COMPUTE_COST_USDC_PER_REQUEST: ${raw}`);
+  return Math.round(usd * USDC_SCALE);
 }
 
 /** Optional address override env; empty/unset falls back, invalid throws. */
@@ -176,7 +194,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WebcapConfig {
     x402Network: chainName === 'local' ? undefined : X402_NETWORKS[chainName],
     x402Asset: parseAddressOverride(env.WEBCAP_X402_ASSET, usdcContract, 'WEBCAP_X402_ASSET'),
     x402PayTo: parseAddressOverride(env.WEBCAP_X402_PAY_TO, merchantAddress, 'WEBCAP_X402_PAY_TO'),
-    x402PriceUsdcUnits: parseX402PriceUsdc(env.WEBCAP_X402_PRICE_USDC),
+    x402PriceUsdcUnits: parseX402PriceUsdc(env.WEBCAP_X402_PRICE_USDC, DEFAULT_X402_PRICE_USDC_UNITS, 'WEBCAP_X402_PRICE_USDC'),
+    x402ExtractPriceUsdcUnits: parseX402PriceUsdc(
+      env.WEBCAP_X402_EXTRACT_PRICE_USDC,
+      DEFAULT_X402_EXTRACT_PRICE_USDC_UNITS,
+      'WEBCAP_X402_EXTRACT_PRICE_USDC',
+    ),
+    computeCostUsdcUnitsPerRequest: parseComputeCostUsdcUnits(
+      env.WEBCAP_COMPUTE_COST_USDC_PER_REQUEST,
+      DEFAULT_COMPUTE_COST_USDC_UNITS_PER_REQUEST,
+    ),
+    modelApiBaseUrl: (env.MODEL_API_BASE_URL ?? '').trim(),
+    modelApiKey: (env.MODEL_API_KEY ?? '').trim(),
+    modelName: (env.MODEL_NAME ?? '').trim(),
     x402FacilitatorUrl: x402FacilitatorUrl(env.X402_FACILITATOR_URL),
   };
 }

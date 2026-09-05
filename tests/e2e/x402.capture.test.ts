@@ -7,7 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import { openDb, type Db } from '../../src/db/index.js';
 import type { WebcapConfig } from '../../src/config.js';
 import { buildApp } from '../../src/server/server.js';
-import type { CaptureRequest, CaptureResult } from '../../src/capture/pipeline.js';
+import type { CaptureRequest, CaptureResult, PageStructure, StructuredCapture } from '../../src/capture/pipeline.js';
 import { closeApiFixture, FAKE_PNG, makeApiFixture } from '../api/fixture.js';
 import { makeMockFacilitator, MOCK_SETTLE_TX, type MockFacilitator } from '../helpers/facilitator.js';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -34,6 +34,21 @@ const fakeCapture = async (req: CaptureRequest): Promise<CaptureResult> => {
   captureCalls += 1;
   return { buffer: FAKE_PNG, format: req.format ?? 'png', bytes: FAKE_PNG.length };
 };
+
+const FAKE_STRUCTURE: PageStructure = {
+  title: 'Example Domain',
+  description: 'For use in examples.',
+  headings: [{ level: 1, text: 'Example Domain' }],
+  paragraphs: ['This domain is for use in illustrative examples.'],
+  links: [{ href: 'https://www.iana.org/domains/example', text: 'More information...' }],
+  images: [],
+  wordCount: 9,
+  markdown: '# Example Domain\n\nThis domain is for use in illustrative examples.',
+};
+const fakeCaptureStructured = async (): Promise<StructuredCapture> => ({
+  html: `<html><title>${FAKE_STRUCTURE.title}</title></html>`,
+  structure: FAKE_STRUCTURE,
+});
 
 function onlyAccept(paymentRequired: PaymentRequired): PaymentRequirements {
   const accept = paymentRequired.accepts[0];
@@ -90,12 +105,18 @@ beforeAll(async () => {
     x402Asset: SEPOLIA_USDC,
     x402PayTo: MERCHANT_ADDRESS,
     x402PriceUsdcUnits: 1_000,
+    x402ExtractPriceUsdcUnits: 10_000,
+    computeCostUsdcUnitsPerRequest: 200,
+    modelApiBaseUrl: '',
+    modelApiKey: '',
+    modelName: '',
     x402FacilitatorUrl: 'https://x402.org/facilitator',
   };
   app = buildApp({
     db,
     config,
     capture: fakeCapture,
+    captureStructured: fakeCaptureStructured,
     og: async ({ url }) => ({ url, title: 'Stub' }),
     x402Facilitator: mock.facilitator,
   });
@@ -141,18 +162,19 @@ describe('x402 capture (v2 wire, mock facilitator, no chain)', () => {
       service: string;
       paymentProtocol: string;
       x402Version: number;
-      paidEndpoint: { method: string; path: string };
-      price: { usdc: number; atomicUnits: string; asset: string; network: string; payTo: string; scheme: string };
+      paidEndpoints: Array<{ method: string; path: string; priceUsdc: number; atomicUnits: string }>;
+      price: { asset: string; network: string; payTo: string; scheme: string };
       facilitator: string;
       howToPay: string;
     };
     expect(svc.service).toBe('webcap');
     expect(svc.paymentProtocol).toBe('x402');
     expect(svc.x402Version).toBe(2);
-    expect(svc.paidEndpoint).toMatchObject({ method: 'POST', path: '/v1/x402/capture' });
+    expect(svc.paidEndpoints).toEqual([
+      expect.objectContaining({ method: 'POST', path: '/v1/x402/capture', priceUsdc: 0.001, atomicUnits: '1000' }),
+      expect.objectContaining({ method: 'POST', path: '/v1/x402/extract', priceUsdc: 0.01, atomicUnits: '10000' }),
+    ]);
     expect(svc.price).toMatchObject({
-      usdc: 0.001,
-      atomicUnits: '1000',
       asset: SEPOLIA_USDC,
       network: 'eip155:84532',
       payTo: MERCHANT_ADDRESS,

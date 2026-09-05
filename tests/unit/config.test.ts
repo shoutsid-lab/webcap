@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_COMPUTE_COST_USDC_UNITS_PER_REQUEST,
+  DEFAULT_X402_EXTRACT_PRICE_USDC_UNITS,
   DEFAULT_X402_FACILITATOR_URL,
   DEFAULT_X402_PRICE_USDC_UNITS,
   loadConfig,
@@ -168,5 +170,49 @@ describe('config: x402', () => {
   it('rejects invalid x402 override addresses', () => {
     expect(() => loadConfig({ WEBCAP_CHAIN: 'base', WEBCAP_X402_ASSET: '0x123' })).toThrow(/WEBCAP_X402_ASSET/);
     expect(() => loadConfig({ WEBCAP_CHAIN: 'base', WEBCAP_X402_PAY_TO: 'not-an-address' })).toThrow(/WEBCAP_X402_PAY_TO/);
+  });
+});
+
+describe('config: extract pricing + compute cost + model', () => {
+  it('defaults the extract price above capture and the compute cost below both', () => {
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia' });
+    expect(cfg.x402ExtractPriceUsdcUnits).toBe(DEFAULT_X402_EXTRACT_PRICE_USDC_UNITS);
+    expect(cfg.computeCostUsdcUnitsPerRequest).toBe(DEFAULT_COMPUTE_COST_USDC_UNITS_PER_REQUEST);
+    expect(cfg.x402ExtractPriceUsdcUnits).toBeGreaterThan(cfg.x402PriceUsdcUnits);
+    expect(cfg.x402PriceUsdcUnits).toBeGreaterThan(cfg.computeCostUsdcUnitsPerRequest);
+  });
+
+  it('converts WEBCAP_X402_EXTRACT_PRICE_USDC human units to atomic units (0.01 -> 10000)', () => {
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_X402_EXTRACT_PRICE_USDC: '0.01' });
+    expect(cfg.x402ExtractPriceUsdcUnits).toBe(10_000);
+  });
+
+  it('converts WEBCAP_COMPUTE_COST_USDC_PER_REQUEST to atomic units and allows zero', () => {
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_COMPUTE_COST_USDC_PER_REQUEST: '0.0005' });
+    expect(cfg.computeCostUsdcUnitsPerRequest).toBe(500);
+    const zero = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_COMPUTE_COST_USDC_PER_REQUEST: '0' });
+    expect(zero.computeCostUsdcUnitsPerRequest).toBe(0);
+  });
+
+  it('rejects a negative compute cost', () => {
+    expect(() => loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_COMPUTE_COST_USDC_PER_REQUEST: '-1' })).toThrow(
+      /WEBCAP_COMPUTE_COST_USDC_PER_REQUEST/,
+    );
+  });
+
+  it('defaults model config to empty (deterministic only) and honors overrides', () => {
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia' });
+    expect(cfg.modelApiBaseUrl).toBe('');
+    expect(cfg.modelApiKey).toBe('');
+    expect(cfg.modelName).toBe('');
+    const overridden = loadConfig({
+      WEBCAP_CHAIN: 'base-sepolia',
+      MODEL_API_BASE_URL: 'https://api.example.com/v1',
+      MODEL_API_KEY: 'sk-test',
+      MODEL_NAME: 'gpt-4o-mini',
+    });
+    expect(overridden.modelApiBaseUrl).toBe('https://api.example.com/v1');
+    expect(overridden.modelApiKey).toBe('sk-test');
+    expect(overridden.modelName).toBe('gpt-4o-mini');
   });
 });

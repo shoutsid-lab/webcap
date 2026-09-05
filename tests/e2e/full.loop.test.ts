@@ -8,7 +8,7 @@ import type { FastifyInstance } from 'fastify';
 import { openDb, type Db } from '../../src/db/index.js';
 import type { WebcapConfig } from '../../src/config.js';
 import { buildApp } from '../../src/server/server.js';
-import { capture } from '../../src/capture/pipeline.js';
+import { capture, captureStructured } from '../../src/capture/pipeline.js';
 import { closeBrowser } from '../../src/capture/browser.js';
 import { ogMetadata } from '../../src/capture/og.js';
 import { contractMethod, makeUsdcContract } from '../../src/payment/erc20.js';
@@ -56,9 +56,14 @@ describe('S1: full loop register -> invoice -> USDC pay -> settle -> real captur
       x402Asset: chain.usdcContract,
       x402PayTo: merchant.address,
       x402PriceUsdcUnits: 1_000,
+      x402ExtractPriceUsdcUnits: 10_000,
+      computeCostUsdcUnitsPerRequest: 200,
+      modelApiBaseUrl: '',
+      modelApiKey: '',
+      modelName: '',
       x402FacilitatorUrl: 'https://x402.org/facilitator',
     };
-    app = buildApp({ db, config, capture, og: ogMetadata, captureAllowHosts: ['127.0.0.1'] });
+    app = buildApp({ db, config, capture, captureStructured, og: ogMetadata, captureAllowHosts: ['127.0.0.1'] });
 
     server = createServer((_req, res) => {
       res.writeHead(200, { 'content-type': 'text/html' });

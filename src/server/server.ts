@@ -3,7 +3,7 @@ import type { FacilitatorClient } from '@x402/core/server';
 import type { Db } from '../db/index.js';
 import type { WebcapConfig } from '../config.js';
 import { toResponse, type ErrorBody, HttpError } from '../util/errors.js';
-import type { CaptureRequest, CaptureResult } from '../capture/pipeline.js';
+import type { CaptureRequest, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
 import type { OgResult } from '../capture/og.js';
 import { registerRoutes } from './routes.js';
 import { registerX402Middleware } from './x402.js';
@@ -12,6 +12,7 @@ export interface AppDeps {
   readonly db: Db;
   readonly config: WebcapConfig;
   readonly capture: (req: CaptureRequest) => Promise<CaptureResult>;
+  readonly captureStructured: (req: CaptureRequest) => Promise<StructuredCapture>;
   readonly og: (req: { url: string }) => Promise<OgResult>;
   /** Private hosts that may still be captured (local dev); default: none. */
   readonly captureAllowHosts?: readonly string[];

@@ -58,3 +58,13 @@ CREATE TABLE IF NOT EXISTS poll_state (
   chain TEXT PRIMARY KEY,
   last_block INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS revenue_ledger (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  endpoint TEXT NOT NULL,
+  payer TEXT NOT NULL DEFAULT '',
+  revenue_usdc INTEGER NOT NULL,
+  cost_usdc INTEGER NOT NULL,
+  net_margin_usdc INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);

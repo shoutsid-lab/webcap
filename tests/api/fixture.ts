@@ -10,7 +10,7 @@ import { makeInvoicesRepo, type InvoicesRepo } from '../../src/db/invoices.js';
 import type { WebcapConfig } from '../../src/config.js';
 import { generateApiKey, hashKey } from '../../src/util/keys.js';
 import { buildApp } from '../../src/server/server.js';
-import type { CaptureRequest, CaptureResult } from '../../src/capture/pipeline.js';
+import type { CaptureRequest, CaptureResult, PageStructure, StructuredCapture } from '../../src/capture/pipeline.js';
 import type { OgResult } from '../../src/capture/og.js';
 
 import { Wallet } from 'ethers';
@@ -22,6 +22,18 @@ export const CUSTOMER_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 export const USDC_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
 
 export const FAKE_PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+const FAKE_STRUCTURE: PageStructure = {
+  title: 'Stub Title',
+  description: 'Stub description',
+  headings: [{ level: 1, text: 'Heading One' }],
+  paragraphs: ['A stub paragraph.'],
+  links: [{ href: 'https://example.com/', text: 'home' }],
+  images: [{ src: 'https://example.com/i.png', alt: 'stub' }],
+  wordCount: 4,
+  markdown: '# Stub Title\n\nA stub paragraph.',
+};
+const FAKE_HTML = '<html><head><title>Stub Title</title></head><body><h1>Heading One</h1></body></html>';
 
 export interface ApiFixture {
   readonly app: FastifyInstance;
@@ -38,6 +50,7 @@ export interface ApiFixture {
 
 export interface FixtureOverrides {
   readonly capture?: (req: CaptureRequest) => Promise<CaptureResult>;
+  readonly captureStructured?: (req: CaptureRequest) => Promise<StructuredCapture>;
   readonly og?: (req: { url: string }) => Promise<OgResult>;
 }
 
@@ -58,6 +71,11 @@ export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
     x402Asset: USDC_ADDRESS,
     x402PayTo: MERCHANT_ADDRESS,
     x402PriceUsdcUnits: 1_000,
+    x402ExtractPriceUsdcUnits: 10_000,
+    computeCostUsdcUnitsPerRequest: 200,
+    modelApiBaseUrl: '',
+    modelApiKey: '',
+    modelName: '',
     x402FacilitatorUrl: 'https://x402.org/facilitator',
   };
   const accounts = makeAccountsRepo(db);
@@ -72,8 +90,10 @@ export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
       format: req.format ?? 'png',
       bytes: FAKE_PNG.length,
     }));
+  const captureStructured =
+    overrides.captureStructured ?? (async (): Promise<StructuredCapture> => ({ html: FAKE_HTML, structure: FAKE_STRUCTURE }));
   const og = overrides.og ?? (async (req: { url: string }): Promise<OgResult> => ({ url: req.url, title: 'Stub Title' }));
-  const app = buildApp({ db, config, capture, og });
+  const app = buildApp({ db, config, capture, captureStructured, og });
   return {
     app,
     db,

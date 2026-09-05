@@ -1,8 +1,10 @@
 # webcap
 
-Capture any URL as PNG/JPEG/PDF, or fetch its OG link-preview metadata —
-metered in credits, paid with on-chain USDC (Base mainnet, Base Sepolia, or a
-local Anvil chain).
+Capture any URL as PNG/JPEG/PDF, fetch its OG link-preview metadata, or extract
+its structured content (title, headings, text, links, images) as JSON — metered
+in credits, paid with on-chain USDC (Base mainnet, Base Sepolia, or a local
+Anvil chain), plus a per-request **x402 (HTTP 402)** USDC pay-as-you-go path with
+a live P&L ledger.
 
 ## Payment → capture loop
 
@@ -194,11 +196,16 @@ to your merchant EOA and settle automatically. The full public loop is proven in
 | `X402_FACILITATOR_URL` | `https://x402.org/facilitator` | x402 facilitator (testnet default; use the CDP facilitator on mainnet) |
 | `WEBCAP_X402_ASSET` | chain USDC | x402 asset override (default: the chain's USDC) |
 | `WEBCAP_X402_PAY_TO` | merchant | x402 payTo override (default: the merchant address) |
+| `WEBCAP_X402_EXTRACT_PRICE_USDC` | `0.01` | x402 per-extract price in USDC (the "meaning" price, above raw capture) |
+| `WEBCAP_COMPUTE_COST_USDC_PER_REQUEST` | `0.0002` | amortized compute cost per page-load in USDC, recorded to the P&L ledger (set to your real infra/TPU cost) |
+| `MODEL_API_BASE_URL` | — (empty) | optional OpenAI-compatible base URL for model-based extraction |
+| `MODEL_API_KEY` | — (empty) | optional API key for the extraction model (empty = deterministic only) |
+| `MODEL_NAME` | — (empty) | optional model name for the extraction model |
 
 ## Tests
 
 ```bash
-npm test           # 108 tests: unit + API + e2e; anvil + local http fixtures only, no internet
+npm test           # 127 tests: unit + API + e2e; anvil + local http fixtures only, no internet
 npm run typecheck
 ```
 
@@ -235,11 +242,52 @@ X402_CUSTOMER_PRIVATE_KEY=0x… \
 - `WEBCAP_CHAIN=base` → `eip155:8453` (mainnet), USDC `0x8335…2913` (name `USD Coin`, v2) — **real money**; point `X402_FACILITATOR_URL` at the CDP facilitator.
 - `WEBCAP_CHAIN=local` → the x402 route returns `503` (no public facilitator).
 
+### `POST /v1/x402/extract` — x402-gated (structured content, batch)
+
+The "meaning" endpoint: capture a URL (or a **batch**, up to `10` URLs for one
+payment) and return its rendered structure — `title`, `description`, `headings`
+(h1–h3), `paragraphs`, `links`, `images`, `wordCount` — as JSON. A single flat
+x402 price covers the whole request regardless of batch size, so batches carry
+higher margin. Optionally pass `schema` (a natural-language description of the
+JSON to extract) to also get a model-based `extracted` object when a model is
+configured (`MODEL_*`) — the deterministic structure is always returned as a
+floor, so the model is a premium enhancement, not a dependency.
+
+Body: `{"url": "https://..."}` or `{"urls": ["https://...", "..."], "schema": "..."}`.
+
+```json
+{
+  "results": [
+    { "url": "https://example.com/", "status": "ok", "data": { "title": "Example Domain", "headings": [{ "level": 1, "text": "Example Domain" }], "paragraphs": ["..."], "links": [{ "href": "...", "text": "..." }], "images": [], "wordCount": 12, "extracted": { "topic": "..." } } },
+    { "url": "https://bad.example/", "status": "error", "error": "structured capture failed for ...: ..." }
+  ],
+  "payment": { "payer": "0x...", "priceUsdcUnits": 10000 }
+}
+```
+One URL failing in a batch still returns `200` (that entry is `status: "error"`);
+only if **all** URLs fail does the request `502`. Every paid request is recorded
+to the P&L ledger.
+
+### `GET /v1/ledger` — merchant-only (P&L)
+
+The operator's revenue / cost / margin view of the x402 endpoints. Authenticate
+with the **merchant's own** API key (register `WEBCAP_MERCHANT_ADDRESS` via
+`POST /v1/register`); any other key gets `403`.
+
+```json
+{ "summary": { "totalRevenueUsdcUnits": 30000, "totalCostUsdcUnits": 800, "netMarginUsdcUnits": 29200, "requestCount": 3, "coveringCompute": true },
+  "recent": [ { "id": 3, "endpoint": "extract", "payer": "0x...", "revenue_usdc": 10000, "cost_usdc": 400, "net_margin_usdc": 9600, "created_at": "..." } ] }
+```
+`coveringCompute` is `true` while net margin ≥ 0 (the business isn't bleeding).
+Prices + the compute-cost input are env-tunable, so watch this endpoint and
+reprice to cover your real infra/TPU cost.
+
 ### `GET /v1/x402/service` — agent-discoverable catalog
 
 A free, machine-readable service descriptor (no payment) so AI agents can discover the
-service + its payment terms: endpoint, USDC price, network, asset, `payTo`, facilitator,
-and the exact x402 payment flow. Returns `503` when x402 is disabled.
+service + its payment terms: both paid endpoints (`/v1/x402/capture` + `/v1/x402/extract`)
+with their USDC prices, network, asset, `payTo`, facilitator, and the exact x402 payment
+flow. Returns `503` when x402 is disabled.
 
 Live proof (a real public 402 challenge + a real facilitator on-chain verification) is
 in [`artifacts/PROOF.md`](artifacts/PROOF.md).

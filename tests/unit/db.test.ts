@@ -4,6 +4,7 @@ import { makeAccountsRepo } from '../../src/db/accounts.js';
 import { makeCreditsRepo } from '../../src/db/credits.js';
 import { makeInvoicesRepo, type NewInvoice } from '../../src/db/invoices.js';
 import { makePaymentsRepo, type PaymentInput } from '../../src/db/payments.js';
+import { makeRevenueRepo } from '../../src/db/revenue.js';
 
 function sampleInvoice(over: Partial<NewInvoice> = {}): NewInvoice {
   return {
@@ -147,6 +148,68 @@ describe('db: payments + poll state', () => {
     expect(payments.getPollState('local')).toBe(12345);
     payments.setPollState('local', 12346);
     expect(payments.getPollState('local')).toBe(12346);
+    db.close();
+  });
+});
+
+describe('db: revenue ledger (x402 P&L)', () => {
+  it('records a row with net margin = revenue - cost', () => {
+    const db = openDb(':memory:');
+    const revenue = makeRevenueRepo(db);
+    revenue.record({ endpoint: 'capture', payer: '0xabc', revenueUsdcUnits: 1000, costUsdcUnits: 200 });
+    const rows = revenue.recent(10);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ endpoint: 'capture', payer: '0xabc', revenue_usdc: 1000, cost_usdc: 200, net_margin_usdc: 800 });
+    db.close();
+  });
+
+  it('summary aggregates totals and covers compute when net margin is non-negative', () => {
+    const db = openDb(':memory:');
+    const revenue = makeRevenueRepo(db);
+    revenue.record({ endpoint: 'extract', payer: '0xabc', revenueUsdcUnits: 10_000, costUsdcUnits: 400 });
+    revenue.record({ endpoint: 'extract', payer: '0xdef', revenueUsdcUnits: 2_000, costUsdcUnits: 6_000 });
+    const summary = revenue.summary();
+    expect(summary.requestCount).toBe(2);
+    expect(summary.totalRevenueUsdcUnits).toBe(12_000);
+    expect(summary.totalCostUsdcUnits).toBe(6_400);
+    expect(summary.netMarginUsdcUnits).toBe(5_600);
+    expect(summary.coveringCompute).toBe(true);
+    db.close();
+  });
+
+  it('summary is zero on a fresh ledger', () => {
+    const db = openDb(':memory:');
+    const revenue = makeRevenueRepo(db);
+    expect(revenue.summary()).toEqual({
+      totalRevenueUsdcUnits: 0,
+      totalCostUsdcUnits: 0,
+      netMarginUsdcUnits: 0,
+      requestCount: 0,
+      coveringCompute: true,
+    });
+    db.close();
+  });
+
+  it('summary is not covering when total margin is negative', () => {
+    const db = openDb(':memory:');
+    const revenue = makeRevenueRepo(db);
+    revenue.record({ endpoint: 'capture', payer: '0xabc', revenueUsdcUnits: 100, costUsdcUnits: 500 });
+    const summary = revenue.summary();
+    expect(summary.netMarginUsdcUnits).toBe(-400);
+    expect(summary.coveringCompute).toBe(false);
+    db.close();
+  });
+
+  it('recent returns newest first, capped at limit', () => {
+    const db = openDb(':memory:');
+    const revenue = makeRevenueRepo(db);
+    for (let i = 0; i < 5; i += 1) {
+      revenue.record({ endpoint: 'capture', payer: `0x${i}`, revenueUsdcUnits: 100, costUsdcUnits: 10 });
+    }
+    const rows = revenue.recent(3);
+    expect(rows).toHaveLength(3);
+    expect(rows[0]?.payer).toBe('0x4');
+    expect(rows[2]?.payer).toBe('0x2');
     db.close();
   });
 });

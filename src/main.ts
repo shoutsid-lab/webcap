@@ -4,7 +4,7 @@ import { HTTPFacilitatorClient } from '@x402/core/server';
 import { loadConfig } from './config.js';
 import { openDb } from './db/index.js';
 import { buildApp } from './server/server.js';
-import { capture } from './capture/pipeline.js';
+import { capture, captureStructured } from './capture/pipeline.js';
 import { closeBrowser } from './capture/browser.js';
 import { ogMetadata } from './capture/og.js';
 import { getUsdc, makeProvider } from './payment/erc20.js';
@@ -36,6 +36,7 @@ async function main(): Promise<void> {
     db,
     config,
     capture,
+    captureStructured,
     og: ogMetadata,
     captureAllowHosts: parseAllowHosts(process.env),
     x402Facilitator,

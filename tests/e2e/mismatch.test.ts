@@ -7,7 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import { openDb, type Db } from '../../src/db/index.js';
 import type { WebcapConfig } from '../../src/config.js';
 import { buildApp } from '../../src/server/server.js';
-import { capture } from '../../src/capture/pipeline.js';
+import { capture, captureStructured } from '../../src/capture/pipeline.js';
 import { ogMetadata } from '../../src/capture/og.js';
 import { contractMethod, makeUsdcContract } from '../../src/payment/erc20.js';
 import { processPendingInvoices } from '../../src/payment/poller.js';
@@ -50,9 +50,14 @@ describe('S4: underpayment does not settle and does not unlock capture', () => {
       x402Asset: chain.usdcContract,
       x402PayTo: merchant.address,
       x402PriceUsdcUnits: 1_000,
+      x402ExtractPriceUsdcUnits: 10_000,
+      computeCostUsdcUnitsPerRequest: 200,
+      modelApiBaseUrl: '',
+      modelApiKey: '',
+      modelName: '',
       x402FacilitatorUrl: 'https://x402.org/facilitator',
     };
-    app = buildApp({ db, config, capture, og: ogMetadata });
+    app = buildApp({ db, config, capture, captureStructured, og: ogMetadata });
 
     await app.listen({ port: 0, host: '127.0.0.1' });
     const registered = await registerAccount(app, chain.customer.address);

@@ -7,10 +7,13 @@ import type { WebcapConfig, X402Network } from '../config.js';
 
 export const X402_CAPTURE_PATTERN = 'POST /v1/x402/capture';
 export const X402_CAPTURE_PATH = '/v1/x402/capture';
+export const X402_EXTRACT_PATTERN = 'POST /v1/x402/extract';
+export const X402_EXTRACT_PATH = '/v1/x402/extract';
 
 const X402_VERSION = 2;
 const X402_MAX_TIMEOUT_SECONDS = 300;
-const X402_DESCRIPTION = 'Capture a URL as PNG/JPEG/PDF + free OG metadata';
+const X402_CAPTURE_DESCRIPTION = 'Capture a URL as PNG/JPEG/PDF + free OG metadata';
+const X402_EXTRACT_DESCRIPTION = 'Capture a URL and return its structured content (title, headings, text, links, images) as JSON';
 const X402_MIME_TYPE = 'application/json';
 
 // EIP-712 domain of each chain's USDC deploy; a mismatch makes every
@@ -20,15 +23,15 @@ const EIP712_DOMAINS: Record<X402Network, { readonly name: string; readonly vers
   'eip155:8453': { name: 'USD Coin', version: '2' },
 };
 
-/** The single payment requirement webcap advertises on the x402 route. */
-export function buildX402Requirement(config: WebcapConfig): PaymentRequirements {
+/** The payment requirement for an x402 route at a given price. */
+export function buildX402Requirement(config: WebcapConfig, priceUsdcUnits: number): PaymentRequirements {
   const network = config.x402Network;
   if (network === undefined) throw new Error('x402 is disabled (WEBCAP_CHAIN=local)');
   return {
     scheme: 'exact',
     network,
     asset: config.x402Asset,
-    amount: String(config.x402PriceUsdcUnits),
+    amount: String(priceUsdcUnits),
     payTo: config.x402PayTo,
     maxTimeoutSeconds: X402_MAX_TIMEOUT_SECONDS,
     extra: EIP712_DOMAINS[network],
@@ -36,29 +39,46 @@ export function buildX402Requirement(config: WebcapConfig): PaymentRequirements 
 }
 
 /** 402 body mirror of the PAYMENT-REQUIRED header (curl/agent-friendly). */
-export function buildUnpaidBody(context: HTTPRequestContext, requirement: PaymentRequirements): PaymentRequired {
+export function buildUnpaidBody(
+  context: HTTPRequestContext,
+  requirement: PaymentRequirements,
+  description: string,
+): PaymentRequired {
   return {
     x402Version: X402_VERSION,
     error: 'Payment required',
-    resource: { url: context.adapter.getUrl(), description: X402_DESCRIPTION, mimeType: X402_MIME_TYPE },
+    resource: { url: context.adapter.getUrl(), description, mimeType: X402_MIME_TYPE },
     accepts: [requirement],
   };
 }
 
 export function buildX402Routes(config: WebcapConfig): RoutesConfig {
-  const requirement = buildX402Requirement(config);
+  const captureReq = buildX402Requirement(config, config.x402PriceUsdcUnits);
+  const extractReq = buildX402Requirement(config, config.x402ExtractPriceUsdcUnits);
   return {
     [X402_CAPTURE_PATTERN]: {
       accepts: {
-        scheme: requirement.scheme,
-        network: requirement.network,
-        payTo: requirement.payTo,
-        price: { asset: requirement.asset, amount: requirement.amount, extra: requirement.extra },
-        maxTimeoutSeconds: requirement.maxTimeoutSeconds,
+        scheme: captureReq.scheme,
+        network: captureReq.network,
+        payTo: captureReq.payTo,
+        price: { asset: captureReq.asset, amount: captureReq.amount, extra: captureReq.extra },
+        maxTimeoutSeconds: captureReq.maxTimeoutSeconds,
       },
-      description: X402_DESCRIPTION,
+      description: X402_CAPTURE_DESCRIPTION,
       mimeType: X402_MIME_TYPE,
-      unpaidResponseBody: (context) => ({ contentType: X402_MIME_TYPE, body: buildUnpaidBody(context, requirement) }),
+      unpaidResponseBody: (context) => ({ contentType: X402_MIME_TYPE, body: buildUnpaidBody(context, captureReq, X402_CAPTURE_DESCRIPTION) }),
+    },
+    [X402_EXTRACT_PATTERN]: {
+      accepts: {
+        scheme: extractReq.scheme,
+        network: extractReq.network,
+        payTo: extractReq.payTo,
+        price: { asset: extractReq.asset, amount: extractReq.amount, extra: extractReq.extra },
+        maxTimeoutSeconds: extractReq.maxTimeoutSeconds,
+      },
+      description: X402_EXTRACT_DESCRIPTION,
+      mimeType: X402_MIME_TYPE,
+      unpaidResponseBody: (context) => ({ contentType: X402_MIME_TYPE, body: buildUnpaidBody(context, extractReq, X402_EXTRACT_DESCRIPTION) }),
     },
   };
 }
