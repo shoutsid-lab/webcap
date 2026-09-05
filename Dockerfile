@@ -26,6 +26,8 @@ WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY package.json ./
+# Static assets served from dist-relative paths (GET /icon.png reads /app/public/icon.png).
+COPY public ./public
 RUN useradd -m webcap && mkdir -p /data && chown webcap /data
 USER webcap
 ENV NODE_ENV=production

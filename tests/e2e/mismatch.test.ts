@@ -58,6 +58,7 @@ describe('S4: underpayment does not settle and does not unlock capture', () => {
       modelName: '',
       x402FacilitatorUrl: 'https://x402.org/facilitator',
       publicBaseUrl: 'http://localhost:8080',
+      cdpApiKey: undefined,
     };
     app = buildApp({ db, config, capture, captureStructured, og: ogMetadata, artifacts: makeArtifactRepo(db) });
 

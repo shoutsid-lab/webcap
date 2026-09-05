@@ -56,9 +56,9 @@ only needs a USDC balance on the challenge's network (e.g. Base Sepolia faucet)
 this is a config-only switch. Also set
 `X402_FACILITATOR_URL=https://api.cdp.coinbase.com/platform/v2/x402` (CDP; requires CDP
 API keys) instead of the testnet default `https://x402.org/facilitator`, and the merchant
-EOA must hold real USDC on Base (gasless EIP-3009 transfers settle to it). Known gap: the
-server cannot send the CDP key yet (no auth-header wiring in `src/main.ts`), so mainnet
-x402 payments won't settle until that's added.
+EOA must hold real USDC on Base (gasless EIP-3009 transfers settle to it). Bazaar
+discovery metadata is embedded in the 402 challenges; CDP facilitator auth is optional
+via CDP_API_KEY_ID/CDP_API_KEY_SECRET (Ed25519 JWT, default off).
 
 ## Notes
 - `WEBCAP_CHAIN=base-sepolia` → testnet USDC (default, safe); `base` → live

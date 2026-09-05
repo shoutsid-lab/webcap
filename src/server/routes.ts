@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { readFileSync } from 'node:fs';
 import { getAddress, Wallet, ZeroAddress } from 'ethers';
 import { makeAccountsRepo } from '../db/accounts.js';
 import { makeApiKeysRepo } from '../db/api_keys.js';
@@ -88,6 +89,17 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     creditsPerUsdc: CREDITS_PER_USDC,
     pricePerCredit: PRICE_PER_CREDIT,
   }));
+
+  // Service icon referenced by the x402 bazaar resource.iconUrl.
+  app.get('/icon.png', async (_req, reply) => {
+    const icon = loadIconPng();
+    if (icon === undefined) {
+      throw new HttpError(500, 'internal', 'service icon is missing');
+    }
+    reply.header('content-type', 'image/png');
+    reply.header('cache-control', 'public, max-age=86400');
+    return reply.send(icon);
+  });
 
   app.post('/v1/register', async (req, reply) => {
     const raw = isRecord(req.body) ? req.body.address : undefined;
@@ -364,6 +376,21 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       })),
     };
   });
+}
+
+// Lazy + cached: loading at module import time would crash app boot (and the
+// test suite) when public/icon.png is absent.
+let iconPng: Buffer | undefined;
+
+function loadIconPng(): Buffer | undefined {
+  if (iconPng === undefined) {
+    try {
+      iconPng = readFileSync(new URL('../../public/icon.png', import.meta.url));
+    } catch {
+      return undefined;
+    }
+  }
+  return iconPng;
 }
 
 function merchantAddressOf(config: WebcapConfig): string {

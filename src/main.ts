@@ -1,6 +1,5 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { HTTPFacilitatorClient } from '@x402/core/server';
 import { loadConfig } from './config.js';
 import { openDb } from './db/index.js';
 import { makeArtifactRepo } from './db/artifacts.js';
@@ -10,6 +9,7 @@ import { closeBrowser } from './capture/browser.js';
 import { ogMetadata } from './capture/og.js';
 import { getUsdc, makeProvider } from './payment/erc20.js';
 import { startPoller, type Poller } from './payment/poller.js';
+import { buildX402Facilitator } from './x402/facilitator.js';
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -30,10 +30,7 @@ async function main(): Promise<void> {
     merchantAddress: config.merchantAddress,
     intervalMs: config.pollIntervalMs,
   });
-  const x402Facilitator =
-    config.x402Network === undefined
-      ? undefined
-      : new HTTPFacilitatorClient({ url: config.x402FacilitatorUrl, timeoutMs: 30_000 });
+  const x402Facilitator = buildX402Facilitator(config);
   const app = buildApp({
     db,
     artifacts,
@@ -50,7 +47,7 @@ async function main(): Promise<void> {
     `webcap listening on :${config.port} chain=${config.chainId} usdc=${config.usdcAddress} merchant=${config.merchantAddress}` +
       (config.x402Network === undefined
         ? ' x402=disabled'
-        : ` x402=${config.x402Network} payTo=${config.x402PayTo} priceUsdc=${config.x402PriceUsdcUnits} facilitator=${config.x402FacilitatorUrl}`),
+        : ` x402=${config.x402Network} payTo=${config.x402PayTo} priceUsdc=${config.x402PriceUsdcUnits} facilitator=${config.x402FacilitatorUrl} cdpAuth=${config.cdpApiKey !== undefined ? 'yes' : 'no'}`),
   );
 
   let shuttingDown = false;

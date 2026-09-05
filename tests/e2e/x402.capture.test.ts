@@ -113,6 +113,7 @@ beforeAll(async () => {
     modelName: '',
     x402FacilitatorUrl: 'https://x402.org/facilitator',
     publicBaseUrl: 'http://localhost:8080',
+    cdpApiKey: undefined,
   };
   app = buildApp({
     db,
@@ -156,6 +157,25 @@ describe('x402 capture (v2 wire, mock facilitator, no chain)', () => {
     expect(challengeFromHeaders(res)).toEqual(challenge);
     expect(captureCalls).toBe(0);
     expect(mock.calls.settle).toBe(before.settle);
+  });
+
+  it('S6: the 402 challenge carries bazaar service metadata in both the header and the body', async () => {
+    const res = await app.inject({ method: 'POST', url: '/v1/x402/capture', payload: { url: CAPTURE_URL } });
+    expect(res.statusCode).toBe(402);
+    const header = challengeFromHeaders(res);
+    expect(header.resource.serviceName).toBe('Webcap');
+    expect(header.resource.tags).toHaveLength(5);
+    expect(header.resource.iconUrl).toMatch(/\/icon\.png$/);
+    const headerBazaar = header.extensions?.['bazaar'] as { info: { input: { type: string } } } | undefined;
+    expect(headerBazaar?.info.input.type).toBe('http');
+    const body = res.json() as PaymentRequired;
+    expect(body.resource.serviceName).toBe('Webcap');
+    expect(body.resource.tags).toHaveLength(5);
+    expect(body.resource.iconUrl).toMatch(/\/icon\.png$/);
+    const bodyBazaar = body.extensions?.['bazaar'] as { info: { input: { type: string } } } | undefined;
+    expect(bodyBazaar?.info.input.type).toBe('http');
+    // the JSON body is a static mirror of the enriched PAYMENT-REQUIRED header
+    expect(body.extensions).toEqual(header.extensions);
   });
 
   it('S4: GET /v1/x402/service returns the agent-discoverable catalog', async () => {

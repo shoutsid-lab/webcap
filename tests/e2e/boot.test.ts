@@ -51,6 +51,7 @@ describe('boot: app with real capture+og serves health, and register upserts acc
       modelName: '',
       x402FacilitatorUrl: 'https://x402.org/facilitator',
       publicBaseUrl: 'http://localhost:8080',
+      cdpApiKey: undefined,
     };
     app = buildApp({ db, config, capture, captureStructured, og: ogMetadata, artifacts: makeArtifactRepo(db) });
     await app.listen({ port: 0, host: '127.0.0.1' });

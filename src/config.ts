@@ -45,6 +45,8 @@ export interface WebcapConfig {
   readonly x402FacilitatorUrl: string;
   /** x402 per-extract price in atomic 6-decimal USDC units (the "meaning" price, above capture). */
   readonly x402ExtractPriceUsdcUnits: number;
+  /** Optional CDP API key pair (CDP_API_KEY_ID/CDP_API_KEY_SECRET) for CDP facilitator auth. */
+  readonly cdpApiKey: { readonly id: string; readonly secret: string } | undefined;
   /** Amortized compute cost per paid request, in atomic 6-decimal USDC units (for the P&L ledger). */
   readonly computeCostUsdcUnitsPerRequest: number;
   /** Optional LLM endpoint for model-based extraction (OpenAI-compatible); empty = deterministic only. */
@@ -156,6 +158,17 @@ function x402FacilitatorUrl(raw: string | undefined): string {
   return trimmed !== '' ? trimmed : DEFAULT_X402_FACILITATOR_URL;
 }
 
+/** Optional CDP key pair; both env vars set & non-empty, or both absent — exactly one throws. */
+function parseCdpApiKey(env: NodeJS.ProcessEnv): { readonly id: string; readonly secret: string } | undefined {
+  const id = (env.CDP_API_KEY_ID ?? '').trim();
+  const secret = (env.CDP_API_KEY_SECRET ?? '').trim();
+  if (id === '' && secret === '') return undefined;
+  if (id === '' || secret === '') {
+    throw new Error('CDP_API_KEY_ID and CDP_API_KEY_SECRET must be set together (both or neither)');
+  }
+  return { id, secret };
+}
+
 /** Public base URL (required); every capture's artifact.url is built from it. */
 function parsePublicBaseUrl(raw: string | undefined): string {
   const trimmed = (raw ?? '').trim();
@@ -219,6 +232,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WebcapConfig {
     modelApiKey: (env.MODEL_API_KEY ?? '').trim(),
     modelName: (env.MODEL_NAME ?? '').trim(),
     x402FacilitatorUrl: x402FacilitatorUrl(env.X402_FACILITATOR_URL),
+    cdpApiKey: parseCdpApiKey(env),
     publicBaseUrl: parsePublicBaseUrl(env.WEBCAP_PUBLIC_BASE_URL),
   };
 }

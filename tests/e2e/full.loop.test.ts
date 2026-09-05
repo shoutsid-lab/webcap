@@ -64,6 +64,7 @@ describe('S1: full loop register -> invoice -> USDC pay -> settle -> real captur
       modelName: '',
       x402FacilitatorUrl: 'https://x402.org/facilitator',
       publicBaseUrl: 'http://localhost:8080',
+      cdpApiKey: undefined,
     };
     app = buildApp({
       db,

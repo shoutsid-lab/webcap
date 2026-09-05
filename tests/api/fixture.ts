@@ -79,6 +79,7 @@ export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
     modelName: '',
     x402FacilitatorUrl: 'https://x402.org/facilitator',
     publicBaseUrl: 'http://localhost:8080',
+    cdpApiKey: undefined,
   };
   const accounts = makeAccountsRepo(db);
   const keys = makeApiKeysRepo(db);

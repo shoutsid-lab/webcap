@@ -104,6 +104,7 @@ beforeAll(async () => {
     modelName: '',
     x402FacilitatorUrl: 'https://x402.org/facilitator',
     publicBaseUrl: 'http://localhost:8080',
+    cdpApiKey: undefined,
   };
   app = buildApp({
     db,

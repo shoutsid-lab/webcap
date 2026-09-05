@@ -299,8 +299,9 @@ The live service runs on Base Sepolia: testnet USDC settled through the
 Base mainnet is a config-only switch — no code change is required to point the service
 at mainnet, because `CHAINS.base` in `src/config.ts` already contains the mainnet USDC
 address `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, chainId `8453`, and the
-`eip155:8453` network (including the `USD Coin` v2 EIP-712 domain). The one code-level
-gap is passing the CDP API key (below).
+`eip155:8453` network (including the `USD Coin` v2 EIP-712 domain). The CDP API key for
+the mainnet facilitator is already wired — optional via `CDP_API_KEY_ID` /
+`CDP_API_KEY_SECRET` (see "CDP Bazaar listing" below).
 
 **1. Switch chain + facilitator in `.env`:**
 ```
@@ -321,14 +322,14 @@ pays gas), so the merchant EOA (`USDC_MERCHANT_PRIVATE_KEY` /
 **3. Restart** (`npm start`) — the startup log prints `chain=8453`, the mainnet USDC
 address, and the CDP facilitator URL, confirming the switch.
 
-### Known gap: CDP API keys are not wired up yet
+## CDP Bazaar listing
 
-The CDP facilitator requires API credentials, but the current facilitator client has no
-way to send them: `src/main.ts` constructs `new HTTPFacilitatorClient({ url, timeoutMs })`
-from the `X402_FACILITATOR_URL` string, and `src/config.ts` reads no key. The client
-library does support auth — `createAuthHeaders`, returning per-path headers for
-`verify` / `settle` / `supported` — so the minimal change is to plumb the CDP key
-through config and pass a `createAuthHeaders` callback to the `HTTPFacilitatorClient`
-constructor in `src/main.ts`; routes and settlement logic are unchanged. Until then,
-expect CDP to reject `verify`/`settle` calls, so mainnet x402 payments cannot settle
-end-to-end.
+Both paid routes carry the x402 Bazaar discovery extension (serviceName "Webcap", tags,
+icon at /icon.png) in their 402 challenges, so the CDP Bazaar catalog (surfaced to agents
+via CDP APIs, Bazaar MCP, Amazon Bedrock AgentCore, agentic.market) can discover webcap.
+
+1. Create a free CDP project at https://cdp.coinbase.com and note the API key ID + secret.
+2. Set `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, and `X402_FACILITATOR_URL=https://api.cdp.coinbase.com/platform/v2/x402`.
+3. Restart, then make one paid call (e.g. `scripts/x402-pay.ts`) — a settlement through the CDP facilitator triggers Bazaar indexing.
+
+Validate without any key: `curl -s -X POST https://api.cdp.coinbase.com/platform/v2/x402/validate -H 'content-type: application/json' -d '{"resource":"https://YOUR-PUBLIC-URL/v1/x402/capture","method":"POST"}'` and look for `"valid": true`.

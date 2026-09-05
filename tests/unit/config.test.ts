@@ -191,6 +191,47 @@ describe('config: x402', () => {
   });
 });
 
+describe('config: CDP facilitator auth (optional Ed25519 JWT keys)', () => {
+  it('cdpApiKey is undefined when neither CDP var is set', () => {
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL });
+    expect(cfg.cdpApiKey).toBeUndefined();
+  });
+
+  it('cdpApiKey is undefined when both CDP vars are set but empty', () => {
+    const cfg = loadConfig({
+      WEBCAP_CHAIN: 'base-sepolia',
+      WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL,
+      CDP_API_KEY_ID: '',
+      CDP_API_KEY_SECRET: '   ',
+    });
+    expect(cfg.cdpApiKey).toBeUndefined();
+  });
+
+  it('cdpApiKey is { id, secret } when both CDP vars are set', () => {
+    const cfg = loadConfig({
+      WEBCAP_CHAIN: 'base-sepolia',
+      WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL,
+      CDP_API_KEY_ID: 'key-id-123',
+      CDP_API_KEY_SECRET: 'ZGVmYWx0LXNlY3JldA==',
+    });
+    expect(cfg.cdpApiKey).toEqual({ id: 'key-id-123', secret: 'ZGVmYWx0LXNlY3JldA==' });
+  });
+
+  it('throws naming both vars when exactly one CDP var is set', () => {
+    for (const env of [
+      { CDP_API_KEY_ID: 'key-id-only' },
+      { CDP_API_KEY_SECRET: 'c2VjcmV0LW9ubHk=' },
+    ]) {
+      expect(() => loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL, ...env })).toThrow(
+        /CDP_API_KEY_ID/,
+      );
+      expect(() => loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL, ...env })).toThrow(
+        /CDP_API_KEY_SECRET/,
+      );
+    }
+  });
+});
+
 describe('config: extract pricing + compute cost + model', () => {
   it('defaults the extract price above capture and the compute cost below both', () => {
     const cfg = loadConfig({ WEBCAP_CHAIN: 'base-sepolia', WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL });
