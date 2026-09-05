@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { validateBazaarRouteExtensions, type BodyDiscoveryExtension } from '@x402/extensions/bazaar';
 import type { RouteConfig } from '@x402/core/server';
-import type { WebcapConfig } from '../../src/config.js';
+import { PACKS, watchTopUpPriceUsdcUnits, type WebcapConfig } from '../../src/config.js';
+import { openDb } from '../../src/db/index.js';
+import { makeWatchRepo } from '../../src/watch/store.js';
 import {
   buildUnpaidBody,
   buildX402Requirement,
   buildX402Routes,
+  buildX402TopUpRoute,
+  topUpOutputExample,
   type UnpaidBazaarMetadata,
   X402_CAPTURE_PATTERN,
   X402_EXTRACT_PATTERN,
@@ -119,6 +123,24 @@ describe('x402 bazaar discovery (service metadata + route extensions)', () => {
 
   it('validateBazaarRouteExtensions does not throw on buildX402Routes output', () => {
     expect(() => validateBazaarRouteExtensions(routes)).not.toThrow();
+  });
+
+  it('topUpOutputExample is derived from config (starter-pack credits, capture-mode pack price)', () => {
+    const example = topUpOutputExample(config) as { watchId: string; credits: number; priceUsdcUnits: number };
+    expect(example.watchId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    expect(example.credits).toBe(PACKS.starter.credits);
+    expect(example.priceUsdcUnits).toBe(watchTopUpPriceUsdcUnits('capture', config));
+  });
+
+  it('the top-up bazaar extension advertises the config-derived output example', () => {
+    const db = openDb(':memory:');
+    try {
+      const route = buildX402TopUpRoute(config, makeWatchRepo(db));
+      const example = (bazaarOf(route).info.output?.example ?? undefined) as Record<string, unknown> | undefined;
+      expect(example).toEqual(topUpOutputExample(config));
+    } finally {
+      db.close();
+    }
   });
 
   it('buildUnpaidBody mirrors service metadata + bazaar extension into the 402 PaymentRequired body', () => {

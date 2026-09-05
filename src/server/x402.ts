@@ -15,7 +15,7 @@ import {
 } from '@x402/core/server';
 import type { PaymentRequired, PaymentRequirements } from '@x402/core/types';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
-import { WATCH_TOPUP_RUNS, watchTopUpPriceUsdcUnits, type WebcapConfig, type X402Network } from '../config.js';
+import { PACKS, WATCH_TOPUP_RUNS, watchTopUpPriceUsdcUnits, type WebcapConfig, type X402Network } from '../config.js';
 import type { Db } from '../db/index.js';
 import { makeWatchRepo, type WatchRepo } from '../watch/store.js';
 import { MAX_EXTRACT_BATCH } from './extract-parse.js';
@@ -38,8 +38,9 @@ const X402_MIME_TYPE = 'application/json';
 const BAZAAR_SERVICE_NAME = 'Webcap';
 const BAZAAR_TAGS = ['screenshot', 'web-capture', 'pdf', 'markdown', 'text-extraction'];
 const BAZAAR_HTTP_METHOD = 'POST';
-// Placeholder payer for the bazaar output examples (never a real merchant address).
-const BAZAAR_EXAMPLE_PAYER = '0x000000000000000000000000000000000000dEaD';
+// Placeholder payer for the output examples (never a real merchant address);
+// also imported by the OpenAPI catalog so every doc example uses one literal.
+export const BAZAAR_EXAMPLE_PAYER = '0x000000000000000000000000000000000000dEaD';
 
 // EIP-712 domain of each chain's USDC deploy; a mismatch makes every
 // payment signature unrecoverable (sepolia "USDC" vs mainnet "USD Coin").
@@ -158,20 +159,23 @@ const TOPUP_INPUT_SCHEMA: Record<string, unknown> = {
   required: ['watchId', 'runs'],
 };
 
-const TOPUP_OUTPUT_EXAMPLE: Record<string, unknown> = {
-  watchId: '00000000-0000-4000-8000-000000000000',
-  credits: WATCH_TOPUP_RUNS,
-  priceUsdcUnits: 100_000,
-};
+/** The top-up 200 example, derived from config: starter-pack credit count + the capture-mode pack price. */
+export function topUpOutputExample(config: WebcapConfig): Record<string, unknown> {
+  return {
+    watchId: '00000000-0000-4000-8000-000000000000',
+    credits: PACKS.starter.credits,
+    priceUsdcUnits: watchTopUpPriceUsdcUnits('capture', config),
+  };
+}
 
-function buildTopUpBazaarExtension(): BodyDiscoveryExtension {
+function buildTopUpBazaarExtension(config: WebcapConfig): BodyDiscoveryExtension {
   return withRoutedMethod(
     bazaarFromDeclared(
       declareDiscoveryExtension({
         bodyType: 'json',
         input: { watchId: '00000000-0000-4000-8000-000000000000', runs: WATCH_TOPUP_RUNS },
         inputSchema: TOPUP_INPUT_SCHEMA,
-        output: { example: TOPUP_OUTPUT_EXAMPLE },
+        output: { example: topUpOutputExample(config) },
       }),
     ),
   );
@@ -213,7 +217,7 @@ export function buildX402TopUpRoute(config: WebcapConfig, watchRepo: WatchRepo):
     serviceName: BAZAAR_SERVICE_NAME,
     tags: BAZAAR_TAGS,
     iconUrl: `${config.publicBaseUrl}/icon.png`,
-    bazaar: buildTopUpBazaarExtension(),
+    bazaar: buildTopUpBazaarExtension(config),
   };
   return {
     accepts: {
