@@ -1,5 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createServer, type Server } from 'node:http';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDb, type Db } from '../../src/db/index.js';
 import { makeArtifactRepo, type ArtifactRepo } from '../../src/db/artifacts.js';
 import { makeRevenueRepo, type RevenueRepo } from '../../src/db/revenue.js';
@@ -182,45 +181,30 @@ function makeScheduler(world: World, clock: WatchClock) {
   });
 }
 
-interface WebhookHit {
+interface FetchCall {
   readonly url: string;
-  readonly body: Record<string, unknown>;
+  readonly init?: RequestInit;
 }
 
-async function startWebhookReceiver(): Promise<{ url: string; hits: WebhookHit[]; server: Server; close: () => Promise<void> }> {
-  const hits: WebhookHit[] = [];
-  const server = createServer((req, res) => {
-    let data = '';
-    req.on('data', (chunk) => {
-      data += String(chunk);
-    });
-    req.on('end', () => {
-      const body = JSON.parse(data === '' ? '{}' : data) as Record<string, unknown>;
-      hits.push({ url: req.url ?? '', body });
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end('{}');
-    });
-  });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
-  if (address === null || typeof address === 'string') throw new Error('webhook receiver has no port');
-  return {
-    url: `http://127.0.0.1:${address.port}/hook`,
-    hits,
-    server,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+/**
+ * Wire-level fetch fake: records every call and plays back a fixed behavior.
+ * Installed on globalThis via vi.stubGlobal so the scheduler's bare `fetch`
+ * resolves to it; the webhook fire-time guard is what decides whether any
+ * call is made at all.
+ */
+function makeFetchStub(behavior: (callIndex: number) => Response | Error): {
+  readonly calls: FetchCall[];
+  readonly fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+} {
+  const calls: FetchCall[] = [];
+  const fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    calls.push({ url, init });
+    const outcome = behavior(calls.length - 1);
+    if (outcome instanceof Error) throw outcome;
+    return outcome;
   };
-}
-
-/** A port that refuses connections (listener opened + closed). */
-async function deadPort(): Promise<number> {
-  const server = createServer();
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
-  const port = address !== null && typeof address !== 'string' ? address.port : 0;
-  await new Promise<void>((resolve) => server.close(() => resolve()));
-  if (port === 0) throw new Error('dead port probe failed');
-  return port;
+  return { calls, fetch };
 }
 
 describe('watch scheduler (injected clock, no real waiting)', () => {
@@ -456,42 +440,44 @@ describe('watch scheduler change detection', () => {
 
 describe('watch scheduler webhook alerts', () => {
   let world: World;
-  let receiver: { url: string; hits: WebhookHit[]; close: () => Promise<void> } | null = null;
 
   beforeEach(() => {
     world = makeWorld();
   });
 
-  afterEach(async () => {
-    if (receiver !== null) {
-      await receiver.close();
-      receiver = null;
-    }
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     world.close();
   });
 
-  it('fires the webhook with the documented payload on a changed run; not on unchanged runs', async () => {
-    receiver = await startWebhookReceiver();
+  it('fires a public https webhook with the documented payload on a changed run; not on unchanged runs', async () => {
+    const stub = makeFetchStub(() => new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', stub.fetch);
     const clock = makeFakeClock(T0 + HOUR);
     seedWatch(world.repo, {
       id: 'w',
-      webhookUrl: receiver.url,
+      webhookUrl: 'https://webhook.example.com/hook',
       nextRunAt: new Date(T0).toISOString(),
       credits: 3,
     });
     const scheduler = makeScheduler(world, clock.clock);
 
     await scheduler.tick(); // baseline run — unchanged
-    expect(receiver.hits).toHaveLength(0);
+    expect(stub.calls).toHaveLength(0);
 
     world.state.captureBytes = Buffer.from('v2');
     clock.advance(HOUR);
-    await scheduler.tick(); // changed run
-    expect(receiver.hits).toHaveLength(1);
-    const hit = receiver.hits[0];
-    if (hit === undefined) throw new Error('no webhook hit recorded');
-    expect(hit.url).toBe('/hook');
-    expect(hit.body).toEqual({
+    await scheduler.tick(); // changed run — exactly one delivery, exact wire parity
+    expect(stub.calls).toHaveLength(1);
+    const call = stub.calls[0];
+    if (call === undefined) throw new Error('no webhook fetch recorded');
+    expect(call.url).toBe('https://webhook.example.com/hook');
+    expect(call.init?.method).toBe('POST');
+    expect(call.init?.headers).toEqual({ 'content-type': 'application/json' });
+    expect(call.init?.signal).toBeInstanceOf(AbortSignal);
+    const body = JSON.parse(String(call.init?.body)) as Record<string, unknown>;
+    expect(body).toEqual({
       watchId: 'w',
       url: 'https://example.com/watch',
       mode: 'capture',
@@ -502,18 +488,20 @@ describe('watch scheduler webhook alerts', () => {
     });
     const runs = world.repo.recentRuns('w', 10);
     expect(runs[0]).toMatchObject({ status: 'ok', changed: 1, webhook: 'ok: HTTP 200' });
+    expect(scheduler.stats().webhooksSkipped).toBe(0);
 
     clock.advance(HOUR);
     await scheduler.tick(); // unchanged again — no alert
-    expect(receiver.hits).toHaveLength(1);
+    expect(stub.calls).toHaveLength(1);
   });
 
-  it('an unreachable webhook does not fail the run (status stays ok, outcome logged)', async () => {
-    const port = await deadPort();
+  it('a failing webhook does not fail the run (status stays ok, 3 attempts, outcome on the run record)', async () => {
+    const stub = makeFetchStub(() => new Error('fetch failed'));
+    vi.stubGlobal('fetch', stub.fetch);
     const clock = makeFakeClock(T0 + HOUR);
     seedWatch(world.repo, {
       id: 'w',
-      webhookUrl: `http://127.0.0.1:${port}/hook`,
+      webhookUrl: 'https://webhook.example.com/hook',
       nextRunAt: new Date(T0).toISOString(),
       credits: 2,
     });
@@ -522,13 +510,141 @@ describe('watch scheduler webhook alerts', () => {
     await scheduler.tick(); // baseline (unchanged) — no webhook
     world.state.captureBytes = Buffer.from('v2');
     clock.advance(HOUR);
-    await scheduler.tick(); // changed — webhook unreachable
+    await scheduler.tick(); // changed — webhook keeps failing
 
+    expect(stub.calls).toHaveLength(3); // retry parity: all attempts, then give up
     const runs = world.repo.recentRuns('w', 10);
     expect(runs[0]).toMatchObject({ status: 'ok', changed: 1 });
-    expect(runs[0]?.webhook).toMatch(/^failed: /);
+    expect(runs[0]?.webhook).toBe('failed: fetch failed');
+    expect(scheduler.stats().webhooksSkipped).toBe(0);
     const row = world.repo.get('w');
     if (row === null) throw new Error('watch vanished');
     expect(row.credits).toBe(0); // both runs consumed; the alert never failed the run
+  });
+
+  it('skips a loopback webhook_url at fire time: no fetch, run says skipped, counter +1, log line', async () => {
+    const stub = makeFetchStub(() => new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', stub.fetch);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const clock = makeFakeClock(T0 + HOUR);
+    seedWatch(world.repo, {
+      id: 'w',
+      webhookUrl: 'http://127.0.0.1:9999/hook',
+      nextRunAt: new Date(T0).toISOString(),
+      credits: 2,
+    });
+    const scheduler = makeScheduler(world, clock.clock);
+
+    await scheduler.tick(); // baseline (unchanged) — no webhook at all
+    world.state.captureBytes = Buffer.from('v2');
+    clock.advance(HOUR);
+    await scheduler.tick(); // changed — but the stored URL is loopback
+
+    expect(stub.calls).toHaveLength(0); // no request leaves the process
+    const runs = world.repo.recentRuns('w', 10);
+    expect(runs[0]).toMatchObject({ status: 'ok', changed: 1 });
+    expect(runs[0]?.webhook).toBe('skipped: capture host is not allowed: 127.0.0.1');
+    expect(scheduler.stats().webhooksSkipped).toBe(1);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const args = warnSpy.mock.calls[0];
+    if (args === undefined) throw new Error('expected a structured warn log line');
+    expect(args[0]).toContain('webhook delivery skipped');
+    expect(args[1]).toMatchObject({ watchId: 'w', webhookUrl: 'http://127.0.0.1:9999/hook' });
+  });
+
+  it('skips a cloud-metadata webhook_url (169.254.169.254) at fire time: no fetch, counter +1', async () => {
+    const stub = makeFetchStub(() => new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', stub.fetch);
+    const clock = makeFakeClock(T0 + HOUR);
+    seedWatch(world.repo, {
+      id: 'w',
+      webhookUrl: 'http://169.254.169.254/latest/meta-data/',
+      nextRunAt: new Date(T0).toISOString(),
+      credits: 2,
+    });
+    const scheduler = makeScheduler(world, clock.clock);
+
+    await scheduler.tick(); // baseline
+    world.state.captureBytes = Buffer.from('v2');
+    clock.advance(HOUR);
+    await scheduler.tick(); // changed — but the stored URL is cloud metadata
+
+    expect(stub.calls).toHaveLength(0);
+    const runs = world.repo.recentRuns('w', 10);
+    expect(runs[0]).toMatchObject({ status: 'ok', changed: 1 });
+    expect(runs[0]?.webhook).toBe('skipped: capture host is not allowed: 169.254.169.254');
+    expect(scheduler.stats().webhooksSkipped).toBe(1);
+  });
+
+  it('skips a private-range webhook_url (10.0.0.5) at fire time: no fetch, counter +1', async () => {
+    const stub = makeFetchStub(() => new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', stub.fetch);
+    const clock = makeFakeClock(T0 + HOUR);
+    seedWatch(world.repo, {
+      id: 'w',
+      webhookUrl: 'http://10.0.0.5/hook',
+      nextRunAt: new Date(T0).toISOString(),
+      credits: 2,
+    });
+    const scheduler = makeScheduler(world, clock.clock);
+
+    await scheduler.tick(); // baseline
+    world.state.captureBytes = Buffer.from('v2');
+    clock.advance(HOUR);
+    await scheduler.tick(); // changed — but the stored URL is a private range
+
+    expect(stub.calls).toHaveLength(0);
+    const runs = world.repo.recentRuns('w', 10);
+    expect(runs[0]).toMatchObject({ status: 'ok', changed: 1 });
+    expect(runs[0]?.webhook).toBe('skipped: capture host is not allowed: 10.0.0.5');
+    expect(scheduler.stats().webhooksSkipped).toBe(1);
+  });
+
+  it('skips a non-https public webhook_url at fire time (https required): no fetch, counter +1', async () => {
+    const stub = makeFetchStub(() => new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', stub.fetch);
+    const clock = makeFakeClock(T0 + HOUR);
+    seedWatch(world.repo, {
+      id: 'w',
+      webhookUrl: 'http://public.example.com/hook',
+      nextRunAt: new Date(T0).toISOString(),
+      credits: 2,
+    });
+    const scheduler = makeScheduler(world, clock.clock);
+
+    await scheduler.tick(); // baseline
+    world.state.captureBytes = Buffer.from('v2');
+    clock.advance(HOUR);
+    await scheduler.tick(); // changed — public host, but plain http
+
+    expect(stub.calls).toHaveLength(0);
+    const runs = world.repo.recentRuns('w', 10);
+    expect(runs[0]).toMatchObject({ status: 'ok', changed: 1 });
+    expect(runs[0]?.webhook).toBe('skipped: webhook must be https');
+    expect(scheduler.stats().webhooksSkipped).toBe(1);
+  });
+
+  it('the skipped counter accumulates across ticks (2 changed runs with a blocked URL -> webhooksSkipped 2)', async () => {
+    const stub = makeFetchStub(() => new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', stub.fetch);
+    const clock = makeFakeClock(T0 + HOUR);
+    seedWatch(world.repo, {
+      id: 'w',
+      webhookUrl: 'http://127.0.0.1:9999/hook',
+      nextRunAt: new Date(T0).toISOString(),
+      credits: 3,
+    });
+    const scheduler = makeScheduler(world, clock.clock);
+
+    await scheduler.tick(); // baseline
+    world.state.captureBytes = Buffer.from('v2');
+    clock.advance(HOUR);
+    await scheduler.tick(); // skip #1
+    world.state.captureBytes = Buffer.from('v3');
+    clock.advance(HOUR);
+    await scheduler.tick(); // skip #2
+
+    expect(stub.calls).toHaveLength(0);
+    expect(scheduler.stats().webhooksSkipped).toBe(2);
   });
 });

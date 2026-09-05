@@ -15,6 +15,11 @@
  * - A changed run with a webhook set fires a change alert (3 attempts, 5s
  *   timeout each); the delivery outcome is logged into the run record and a
  *   webhook failure never fails the run.
+ * - The stored webhook_url is re-validated at fire time (checkWebhookUrl):
+ *   the capture-target host policy (validateCaptureUrl) plus the https-only
+ *   rule, so no request ever leaves the process to a private host even if a
+ *   row predates the write-time guard. A blocked URL is recorded on the run
+ *   as 'skipped: <reason>', logged, and counted in stats().webhooksSkipped.
  *
  * The clock and timers are injectable so unit tests drive ticks deterministically
  * (createWatchScheduler + manual tick()); production wires the real ones via
@@ -25,6 +30,7 @@ import type { RevenueRepo } from '../db/revenue.js';
 import type { WebcapConfig } from '../config.js';
 import type { CaptureFormat, CaptureRequest, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
 import { modelExtract } from '../extract/model.js';
+import { validateCaptureUrl } from '../util/url.js';
 import { diffJson, sha256Hex, stableStringify } from './diff.js';
 import type { WatchRepo, WatchRow } from './store.js';
 
@@ -84,6 +90,12 @@ export interface WatchSchedulerInput {
   readonly intervalMs?: number;
 }
 
+/** Cumulative scheduler counters (read-only snapshot per call). */
+export interface WatchSchedulerStats {
+  /** Change-alert deliveries skipped at fire time because the stored webhook_url failed the public-URL guard. */
+  readonly webhooksSkipped: number;
+}
+
 export interface WatchScheduler {
   /** One scheduler pass: every due, non-running watch executes sequentially. */
   tick(): Promise<void>;
@@ -91,6 +103,8 @@ export interface WatchScheduler {
   start(): void;
   /** Stop the background loop; in-flight runs finish. */
   stop(): void;
+  /** Counters accumulated since construction. */
+  stats(): WatchSchedulerStats;
 }
 
 /** Build a scheduler WITHOUT starting any timer (tests call tick() directly). */
@@ -100,6 +114,8 @@ export function createWatchScheduler(input: WatchSchedulerInput): WatchScheduler
   const intervalMs = input.intervalMs ?? DEFAULT_TICK_INTERVAL_MS;
   /** Per-watch single-flight: a watch that is mid-run never double-runs. */
   const running = new Set<string>();
+  // Accumulator mutated by executeWatch's webhook guard; exposed via stats().
+  const stats = { webhooksSkipped: 0 };
   let timer: NodeJS.Timeout | undefined;
   let started = false;
   let tickInFlight = false;
@@ -114,7 +130,8 @@ export function createWatchScheduler(input: WatchSchedulerInput): WatchScheduler
         if (running.has(watch.id)) continue;
         running.add(watch.id);
         try {
-          await executeWatch(input, watch, nowMs);
+          const webhooksSkipped = await executeWatch(input, watch, nowMs);
+          stats.webhooksSkipped += webhooksSkipped;
         } finally {
           running.delete(watch.id);
         }
@@ -144,6 +161,9 @@ export function createWatchScheduler(input: WatchSchedulerInput): WatchScheduler
       if (timer !== undefined) timers.clearInterval(timer);
       timer = undefined;
     },
+    stats(): WatchSchedulerStats {
+      return { webhooksSkipped: stats.webhooksSkipped };
+    },
   };
 }
 
@@ -154,12 +174,16 @@ export function startWatchScheduler(input: WatchSchedulerInput): WatchScheduler 
   return scheduler;
 }
 
-async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: number): Promise<void> {
+/**
+ * Execute one due watch. Returns how many webhook deliveries the fire-time
+ * URL guard skipped (0 or 1); the caller accumulates it into stats().
+ */
+async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: number): Promise<number> {
   const at = new Date(nowMs).toISOString();
   if (watch.credits <= 0) {
     // Nothing executes, nothing is consumed; the watch is paused until a top-up.
     input.repo.recordNoCredit(watch.id, at);
-    return;
+    return 0;
   }
 
   let status: 'ok' | 'error' = 'ok';
@@ -205,18 +229,31 @@ async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: 
   }
 
   let webhook: string | null = null;
+  let webhooksSkipped = 0;
   if (status === 'ok' && changed && watch.webhook_url !== null) {
-    const payload: Record<string, unknown> = {
-      watchId: watch.id,
-      url: watch.url,
-      mode: watch.mode,
-      changed: true,
-      diffSummary,
-      at,
-    };
-    if (artifactUrl !== null) payload['artifactUrl'] = artifactUrl;
-    if (extractJson !== null) payload['extract'] = JSON.parse(extractJson);
-    webhook = await fireWebhook(watch.webhook_url, payload);
+    const check = checkWebhookUrl(watch.webhook_url);
+    if (!check.ok) {
+      // SSRF backstop: the stored URL is private/non-https; nothing is sent.
+      webhooksSkipped = 1;
+      console.warn('webcap watch scheduler: webhook delivery skipped (fire-time URL guard)', {
+        watchId: watch.id,
+        webhookUrl: watch.webhook_url,
+        reason: check.reason,
+      });
+      webhook = `skipped: ${check.reason}`;
+    } else {
+      const payload: Record<string, unknown> = {
+        watchId: watch.id,
+        url: watch.url,
+        mode: watch.mode,
+        changed: true,
+        diffSummary,
+        at,
+      };
+      if (artifactUrl !== null) payload['artifactUrl'] = artifactUrl;
+      if (extractJson !== null) payload['extract'] = JSON.parse(extractJson);
+      webhook = await fireWebhook(check.url, payload);
+    }
   }
 
   input.repo.recordRun({
@@ -230,6 +267,7 @@ async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: 
     error,
     createdAt: at,
   });
+  return webhooksSkipped;
 }
 
 /** Mirror of the /v1/x402/extract handler for a single URL (minus payment). */
@@ -266,10 +304,39 @@ function storeArtifact(input: WatchSchedulerInput, sourceUrl: string, result: Ca
   return `${input.config.publicBaseUrl}/v1/artifacts/${id}`;
 }
 
+/** Fire-time verdict for a stored webhook URL (see checkWebhookUrl). */
+type WebhookUrlCheck =
+  | { readonly ok: true; readonly url: string }
+  | { readonly ok: false; readonly reason: string };
+
+/**
+ * Fire-time SSRF guard for a stored webhook URL. Write-time validation
+ * (src/server/watches.ts) enforces the same rule, but the stored row is
+ * re-checked before any request leaves the process: a row may predate the
+ * write-time guard or have been written out-of-band. Composed rule: the
+ * capture-target host policy (validateCaptureUrl — no private/loopback/
+ * link-local hosts, http/https schemes only) AND the https:// requirement.
+ * Purely parse-level (validateCaptureUrl does no DNS), so fire-time cost is
+ * negligible for a rarely fired webhook.
+ */
+function checkWebhookUrl(raw: string): WebhookUrlCheck {
+  let normalized: string;
+  try {
+    normalized = validateCaptureUrl(raw);
+  } catch (err) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+  }
+  if (!normalized.startsWith('https://')) {
+    return { ok: false, reason: 'webhook must be https' };
+  }
+  return { ok: true, url: normalized };
+}
+
 /**
  * Deliver a change alert: POST the payload with up to WEBHOOK_ATTEMPTS attempts
  * (WEBHOOK_TIMEOUT_MS each). Never throws — the outcome ("ok: HTTP 200" or
- * "failed: …") is returned and stored on the run record.
+ * "failed: …") is returned and stored on the run record. Callers must pass a
+ * URL that passed checkWebhookUrl (fire-time SSRF guard).
  */
 async function fireWebhook(url: string, payload: Record<string, unknown>): Promise<string> {
   const body = JSON.stringify(payload);
