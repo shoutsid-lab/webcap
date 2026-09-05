@@ -55,14 +55,15 @@ only needs a USDC balance on the challenge's network (e.g. Base Sepolia faucet)
 (`eip155:8453`) — the sepolia and mainnet USDC addresses are already handled in code, so
 this is a config-only switch. Also set
 `X402_FACILITATOR_URL=https://api.cdp.coinbase.com/platform/v2/x402` (CDP; requires CDP
-API keys) instead of the testnet default `https://x402.org/facilitator`, and the merchant
-EOA must hold real USDC on Base (gasless EIP-3009 transfers settle to it). Bazaar
+API keys) instead of the testnet default `https://x402.org/facilitator`. The merchant
+EOA is a recipient only — no ETH, no pre-existing USDC balance (gasless EIP-3009
+settlement transfers payer → merchant directly). Bazaar
 discovery metadata is embedded in the 402 challenges; CDP facilitator auth is optional
 via CDP_API_KEY_ID/CDP_API_KEY_SECRET (Ed25519 JWT, default off).
 
-One-command flip: `bin/go-mainnet.sh` (dry run, prints exact .env changes + checks the
-merchant's on-chain USDC balance) / `bin/go-mainnet.sh --confirm` (on-chain balance hard
-gate → .env switch → `docker compose up -d` → waits for 200 service + 402 carrying
+One-command flip: `bin/go-mainnet.sh` (dry run, prints exact .env changes + the
+merchant's on-chain USDC balance, informational) / `bin/go-mainnet.sh --confirm`
+(.env switch → `docker compose up -d` → waits for 200 service + 402 carrying
 `eip155:8453`). Verified 2026-09-05 with a throwaway mainnet instance: CDP validator
 `valid: true` + `simulation: accepted` for both routes on `eip155:8453`.
 
