@@ -11,6 +11,9 @@ services:
       WEBCAP_DB: /data/webcap.db
     volumes:
       - webcap-data:/data
+    # Lets the container reach webhook receivers (and the dev chain) on the host.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # Local dev chain on the host (npm run chain:up): uncomment these, then set
     # WEBCAP_RPC_URL=http://host.docker.internal:8545 in .env.
     # extra_hosts:

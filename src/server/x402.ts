@@ -6,21 +6,33 @@ import {
   type BodyDiscoveryExtension,
   type DiscoveryExtension,
 } from '@x402/extensions/bazaar';
-import { x402ResourceServer, type FacilitatorClient, type RouteConfig, type RoutesConfig } from '@x402/core/server';
+import {
+  x402ResourceServer,
+  type FacilitatorClient,
+  type HTTPRequestContext,
+  type RouteConfig,
+  type RoutesConfig,
+} from '@x402/core/server';
 import type { PaymentRequired, PaymentRequirements } from '@x402/core/types';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
-import type { WebcapConfig, X402Network } from '../config.js';
+import { WATCH_TOPUP_RUNS, watchTopUpPriceUsdcUnits, type WebcapConfig, type X402Network } from '../config.js';
+import type { Db } from '../db/index.js';
+import { makeWatchRepo, type WatchRepo } from '../watch/store.js';
 import { MAX_EXTRACT_BATCH } from './extract-parse.js';
 
 export const X402_CAPTURE_PATTERN = 'POST /v1/x402/capture';
 export const X402_CAPTURE_PATH = '/v1/x402/capture';
 export const X402_EXTRACT_PATTERN = 'POST /v1/x402/extract';
 export const X402_EXTRACT_PATH = '/v1/x402/extract';
+export const X402_TOPUP_PATTERN = 'POST /v1/x402/watches/topup';
+export const X402_TOPUP_PATH = '/v1/x402/watches/topup';
 
 const X402_VERSION = 2;
 const X402_MAX_TIMEOUT_SECONDS = 300;
 const X402_CAPTURE_DESCRIPTION = 'Capture a URL as PNG/JPEG/PDF + free OG metadata';
 const X402_EXTRACT_DESCRIPTION = 'Capture a URL and return its structured content (title, headings, text, links, images) as JSON';
+const X402_TOPUP_DESCRIPTION =
+  'Top up a webcap watch with a 100-run pack, priced at the watch mode unit price x 100 (capture or extract)';
 const X402_MIME_TYPE = 'application/json';
 
 const BAZAAR_SERVICE_NAME = 'Webcap';
@@ -136,6 +148,109 @@ function buildExtractBazaarExtension(): BodyDiscoveryExtension {
   );
 }
 
+/** Bazaar input schema for POST /v1/x402/watches/topup — mirrors the top-up handler. */
+const TOPUP_INPUT_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    watchId: { type: 'string', description: 'The watch to top up' },
+    runs: { type: 'integer', enum: [WATCH_TOPUP_RUNS], description: 'Pack size in runs (always 100)' },
+  },
+  required: ['watchId', 'runs'],
+};
+
+const TOPUP_OUTPUT_EXAMPLE: Record<string, unknown> = {
+  watchId: '00000000-0000-4000-8000-000000000000',
+  credits: WATCH_TOPUP_RUNS,
+  priceUsdcUnits: 100_000,
+};
+
+function buildTopUpBazaarExtension(): BodyDiscoveryExtension {
+  return withRoutedMethod(
+    bazaarFromDeclared(
+      declareDiscoveryExtension({
+        bodyType: 'json',
+        input: { watchId: '00000000-0000-4000-8000-000000000000', runs: WATCH_TOPUP_RUNS },
+        inputSchema: TOPUP_INPUT_SCHEMA,
+        output: { example: TOPUP_OUTPUT_EXAMPLE },
+      }),
+    ),
+  );
+}
+
+/**
+ * The challenge amount for a top-up request: 100 x the watch's mode unit
+ * price. Fastify has not parsed the request body yet when the x402 middleware
+ * runs (onRequest precedes body parsing), so the watch is resolved from the
+ * ?watchId= query parameter — clients include it alongside the {watchId,
+ * runs} body. An unknown/absent watch falls back to the capture-mode pack
+ * price; the route handler then 404s/400s and the settlement for that
+ * request is cancelled (the payer is not charged).
+ */
+function topUpPriceUsdcUnitsForContext(context: HTTPRequestContext, watchRepo: WatchRepo, config: WebcapConfig): number {
+  const adapter = context.adapter;
+  const raw = typeof adapter.getQueryParam === 'function' ? adapter.getQueryParam('watchId') : undefined;
+  const watchId =
+    typeof raw === 'string' && raw !== ''
+      ? raw
+      : Array.isArray(raw) && raw.length > 0 && typeof raw[0] === 'string'
+        ? raw[0]
+        : undefined;
+  const watch = watchId !== undefined ? watchRepo.get(watchId) : null;
+  return watch !== null
+    ? watchTopUpPriceUsdcUnits(watch.mode, config)
+    : watchTopUpPriceUsdcUnits('capture', config);
+}
+
+/**
+ * The x402 RouteConfig for POST /v1/x402/watches/topup. The price is a
+ * DynamicPrice (resolved per request from ?watchId=) because the 100-run pack
+ * price depends on the watch's mode.
+ */
+export function buildX402TopUpRoute(config: WebcapConfig, watchRepo: WatchRepo): RouteConfig {
+  const requirement = buildX402Requirement(config, watchTopUpPriceUsdcUnits('capture', config));
+  const metadata: UnpaidBazaarMetadata = {
+    resourceUrl: `${config.publicBaseUrl}${X402_TOPUP_PATH}`,
+    serviceName: BAZAAR_SERVICE_NAME,
+    tags: BAZAAR_TAGS,
+    iconUrl: `${config.publicBaseUrl}/icon.png`,
+    bazaar: buildTopUpBazaarExtension(),
+  };
+  return {
+    accepts: {
+      scheme: requirement.scheme,
+      network: requirement.network,
+      payTo: requirement.payTo,
+      // AssetAmount form (atomic string), NOT a bare number: a numeric price is
+      // a Money amount in USD that the library scales by the asset's decimals
+      // (100000 would become 100000000000 units of USDC).
+      price: (context: HTTPRequestContext) => ({
+        asset: requirement.asset,
+        amount: String(topUpPriceUsdcUnitsForContext(context, watchRepo, config)),
+        extra: requirement.extra,
+      }),
+      maxTimeoutSeconds: requirement.maxTimeoutSeconds,
+      extra: requirement.extra,
+    },
+    resource: metadata.resourceUrl,
+    description: X402_TOPUP_DESCRIPTION,
+    mimeType: X402_MIME_TYPE,
+    serviceName: BAZAAR_SERVICE_NAME,
+    tags: [...BAZAAR_TAGS],
+    iconUrl: metadata.iconUrl,
+    extensions: { bazaar: metadata.bazaar },
+    // Static mirror of the enriched PAYMENT-REQUIRED header (same per-request
+    // price resolution, so the JSON body equals the header challenge).
+    unpaidResponseBody: (context: HTTPRequestContext) => ({
+      contentType: X402_MIME_TYPE,
+      body: buildUnpaidBody(
+        buildX402Requirement(config, topUpPriceUsdcUnitsForContext(context, watchRepo, config)),
+        X402_TOPUP_DESCRIPTION,
+        metadata,
+      ),
+    }),
+  };
+}
+
 /** The service metadata + bazaar extension a route advertises (mirrored into the 402 body). */
 export interface UnpaidBazaarMetadata {
   readonly resourceUrl: string;
@@ -247,7 +362,7 @@ function x402RouteConfig(spec: X402RouteSpec): RouteConfig {
   };
 }
 
-export function buildX402Routes(config: WebcapConfig): RoutesConfig {
+export function buildX402Routes(config: WebcapConfig): Record<string, RouteConfig> {
   const captureReq = buildX402Requirement(config, config.x402PriceUsdcUnits);
   const extractReq = buildX402Requirement(config, config.x402ExtractPriceUsdcUnits);
   const iconUrl = `${config.publicBaseUrl}/icon.png`;
@@ -278,13 +393,26 @@ export function buildX402Routes(config: WebcapConfig): RoutesConfig {
 }
 
 /**
+ * All x402-gated routes: the two static-price routes plus the watch top-up
+ * route (dynamic price; needs the watch store). Startup-validated.
+ */
+export function buildAllX402Routes(config: WebcapConfig, watchRepo: WatchRepo): Record<string, RouteConfig> {
+  const routes = buildX402Routes(config);
+  routes[X402_TOPUP_PATTERN] = buildX402TopUpRoute(config, watchRepo);
+  validateBazaarRouteExtensions(routes);
+  return routes;
+}
+
+/**
  * Register the x402 payment hooks (onRequest verify / onSend settle /
  * onError cancel) ahead of the routes. No-op when x402 is disabled.
+ * `db` supplies the watch store for the top-up route's per-request price.
  */
 export function registerX402Middleware(
   app: FastifyInstance,
   config: WebcapConfig,
   facilitator: FacilitatorClient | undefined,
+  db: Db,
 ): void {
   const network = config.x402Network;
   if (network === undefined) return;
@@ -292,7 +420,7 @@ export function registerX402Middleware(
     throw new Error('x402 is enabled but no facilitator client was provided');
   }
   const resourceServer = new x402ResourceServer(facilitator).register(network, new ExactEvmScheme());
-  paymentMiddleware(app, buildX402Routes(config), resourceServer);
+  paymentMiddleware(app, buildAllX402Routes(config, makeWatchRepo(db)), resourceServer);
 }
 
 /** Payer EOA address from the verified payment context, if any. */

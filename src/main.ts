@@ -3,6 +3,9 @@ import { dirname } from 'node:path';
 import { loadConfig } from './config.js';
 import { openDb } from './db/index.js';
 import { makeArtifactRepo } from './db/artifacts.js';
+import { makeRevenueRepo } from './db/revenue.js';
+import { makeWatchRepo } from './watch/store.js';
+import { startWatchScheduler, type WatchScheduler } from './watch/scheduler.js';
 import { buildApp } from './server/server.js';
 import { capture, captureStructured } from './capture/pipeline.js';
 import { closeBrowser } from './capture/browser.js';
@@ -41,6 +44,15 @@ async function main(): Promise<void> {
     captureAllowHosts: parseAllowHosts(process.env),
     x402Facilitator,
   });
+  // The recurring engine: re-runs due watches on an interval; overdue watches
+  // (incl. those that went due while the app was down) run on the first pass.
+  const watchScheduler: WatchScheduler = startWatchScheduler({
+    repo: makeWatchRepo(db),
+    pipeline: { capture, captureStructured },
+    artifacts,
+    revenue: makeRevenueRepo(db),
+    config,
+  });
 
   await app.listen({ port: config.port, host: '0.0.0.0' });
   console.log(
@@ -56,6 +68,7 @@ async function main(): Promise<void> {
     shuttingDown = true;
     console.log(`webcap ${signal} received — shutting down`);
     poller.stop();
+    watchScheduler.stop();
     await closeBrowser();
     await app.close();
     db.close();

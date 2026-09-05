@@ -7,6 +7,7 @@ import { toResponse, type ErrorBody, HttpError } from '../util/errors.js';
 import type { CaptureRequest, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
 import type { OgResult } from '../capture/og.js';
 import { registerRoutes } from './routes.js';
+import { registerWatchRoutes } from './watches.js';
 import { registerX402Middleware } from './x402.js';
 
 export interface AppDeps {
@@ -39,9 +40,10 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     void reply.status(status).send(body);
   });
   // Payment hooks must be installed before routes so onRequest/onSend/onError
-  // cover the gated /v1/x402/capture handler.
-  registerX402Middleware(app, deps.config, deps.x402Facilitator);
+  // cover the gated /v1/x402/capture + /v1/x402/watches/topup handlers.
+  registerX402Middleware(app, deps.config, deps.x402Facilitator, deps.db);
   registerRoutes(app, deps);
+  registerWatchRoutes(app, deps);
   return app;
 }
 

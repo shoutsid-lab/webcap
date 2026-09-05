@@ -106,6 +106,19 @@ export const USDC_UNITS_PER_CREDIT = USDC_SCALE / CREDITS_PER_USDC;
 export const PRICE_PER_CREDIT = 1 / CREDITS_PER_USDC;
 export const CAPTURE_COST_CREDITS = 1;
 
+/** Runs per watch top-up pack: the x402 top-up route sells exactly this many runs. */
+export const WATCH_TOPUP_RUNS = 100;
+
+/**
+ * Price of a 100-run watch top-up pack in 6-decimal USDC units:
+ * the watch's mode unit price × 100 (capture: x402PriceUsdcUnits × 100,
+ * extract: x402ExtractPriceUsdcUnits × 100).
+ */
+export function watchTopUpPriceUsdcUnits(mode: 'capture' | 'extract', config: WebcapConfig): number {
+  const unit = mode === 'extract' ? config.x402ExtractPriceUsdcUnits : config.x402PriceUsdcUnits;
+  return unit * WATCH_TOPUP_RUNS;
+}
+
 /** Credits granted for a settled USDC payment: floor(paidUsdc * CREDITS_PER_USDC). */
 export function creditsForUsdc(usdcUnits: bigint): number {
   return Number(usdcUnits / BigInt(USDC_UNITS_PER_CREDIT));

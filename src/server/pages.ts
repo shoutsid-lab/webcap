@@ -177,6 +177,9 @@ export function landingHtml(config: WebcapConfig): string {
   const base = config.publicBaseUrl;
   const capturePrice = usd(config.x402PriceUsdcUnits);
   const extractPrice = usd(config.x402ExtractPriceUsdcUnits);
+  // 100-run top-up packs (the monitoring prices), always two-decimal.
+  const captureTopUpPrice = `$${(config.x402PriceUsdcUnits * 100 / USDC_SCALE).toFixed(2)}`;
+  const extractTopUpPrice = `$${(config.x402ExtractPriceUsdcUnits * 100 / USDC_SCALE).toFixed(2)}`;
 
   const curlFlow = `<span class="c"># 1) POST without payment — you get HTTP 402 + a PAYMENT-REQUIRED</span>
 <span class="c">#    response header: a base64-encoded JSON challenge</span>
@@ -318,6 +321,56 @@ ${topBar()}
       first: <code>GET /v1/extract/preview?url=…</code> returns a bounded structured
       preview (rate-limited). Full discoverable descriptor:
       <code>GET /v1/x402/service</code>.</p>
+  </section>
+
+  <section class="section wrap" id="monitoring">
+    <h2>Monitoring — scheduled watches</h2>
+    <p class="hint">Point webcap at a URL on a schedule and it re-runs the capture or extract pipeline for
+      you: every run is compared against the previous one (screenshot bytes sha256-fingerprinted, or field-by-field
+      for structured content) and a webhook fires when something changed. Runs are pre-paid in 100-run packs over
+      x402 — the same 402 → sign → retry flow as every paid endpoint.</p>
+    <div class="price-grid">
+      <div class="price">
+        <h3>Capture watch</h3>
+        <div class="amount">${esc(captureTopUpPrice)} <small>/ 100 runs</small></div>
+        <p>100 scheduled re-captures of a URL. The artifact bytes are fingerprinted with sha256 — any byte
+          difference counts as a change (diff summary <code>artifact</code>).</p>
+        <span class="tag">100 × ${esc(capturePrice)} — POST /v1/x402/watches/topup</span>
+      </div>
+      <div class="price">
+        <h3>Extract watch</h3>
+        <div class="amount">${esc(extractTopUpPrice)} <small>/ 100 runs</small></div>
+        <p>100 scheduled re-extractions (title, headings, paragraphs, links, images, markdown — plus optional
+          model extraction via a natural-language schema). Field-level diff: the alert lists the changed paths,
+          e.g. <code>title, paragraphs[2], links[0]</code>.</p>
+        <span class="tag">100 × ${esc(extractPrice)} — POST /v1/x402/watches/topup</span>
+      </div>
+      <div class="price">
+        <h3>Change alerts</h3>
+        <div class="amount">$0 <small>/ with any watch</small></div>
+        <p>Set <code>webhook</code> (https) at creation: a changed run POSTs
+          <code>{watchId, url, mode, changed, diffSummary, artifactUrl|extract, at}</code> to it (3 attempts,
+          5s timeout each). The first run is the baseline; a watch with 0 credits is paused until a top-up.</p>
+        <span class="tag">your https endpoint</span>
+      </div>
+    </div>
+    <h3 class="sub-h">How it works</h3>
+    <ol class="steps">
+      <li><b>Create the watch (free).</b>
+        <p>POST <code>/v1/watches</code> with
+        <code>{"url":"https://…","every":"1h","mode":"extract","schema":"…","webhook":"https://…"}</code> —
+        <code>every</code> is <code>15m</code>, <code>1h</code>, <code>6h</code> or <code>24h</code>. The first
+        run is due on the next scheduler tick.</p></li>
+      <li><b>Top up a 100-run pack (x402).</b>
+        <p>POST <code>/v1/x402/watches/topup?watchId=…</code> with
+        <code>{"watchId":"…","runs":100}</code> — the 402 challenge prices the pack at the watch mode
+        (${esc(captureTopUpPrice)} capture / ${esc(extractTopUpPrice)} extract). Pay like every other endpoint
+        with the PAYMENT-SIGNATURE header; the watch resumes and its next run is rescheduled.</p></li>
+      <li><b>Runs + change alerts.</b>
+        <p>Each run consumes 1 credit (ok or error); GET <code>/v1/watches/:id</code> shows the state and the
+        last ~10 runs. A changed run replaces the baseline and POSTs the alert to your webhook; a run with 0
+        credits is recorded as <code>no-credit</code> and pauses the watch until the next top-up.</p></li>
+    </ol>
   </section>
 
   <section class="section wrap" id="links">

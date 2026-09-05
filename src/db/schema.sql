@@ -77,3 +77,32 @@ CREATE TABLE IF NOT EXISTS artifacts (
   bytes BLOB NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS watches (
+  id TEXT PRIMARY KEY,
+  url TEXT NOT NULL,
+  every TEXT NOT NULL,
+  mode TEXT NOT NULL,
+  schema_json TEXT,
+  webhook_url TEXT,
+  credits INTEGER NOT NULL DEFAULT 0,
+  baseline_hash TEXT,
+  baseline_json TEXT,
+  next_run_at TEXT,
+  paused INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  last_run_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS watch_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  watch_id TEXT NOT NULL REFERENCES watches(id),
+  status TEXT NOT NULL,
+  artifact_url TEXT,
+  extract_json TEXT,
+  changed INTEGER NOT NULL DEFAULT 0,
+  diff_summary TEXT,
+  webhook TEXT,
+  error TEXT,
+  created_at TEXT NOT NULL
+);
