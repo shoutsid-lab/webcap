@@ -148,7 +148,7 @@ describe('x402 audit (v2 wire, mock facilitator, no chain)', () => {
         url: string;
         seo: Record<string, unknown>;
         og: Record<string, unknown>;
-        links: Record<string, unknown>;
+        links: { sample: ReadonlyArray<{ href: string; text: string }>; total: number };
       };
       payment: { payer: string; priceUsdcUnits: number };
     };
@@ -156,6 +156,12 @@ describe('x402 audit (v2 wire, mock facilitator, no chain)', () => {
     expect(body.audit.seo).toBeDefined();
     expect(body.audit.og).toBeDefined();
     expect(body.audit.links).toBeDefined();
+    expect(body.audit.links.total).toBe(1);
+    expect(body.audit.links.sample).toEqual([{ href: GOOD_URL, text: 'self' }]);
+    for (const item of body.audit.links.sample) {
+      expect(typeof item.href).toBe('string');
+      expect(typeof item.text).toBe('string');
+    }
     expect(body.payment).toMatchObject({ payer: account.address, priceUsdcUnits: 2000 });
     const rows = ledgerRows();
     expect(rows).toHaveLength(1);

@@ -104,5 +104,14 @@ describe('computeAudit', () => {
     expect(audit.links.external).toBe(1);
     expect(audit.links.emptyText).toBe(1);
     expect(audit.links.duplicates).toBe(1);
+    expect(audit.links.sample).toEqual([
+      { href: 'https://example.com/a', text: 'a' },
+      { href: 'https://example.com/a', text: 'a again' },
+      { href: 'https://external.com/x', text: '' },
+    ]);
+    for (const item of audit.links.sample) {
+      expect(typeof item.href).toBe('string');
+      expect(typeof item.text).toBe('string');
+    }
   });
 });
