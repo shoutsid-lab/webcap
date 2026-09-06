@@ -244,6 +244,110 @@ describe('DELETE /v1/watches/:id', () => {
   });
 });
 
+describe('POST /v1/watches with conditions + channel (T4-S1/S2 ChatOps)', () => {
+  it('persists conditions + channel and surfaces them in state and GET', async () => {
+    const fx = makeApiFixture();
+    try {
+      const conditions = [
+        { type: 'keyword', keyword: 'restock' },
+        { type: 'priceBelow', jsonPath: '$.price', price: 100 },
+      ];
+      const res = await fx.app.inject({
+        method: 'POST',
+        url: '/v1/watches',
+        payload: createValidBody({ mode: 'extract', conditions, channel: 'slack' }),
+      });
+      expect(res.statusCode).toBe(201);
+      const body = res.json() as { id: string; state: Record<string, unknown> };
+      expect(body.state).toMatchObject({ channel: 'slack', conditions });
+
+      const got = await fx.app.inject({ method: 'GET', url: `/v1/watches/${body.id}` });
+      expect(got.statusCode).toBe(200);
+      expect(got.json()).toMatchObject({ channel: 'slack', conditions });
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('defaults to channel generic with no conditions key', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await fx.app.inject({ method: 'POST', url: '/v1/watches', payload: createValidBody() });
+      expect(res.statusCode).toBe(201);
+      const body = res.json() as { state: Record<string, unknown> };
+      expect(body.state['channel']).toBe('generic');
+      expect(body.state).not.toHaveProperty('conditions');
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('422 unprocessable on an invalid jsonPath', async () => {
+    const fx = makeApiFixture();
+    try {
+      for (const jsonPath of ['not-a-path', '$.', '$.a..b', "$['a']"]) {
+        const res = await fx.app.inject({
+          method: 'POST',
+          url: '/v1/watches',
+          payload: createValidBody({ conditions: [{ type: 'priceBelow', jsonPath, price: 10 }] }),
+        });
+        expect(res.statusCode).toBe(422);
+        expect(errorEnvelope(res).code).toBe('unprocessable');
+      }
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('422 on malformed conditions (non-array, unknown type, empty keyword)', async () => {
+    const fx = makeApiFixture();
+    try {
+      const bad: unknown[] = [
+        'keyword',
+        [{ type: 'nope', keyword: 'x' }],
+        [{ type: 'keyword', keyword: '' }],
+        [{ type: 'priceBelow', jsonPath: '$.a', price: '10' }],
+      ];
+      for (const conditions of bad) {
+        const res = await fx.app.inject({
+          method: 'POST',
+          url: '/v1/watches',
+          payload: createValidBody({ conditions }),
+        });
+        expect(res.statusCode).toBe(422);
+      }
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('400 on an invalid channel; non-https webhook still rejected alongside conditions', async () => {
+    const fx = makeApiFixture();
+    try {
+      const badChannel = await fx.app.inject({
+        method: 'POST',
+        url: '/v1/watches',
+        payload: createValidBody({ channel: 'sms', conditions: [{ type: 'keyword', keyword: 'x' }] }),
+      });
+      expect(badChannel.statusCode).toBe(400);
+
+      const badWebhook = await fx.app.inject({
+        method: 'POST',
+        url: '/v1/watches',
+        payload: createValidBody({
+          webhook: 'http://hooks.example.com/hook',
+          conditions: [{ type: 'keyword', keyword: 'x' }],
+          channel: 'discord',
+        }),
+      });
+      expect(badWebhook.statusCode).toBe(400);
+      expect(errorEnvelope(badWebhook).message).toMatch(/webhook/);
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+});
+
 describe('POST /v1/x402/watches/topup (local chain: x402 disabled)', () => {
   it('the route is present but returns 503 x402_disabled', async () => {
     const fx = makeApiFixture();

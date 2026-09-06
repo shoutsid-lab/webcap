@@ -820,3 +820,176 @@ describe('watch scheduler extract model timeout (real local model server)', () =
     expect(extract).toHaveProperty('extracted', { a: 'x' });
   });
 });
+
+describe('watch scheduler conditions gating + channel dispatch (T4-S1/S2)', () => {
+  let world: World;
+
+  beforeEach(() => {
+    world = makeWorld();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    world.close();
+  });
+
+  function seedConditional(
+    over: {
+      readonly id?: string;
+      readonly conditions?: unknown;
+      readonly channel?: string;
+      readonly credits?: number;
+    } = {},
+  ): string {
+    const id = over.id ?? crypto.randomUUID();
+    world.repo.create({
+      id,
+      url: 'https://example.com/watch',
+      every: '1h',
+      mode: 'extract',
+      schemaJson: null,
+      webhookUrl: 'https://webhook.example.com/hook',
+      credits: over.credits ?? 3,
+      nextRunAt: new Date(T0).toISOString(),
+      createdAt: new Date(T0).toISOString(),
+      conditionsJson: over.conditions === undefined ? null : JSON.stringify(over.conditions),
+      channel: (over.channel ?? 'generic') as 'generic' | 'slack' | 'discord',
+    });
+    return id;
+  }
+
+  function changedStructure(): PageStructure {
+    return { ...BASE_STRUCTURE, paragraphs: ['p0', 'CHANGED', 'p2'] };
+  }
+
+  it('persists conditions_json + channel on the watch row (existing rows stay valid)', () => {
+    const id = seedConditional({
+      conditions: [{ type: 'keyword', keyword: 'Example' }],
+      channel: 'slack',
+    });
+    const row = world.repo.get(id);
+    expect(row).toMatchObject({
+      conditions_json: JSON.stringify([{ type: 'keyword', keyword: 'Example' }]),
+      channel: 'slack',
+    });
+    const legacyId = seedConditional();
+    expect(world.repo.get(legacyId)).toMatchObject({ conditions_json: null, channel: 'generic' });
+  });
+
+  it('changed AND conditions match -> webhook fires; baseline (unchanged) never fires', async () => {
+    const stub = makeFetchStub(() => new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', stub.fetch);
+    const clock = makeFakeClock(T0 + HOUR);
+    seedConditional({ id: 'w', conditions: [{ type: 'keyword', keyword: 'example' }] });
+    const scheduler = makeScheduler(world, clock.clock);
+
+    await scheduler.tick(); // baseline run — unchanged, no alert even though the keyword matches
+    expect(stub.calls).toHaveLength(0);
+
+    world.state.structure = changedStructure();
+    clock.advance(HOUR);
+    await scheduler.tick(); // changed + keyword matches markdown -> fires
+    expect(stub.calls).toHaveLength(1);
+    const runs = world.repo.recentRuns('w', 10);
+    expect(runs[0]).toMatchObject({ status: 'ok', changed: 1, webhook: 'ok: HTTP 200' });
+  });
+
+  it('changed but conditions unmet -> no webhook (run stays changed, webhook null)', async () => {
+    const stub = makeFetchStub(() => new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', stub.fetch);
+    const clock = makeFakeClock(T0 + HOUR);
+    seedConditional({ id: 'w', conditions: [{ type: 'keyword', keyword: 'no-such-phrase-xyz' }] });
+    const scheduler = makeScheduler(world, clock.clock);
+
+    await scheduler.tick(); // baseline
+    world.state.structure = changedStructure();
+    clock.advance(HOUR);
+    await scheduler.tick(); // changed, but the keyword is absent -> gated
+
+    expect(stub.calls).toHaveLength(0);
+    const runs = world.repo.recentRuns('w', 10);
+    expect(runs[0]).toMatchObject({ status: 'ok', changed: 1, webhook: null });
+    expect(scheduler.stats().webhooksSkipped).toBe(0);
+  });
+
+  it('no conditions = legacy changed-only: generic payload stays byte-identical', async () => {
+    const stub = makeFetchStub(() => new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', stub.fetch);
+    const clock = makeFakeClock(T0 + HOUR);
+    seedConditional({ id: 'w' });
+    const scheduler = makeScheduler(world, clock.clock);
+
+    await scheduler.tick();
+    world.state.structure = changedStructure();
+    clock.advance(HOUR);
+    await scheduler.tick();
+
+    expect(stub.calls).toHaveLength(1);
+    const body = JSON.parse(String(stub.calls[0]?.init?.body)) as Record<string, unknown>;
+    expect(body).toEqual({
+      watchId: 'w',
+      url: 'https://example.com/watch',
+      mode: 'extract',
+      changed: true,
+      diffSummary: 'paragraphs[1]',
+      extract: JSON.parse(stableStringify(changedStructure())),
+      at: new Date(T0 + 2 * HOUR).toISOString(),
+    });
+  });
+
+  it("slack channel delivers a Block Kit payload (not the generic shape)", async () => {
+    const stub = makeFetchStub(() => new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', stub.fetch);
+    const clock = makeFakeClock(T0 + HOUR);
+    seedConditional({ id: 'w', conditions: [{ type: 'keyword', keyword: 'example' }], channel: 'slack' });
+    const scheduler = makeScheduler(world, clock.clock);
+
+    await scheduler.tick();
+    world.state.structure = changedStructure();
+    clock.advance(HOUR);
+    await scheduler.tick();
+
+    expect(stub.calls).toHaveLength(1);
+    const body = JSON.parse(String(stub.calls[0]?.init?.body)) as Record<string, unknown>;
+    expect(typeof body['text']).toBe('string');
+    expect(Array.isArray(body['blocks'])).toBe(true);
+    expect(JSON.stringify(body)).toContain('https://example.com/watch');
+  });
+
+  it('discord channel delivers a single-embed payload', async () => {
+    const stub = makeFetchStub(() => new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', stub.fetch);
+    const clock = makeFakeClock(T0 + HOUR);
+    seedConditional({ id: 'w', conditions: [{ type: 'keyword', keyword: 'example' }], channel: 'discord' });
+    const scheduler = makeScheduler(world, clock.clock);
+
+    await scheduler.tick();
+    world.state.structure = changedStructure();
+    clock.advance(HOUR);
+    await scheduler.tick();
+
+    expect(stub.calls).toHaveLength(1);
+    const body = JSON.parse(String(stub.calls[0]?.init?.body)) as Record<string, unknown>;
+    const embeds = body['embeds'] as unknown[];
+    expect(Array.isArray(embeds)).toBe(true);
+    expect(embeds).toHaveLength(1);
+  });
+
+  it('priceBelow gates an extract run on a numeric jsonPath', async () => {
+    const stub = makeFetchStub(() => new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', stub.fetch);
+    const clock = makeFakeClock(T0 + HOUR);
+    seedConditional({ id: 'w', conditions: [{ type: 'priceBelow', jsonPath: '$.price', price: 50 }] });
+    const scheduler = makeScheduler(world, clock.clock);
+
+    world.state.structure = { ...BASE_STRUCTURE, price: 49.99 } as PageStructure;
+    await scheduler.tick(); // baseline (unchanged) — no alert
+    expect(stub.calls).toHaveLength(0);
+
+    world.state.structure = { ...BASE_STRUCTURE, price: 49.99, title: 'touched' } as PageStructure;
+    clock.advance(HOUR);
+    await scheduler.tick(); // changed + 49.99 < 50 -> fires
+    expect(stub.calls).toHaveLength(1);
+  });
+});
