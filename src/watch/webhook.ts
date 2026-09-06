@@ -4,6 +4,7 @@
  * scheduler.ts with behavior unchanged; the skip counter semantics
  * (stats().webhooksSkipped) live in the scheduler, which calls the guard.
  */
+import { createHmac } from 'node:crypto';
 import { validateCaptureUrl } from '../util/url.js';
 import type { WatchChannel } from './conditions.js';
 
@@ -105,6 +106,53 @@ export function checkWebhookUrl(raw: string): WebhookUrlCheck {
     return { ok: false, reason: 'webhook must be https' };
   }
   return { ok: true, url: normalized };
+}
+
+/**
+ * Compute the webhook delivery signature for a raw request body:
+ * `sha256=<hex>` where hex = hmac_sha256(secret, rawBody). Strings are
+ * encoded as UTF-8; Buffers are used byte-identical. Matches the
+ * receiver-side verifier in tests/api/signed-artifacts.test.ts exactly.
+ */
+export function signWebhookBody(rawBody: string | Buffer, secret: string): string {
+  const body = typeof rawBody === 'string' ? Buffer.from(rawBody, 'utf8') : rawBody;
+  return `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`;
+}
+
+/**
+ * Signed delivery: same retries/timeout contract as fireWebhook (up to
+ * `attempts` attempts, one `timeoutMs` budget each, never throws), but the
+ * POST also carries `x-hub-signature-256: signWebhookBody(body, secret)`
+ * computed over the exact raw bytes sent. Added additively; fireWebhook
+ * below is byte-identical legacy behavior.
+ */
+export async function fireSignedWebhook(
+  url: string,
+  payload: Record<string, unknown>,
+  secret: string,
+  attempts: number,
+  timeoutMs: number,
+): Promise<string> {
+  const body = JSON.stringify(payload);
+  const signature = signWebhookBody(body, secret);
+  let lastFailure: string | undefined;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    let failure: string | undefined;
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-hub-signature-256': signature },
+        body,
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (res.status >= 200 && res.status < 300) return `ok: HTTP ${res.status}`;
+      failure = `HTTP ${res.status}`;
+    } catch (err) {
+      failure = err instanceof Error ? err.message : String(err);
+    }
+    lastFailure = failure;
+  }
+  return `failed: ${lastFailure ?? 'unknown error'}`;
 }
 
 /**
