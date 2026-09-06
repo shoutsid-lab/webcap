@@ -15,6 +15,8 @@ const SITEMAP_PATHS = [
   '/v1/x402/capture',
   '/v1/x402/extract',
   '/v1/x402/audit',
+  '/v1/x402/map-lite',
+  '/v1/x402/video',
   '/v1/x402/watches/topup',
   '/v1/watches',
   '/v1/extract/preview',
@@ -87,6 +89,16 @@ export async function x402WellKnown(config: WebcapConfig) {
         description: 'SEO basics + link/OG health in one call (title, description, OG tags, link health)',
       },
       {
+        path: 'POST /v1/x402/map-lite',
+        usdc: config.x402AuditPriceUsdcUnits / USDC_SCALE,
+        description: 'Map a site to its URL list via sitemap/robots plus a 1-hop same-host crawl in one call',
+      },
+      {
+        path: 'POST /v1/x402/video',
+        usdc: config.x402VideoPriceUsdcUnits / USDC_SCALE,
+        description: 'Scroll-capture a URL as an MP4/WebM video in one call',
+      },
+      {
         path: 'POST /v1/x402/watches/topup',
         usdc:
           watchTopUpPriceUsdcUnits('capture', config) / USDC_SCALE,
@@ -146,6 +158,18 @@ export async function agentCard(config: WebcapConfig) {
         tags: ['seo', 'audit', 'links', 'opengraph', 'x402', 'usdc'],
       },
       {
+        id: 'map-lite',
+        name: 'Site mapping',
+        description: `Sitemap/robots + 1-hop same-host crawl URL list in one call — ${config.x402AuditPriceUsdcUnits / USDC_SCALE} USDC via x402`,
+        tags: ['sitemap', 'crawl', 'mapping', 'x402', 'usdc'],
+      },
+      {
+        id: 'video',
+        name: 'Video capture',
+        description: `Scroll-capture a URL as an MP4/WebM video — ${config.x402VideoPriceUsdcUnits / USDC_SCALE} USDC via x402`,
+        tags: ['video', 'capture', 'x402', 'usdc'],
+      },
+      {
         id: 'watch',
         name: 'Scheduled monitoring',
         description: `Pre-pay ${WATCH_TOPUP_RUNS} runs of a capture/extract monitor with change-detection webhooks — ${watchTopUpPriceUsdcUnits('capture', config) / USDC_SCALE}–${watchTopUpPriceUsdcUnits('extract', config) / USDC_SCALE} USDC per pack via x402`,
@@ -171,6 +195,8 @@ export function frontDoorPayload(config: WebcapConfig) {
         { path: 'POST /v1/x402/capture', usdc: config.x402PriceUsdcUnits / USDC_SCALE, note: 'PNG/JPEG/PDF screenshot + free OG' },
         { path: 'POST /v1/x402/extract', usdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE, note: 'structured JSON; batch up to 50 URLs for one payment' },
         { path: 'POST /v1/x402/audit', usdc: config.x402AuditPriceUsdcUnits / USDC_SCALE, note: 'SEO basics + link/OG health in one call' },
+        { path: 'POST /v1/x402/map-lite', usdc: config.x402AuditPriceUsdcUnits / USDC_SCALE, note: 'site URL list via sitemap/robots plus a 1-hop same-host crawl' },
+        { path: 'POST /v1/x402/video', usdc: config.x402VideoPriceUsdcUnits / USDC_SCALE, note: 'scroll-capture MP4/WebM video in one call' },
       ],
     },
     catalog: 'GET /v1/x402/service — full agent-discoverable descriptor + the exact x402 payment flow',
