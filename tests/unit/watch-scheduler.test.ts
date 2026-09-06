@@ -164,6 +164,8 @@ function seedWatch(
     mode: over.mode ?? 'capture',
     schemaJson: over.schemaJson ?? null,
     webhookUrl: over.webhookUrl ?? null,
+    conditionsJson: null,
+    channel: 'generic',
     credits: over.credits ?? 5,
     nextRunAt: over.nextRunAt ?? new Date(T0 + HOUR).toISOString(),
     createdAt: new Date(T0).toISOString(),

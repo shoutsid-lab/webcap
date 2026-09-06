@@ -85,6 +85,8 @@ CREATE TABLE IF NOT EXISTS watches (
   mode TEXT NOT NULL,
   schema_json TEXT,
   webhook_url TEXT,
+  conditions_json TEXT,
+  channel TEXT NOT NULL DEFAULT 'generic',
   credits INTEGER NOT NULL DEFAULT 0,
   baseline_hash TEXT,
   baseline_json TEXT,

@@ -31,7 +31,8 @@ import { consoleServiceLogger, type ServiceLogger } from '../util/logger.js';
 import { diffJson, sha256Hex, stableStringify } from './diff.js';
 import { everyMsOf } from './intervals.js';
 import { defaultClock, defaultTimers, type WatchClock, type WatchTimers } from './clock.js';
-import { checkWebhookUrl, fireWebhook } from './webhook.js';
+import { checkWebhookUrl, fireWebhook, formatAlertPayload, type WatchAlert, type WatchChannel } from './webhook.js';
+import { conditionsMatch, parseConditionsField, type ConditionContext } from './conditions.js';
 import type { WatchRepo, WatchRow } from './store.js';
 
 // Re-exported unchanged: the watch-scheduler unit tests import these from this module.
@@ -215,7 +216,7 @@ async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: 
 
   let webhook: string | null = null;
   let webhooksSkipped = 0;
-  if (status === 'ok' && changed && watch.webhook_url !== null) {
+  if (status === 'ok' && changed && watch.webhook_url !== null && storedConditionsMet(watch.conditions_json, extractJson)) {
     const check = checkWebhookUrl(watch.webhook_url);
     if (!check.ok) {
       // SSRF backstop: the stored URL is private/non-https; nothing is sent.
@@ -227,7 +228,7 @@ async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: 
       });
       webhook = `skipped: ${check.reason}`;
     } else {
-      const payload: Record<string, unknown> = {
+      const legacy: Record<string, unknown> = {
         watchId: watch.id,
         url: watch.url,
         mode: watch.mode,
@@ -235,11 +236,21 @@ async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: 
         diffSummary,
         at,
       };
-      if (artifactUrl !== null) payload['artifactUrl'] = artifactUrl;
-      if (extractJson !== null) payload['extract'] = JSON.parse(extractJson);
+      if (artifactUrl !== null) legacy['artifactUrl'] = artifactUrl;
+      if (extractJson !== null) legacy['extract'] = JSON.parse(extractJson);
+      const channel = normalizeChannel(watch.channel);
+      const alert: WatchAlert = {
+        watchId: watch.id,
+        url: watch.url,
+        mode: watch.mode,
+        diffSummary,
+        at,
+        artifactUrl,
+        extract: extractJson !== null ? JSON.parse(extractJson) : null,
+      };
       webhook = await fireWebhook(
         check.url,
-        payload,
+        formatAlertPayload(channel, alert, legacy),
         input.config.webhookRetries ?? DEFAULT_WEBHOOK_RETRIES,
         input.config.webhookTimeoutMs ?? DEFAULT_WEBHOOK_TIMEOUT_MS,
       );
@@ -258,4 +269,40 @@ async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: 
     createdAt: at,
   });
   return webhooksSkipped;
+}
+
+function normalizeChannel(raw: string): WatchChannel {
+  return raw === 'slack' || raw === 'discord' ? raw : 'generic';
+}
+
+function conditionContextOf(extractJson: string | null): ConditionContext {
+  let extract: unknown = null;
+  if (extractJson !== null) {
+    try {
+      extract = JSON.parse(extractJson);
+    } catch {
+      extract = null;
+    }
+  }
+  const markdown =
+    typeof extract === 'object' && extract !== null && typeof (extract as Record<string, unknown>)['markdown'] === 'string'
+      ? ((extract as Record<string, unknown>)['markdown'] as string)
+      : null;
+  return { markdown, extract };
+}
+
+function storedConditionsMet(conditionsJson: string | null, extractJson: string | null): boolean {
+  if (conditionsJson === null) return true;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(conditionsJson);
+  } catch {
+    return false;
+  }
+  try {
+    const conditions = parseConditionsField(parsed);
+    return conditions === null ? true : conditionsMatch(conditions, conditionContextOf(extractJson));
+  } catch {
+    return false;
+  }
 }

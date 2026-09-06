@@ -5,6 +5,79 @@
  * (stats().webhooksSkipped) live in the scheduler, which calls the guard.
  */
 import { validateCaptureUrl } from '../util/url.js';
+import type { WatchChannel } from './conditions.js';
+
+export type { WatchChannel } from './conditions.js';
+
+/** The resolved fields of one changed run, shared by every channel formatter. */
+export interface WatchAlert {
+  readonly watchId: string;
+  readonly url: string;
+  readonly mode: string;
+  readonly diffSummary: string | null;
+  readonly at: string;
+  readonly artifactUrl: string | null;
+  readonly extract: unknown;
+}
+
+/**
+ * Slack Block Kit rendering of a change alert: a fallback `text` plus
+ * section blocks carrying the watch identity, diff summary, and run time.
+ */
+export function buildSlackPayload(alert: WatchAlert): Record<string, unknown> {
+  const headline = `Watch ${alert.watchId} changed (${alert.mode})`;
+  const detail = `*Diff:* ${alert.diffSummary ?? 'n/a'}\n*At:* ${alert.at}${
+    alert.artifactUrl !== null ? `\n*Artifact:* ${alert.artifactUrl}` : ''
+  }`;
+  return {
+    text: `${headline}: ${alert.url}`,
+    blocks: [
+      { type: 'section', text: { type: 'mrkdwn', text: `*${headline}*\n${alert.url}` } },
+      { type: 'section', text: { type: 'mrkdwn', text: detail } },
+    ],
+  };
+}
+
+/**
+ * Discord rendering of a change alert: one rich embed with the watch
+ * identity, diff field, run timestamp, and optional artifact field.
+ */
+export function buildDiscordPayload(alert: WatchAlert): Record<string, unknown> {
+  const fields: Array<Record<string, unknown>> = [
+    { name: 'Diff', value: alert.diffSummary ?? 'n/a', inline: false },
+  ];
+  if (alert.artifactUrl !== null) fields.push({ name: 'Artifact', value: alert.artifactUrl, inline: false });
+  return {
+    embeds: [
+      {
+        title: `Watch ${alert.watchId} changed`,
+        description: `${alert.url} (${alert.mode})`,
+        fields,
+        timestamp: alert.at,
+      },
+    ],
+  };
+}
+
+/**
+ * Channel dispatch over the legacy generic payload: 'generic' passes the
+ * payload through untouched (byte-identical legacy behavior); 'slack' and
+ * 'discord' render the same alert through their native formatters.
+ */
+export function formatAlertPayload(
+  channel: WatchChannel,
+  alert: WatchAlert,
+  legacy: Record<string, unknown>,
+): Record<string, unknown> {
+  switch (channel) {
+    case 'slack':
+      return buildSlackPayload(alert);
+    case 'discord':
+      return buildDiscordPayload(alert);
+    case 'generic':
+      return legacy;
+  }
+}
 
 /** Fire-time verdict for a stored webhook URL (see checkWebhookUrl). */
 export type WebhookUrlCheck =

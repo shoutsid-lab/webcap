@@ -232,6 +232,8 @@ describe('x402 watch top-up (v2 wire, mock facilitator, no chain)', () => {
       mode: 'capture',
       schemaJson: null,
       webhookUrl: null,
+      conditionsJson: null,
+      channel: 'generic',
       credits: 0,
       nextRunAt: '2026-01-01T00:00:00.000Z',
       createdAt: nowIso,

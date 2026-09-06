@@ -15,6 +15,7 @@ import { RateLimiter, rejectRateLimited } from '../util/ratelimit.js';
 import { validateCaptureUrl } from '../util/url.js';
 import { makeRevenueRepo } from '../db/revenue.js';
 import { makeWatchRepo, type WatchRepo, type WatchRow, type WatchRunRow, type WatchMode } from '../watch/store.js';
+import { parseChannel, parseConditionsField, type WatchChannel, type WatchCondition } from '../watch/conditions.js';
 import { WATCH_EVERIES, type WatchEvery } from '../watch/intervals.js';
 import { isRecord } from './capture-parse.js';
 import { x402Payer } from './x402.js';
@@ -43,6 +44,8 @@ export interface WatchStateView {
   readonly mode: WatchMode;
   readonly schema?: string;
   readonly webhook?: string;
+  readonly channel: WatchChannel;
+  readonly conditions?: readonly WatchCondition[];
   readonly credits: number;
   readonly paused: boolean;
   readonly nextRunAt: string | null;
@@ -75,6 +78,8 @@ export function registerWatchRoutes(app: FastifyInstance, deps: AppDeps): void {
       mode: spec.mode,
       schemaJson: spec.schemaJson,
       webhookUrl: spec.webhookUrl,
+      conditionsJson: spec.conditionsJson,
+      channel: spec.channel,
       credits: 0,
       nextRunAt: createdAt,
       createdAt,
@@ -137,6 +142,8 @@ interface CreateWatchSpec {
   readonly mode: WatchMode;
   readonly schemaJson: string | null;
   readonly webhookUrl: string | null;
+  readonly conditionsJson: string | null;
+  readonly channel: WatchChannel;
 }
 
 function parseCreateWatchBody(body: unknown, allowHosts: readonly string[] | undefined): CreateWatchSpec {
@@ -158,7 +165,17 @@ function parseCreateWatchBody(body: unknown, allowHosts: readonly string[] | und
     if (typeof rawWebhook !== 'string' || rawWebhook === '') throw badRequest('webhook must be an https URL');
     webhookUrl = validatedWatchWebhook(rawWebhook);
   }
-  return { url, every, mode, schemaJson, webhookUrl };
+  const conditions = parseConditionsField(body['conditions']);
+  const channel = parseChannel(body['channel']);
+  return {
+    url,
+    every,
+    mode,
+    schemaJson,
+    webhookUrl,
+    conditionsJson: conditions === null ? null : JSON.stringify(conditions),
+    channel,
+  };
 }
 
 function parseEvery(raw: unknown): WatchEvery {
@@ -203,6 +220,8 @@ function watchState(repo: WatchRepo, row: WatchRow): WatchStateView {
     mode: row.mode,
     ...(row.schema_json !== null ? { schema: row.schema_json } : {}),
     ...(row.webhook_url !== null ? { webhook: row.webhook_url } : {}),
+    channel: row.channel === 'slack' || row.channel === 'discord' ? row.channel : 'generic',
+    ...(row.conditions_json !== null ? { conditions: JSON.parse(row.conditions_json) as WatchCondition[] } : {}),
     credits: row.credits,
     paused: row.paused === 1,
     nextRunAt: row.next_run_at,
