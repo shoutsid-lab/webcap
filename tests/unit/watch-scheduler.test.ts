@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import Database from 'better-sqlite3';
 import { openDb, type Db } from '../../src/db/index.js';
 import { makeArtifactRepo, type ArtifactRepo } from '../../src/db/artifacts.js';
 import { makeRevenueRepo, type RevenueRepo } from '../../src/db/revenue.js';
+import type { CaptureRequest } from '../../src/capture/pipeline.js';
 import { makeWatchRepo, type WatchRepo, type WatchRow } from '../../src/watch/store.js';
 import { createWatchScheduler, type WatchClock, type WatchPipeline } from '../../src/watch/scheduler.js';
 import { createServer } from 'node:http';
@@ -994,5 +999,273 @@ describe('watch scheduler conditions gating + channel dispatch (T4-S1/S2)', () =
     clock.advance(HOUR);
     await scheduler.tick(); // changed + 49.99 < 50 -> fires
     expect(stub.calls).toHaveLength(1);
+  });
+});
+
+describe('watch scheduler json mode + macro-auth threading (RED)', () => {
+  let world: World;
+
+  beforeEach(() => {
+    world = makeWorld();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    world.close();
+  });
+
+  function jsonResponse(data: unknown, status = 200): Response {
+    return new Response(JSON.stringify(data), {
+      status,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
+  function seedJsonWatch(
+    over: {
+      readonly id?: string;
+      readonly webhookUrl?: string | null;
+      readonly headersJson?: string | null;
+      readonly cookiesJson?: string | null;
+      readonly stepsJson?: string | null;
+      readonly credits?: number;
+      readonly nextRunAt?: string | null;
+    } = {},
+  ): string {
+    const id = over.id ?? crypto.randomUUID();
+    world.repo.create({
+      id,
+      url: 'https://example.com/watch',
+      every: '1h',
+      mode: 'json',
+      schemaJson: null,
+      webhookUrl: over.webhookUrl ?? null,
+      conditionsJson: null,
+      channel: 'generic',
+      headersJson: over.headersJson ?? null,
+      cookiesJson: over.cookiesJson ?? null,
+      stepsJson: over.stepsJson ?? null,
+      credits: over.credits ?? 3,
+      nextRunAt: over.nextRunAt ?? new Date(T0).toISOString(),
+      createdAt: new Date(T0).toISOString(),
+    });
+    return id;
+  }
+
+  function seedMacroWatch(
+    over: {
+      readonly id?: string;
+      readonly stepsJson?: string | null;
+      readonly headersJson?: string | null;
+      readonly cookiesJson?: string | null;
+      readonly credits?: number;
+      readonly nextRunAt?: string | null;
+    } = {},
+  ): string {
+    const id = over.id ?? crypto.randomUUID();
+    world.repo.create({
+      id,
+      url: 'https://example.com/watch',
+      every: '1h',
+      mode: 'capture',
+      schemaJson: null,
+      webhookUrl: null,
+      conditionsJson: null,
+      channel: 'generic',
+      headersJson: over.headersJson ?? null,
+      cookiesJson: over.cookiesJson ?? null,
+      stepsJson: over.stepsJson ?? null,
+      credits: over.credits ?? 3,
+      nextRunAt: over.nextRunAt ?? new Date(T0).toISOString(),
+      createdAt: new Date(T0).toISOString(),
+    });
+    return id;
+  }
+
+  it('json mode runs via fetchJsonWatch: baseline then changed + webhook + watch-json ledger', async () => {
+    const stub = makeFetchStub((callIndex) => jsonResponse(callIndex === 0 ? { price: 49.99 } : { price: 39.99 }));
+    vi.stubGlobal('fetch', stub.fetch);
+    const clock = makeFakeClock(T0 + HOUR);
+    seedJsonWatch({
+      id: 'j',
+      webhookUrl: 'https://webhook.example.com/hook',
+      nextRunAt: new Date(T0).toISOString(),
+      credits: 2,
+    });
+    const scheduler = makeScheduler(world, clock.clock);
+
+    await scheduler.tick(); // baseline run: one JSON fetch, no webhook
+    expect(stub.calls).toHaveLength(1);
+    expect(stub.calls[0]?.url).toBe('https://example.com/watch');
+    let runs = world.repo.recentRuns('j', 10);
+    expect(runs[0]).toMatchObject({ status: 'ok', changed: 0 });
+    expect(runs[0]?.extract_json).toBe(stableStringify({ price: 49.99 }));
+    let row = world.repo.get('j');
+    if (row === null) throw new Error('watch vanished');
+    expect(row.baseline_json).toBe(stableStringify({ price: 49.99 }));
+
+    clock.advance(HOUR);
+    await scheduler.tick(); // changed run: JSON fetch + exactly one webhook delivery
+    expect(stub.calls).toHaveLength(3);
+    expect(stub.calls[2]?.url).toBe('https://webhook.example.com/hook');
+    runs = world.repo.recentRuns('j', 10);
+    expect(runs[0]).toMatchObject({ status: 'ok', changed: 1, diff_summary: 'price', webhook: 'ok: HTTP 200' });
+    expect(world.revenue.recent(5).map((entry) => entry.endpoint)).toEqual(['watch-json', 'watch-json']);
+    row = world.repo.get('j');
+    if (row === null) throw new Error('watch vanished');
+    expect(row.credits).toBe(0);
+  });
+
+  it('json fetch failure records an error run, consumes 1 credit, leaves the baseline', async () => {
+    const stub = makeFetchStub(() => new Response('nope', { status: 500 }));
+    vi.stubGlobal('fetch', stub.fetch);
+    const clock = makeFakeClock(T0 + HOUR);
+    seedJsonWatch({ id: 'j', nextRunAt: new Date(T0).toISOString(), credits: 2 });
+    await makeScheduler(world, clock.clock).tick();
+
+    const runs = world.repo.recentRuns('j', 10);
+    expect(runs).toHaveLength(1);
+    expect(runs[0]).toMatchObject({ status: 'error', changed: 0 });
+    expect(runs[0]?.error).toMatch(/HTTP 500/);
+    expect(runs[0]?.extract_json).toBeNull();
+    const row = world.repo.get('j');
+    if (row === null) throw new Error('watch vanished');
+    expect(row.credits).toBe(1);
+    expect(row.baseline_json).toBeNull();
+  });
+
+  it('macro steps + auth headers/cookies thread into the capture call', async () => {
+    const seen: CaptureRequest[] = [];
+    const pipeline: WatchPipeline = {
+      capture: async (req) => {
+        seen.push(req);
+        return { buffer: Buffer.from('v1'), format: 'png', bytes: 2 };
+      },
+      captureStructured: async () => {
+        throw new Error('never called for capture-mode watches');
+      },
+    };
+    const steps = [
+      { type: 'click', selector: '#go' },
+      { type: 'wait', timeoutMs: 500 },
+    ];
+    const headers = { authorization: 'Bearer s3cr3t' };
+    const cookies = [{ name: 'sid', value: 'abc' }];
+    seedMacroWatch({
+      id: 'm',
+      stepsJson: JSON.stringify(steps),
+      headersJson: JSON.stringify(headers),
+      cookiesJson: JSON.stringify(cookies),
+      nextRunAt: new Date(T0).toISOString(),
+      credits: 2,
+    });
+    const scheduler = createWatchScheduler({
+      repo: world.repo,
+      pipeline,
+      artifacts: world.artifacts,
+      revenue: world.revenue,
+      config: world.config,
+      clock: makeFakeClock(T0 + HOUR).clock,
+    });
+
+    await scheduler.tick();
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.options).toMatchObject({
+      actions: steps,
+      extraHTTPHeaders: headers,
+      cookies,
+    });
+    const runs = world.repo.recentRuns('m', 10);
+    expect(runs[0]).toMatchObject({ status: 'ok', changed: 0 });
+  });
+
+  it('stored secrets never surface in error paths (invalid stored JSON fails closed)', async () => {
+    seedMacroWatch({
+      id: 'm',
+      stepsJson: '{"authorization": "Bearer s3cr3t"',
+      headersJson: JSON.stringify({ authorization: 'Bearer s3cr3t' }),
+      nextRunAt: new Date(T0).toISOString(),
+      credits: 2,
+    });
+    await makeScheduler(world, makeFakeClock(T0 + HOUR).clock).tick();
+
+    const runs = world.repo.recentRuns('m', 10);
+    expect(runs).toHaveLength(1);
+    expect(runs[0]).toMatchObject({ status: 'error' });
+    const error = runs[0]?.error ?? '';
+    expect(error).not.toContain('s3cr3t');
+    const row = world.repo.get('m');
+    if (row === null) throw new Error('watch vanished');
+    expect(row.credits).toBe(1); // an executed attempt still consumes its credit
+  });
+
+  it('pre-migration file: an old capture watch opens, migrates, and still runs', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'webcap-watch-run-'));
+    try {
+      const path = join(dir, 'legacy.db');
+      const legacy = new Database(path);
+      legacy.exec(
+        'CREATE TABLE watches (' +
+          'id TEXT PRIMARY KEY, ' +
+          'url TEXT NOT NULL, ' +
+          'every TEXT NOT NULL, ' +
+          'mode TEXT NOT NULL, ' +
+          'schema_json TEXT, ' +
+          'webhook_url TEXT, ' +
+          'credits INTEGER NOT NULL DEFAULT 0, ' +
+          'baseline_hash TEXT, ' +
+          'baseline_json TEXT, ' +
+          'next_run_at TEXT, ' +
+          'paused INTEGER NOT NULL DEFAULT 0, ' +
+          'created_at TEXT NOT NULL, ' +
+          'last_run_at TEXT)',
+      );
+      legacy.exec(
+        `INSERT INTO watches (id, url, every, mode, credits, next_run_at, created_at) VALUES ` +
+          `('legacy-old', 'https://example.com/watch', '1h', 'capture', 2, '${new Date(T0).toISOString()}', '${new Date(T0).toISOString()}')`,
+      );
+      legacy.close();
+
+      const db = openDb(path);
+      try {
+        const repo = makeWatchRepo(db);
+        const row = repo.get('legacy-old');
+        expect(row).toMatchObject({
+          id: 'legacy-old',
+          headers_json: null,
+          cookies_json: null,
+          steps_json: null,
+        });
+        const artifacts = makeArtifactRepo(db);
+        const revenue = makeRevenueRepo(db);
+        const clock = makeFakeClock(T0 + HOUR);
+        const state = {
+          captureBytes: Buffer.from('v1'),
+          structure: BASE_STRUCTURE,
+          failCount: 0,
+          gate: null,
+          captureCalls: 0,
+          structureCalls: 0,
+        };
+        await createWatchScheduler({
+          repo,
+          pipeline: makePipeline(state),
+          artifacts,
+          revenue,
+          config: world.config,
+          clock: clock.clock,
+        }).tick();
+        const runs = repo.recentRuns('legacy-old', 10);
+        expect(runs).toHaveLength(1);
+        expect(runs[0]).toMatchObject({ status: 'ok', changed: 0 });
+        expect(repo.get('legacy-old')?.credits).toBe(1);
+      } finally {
+        db.close();
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
