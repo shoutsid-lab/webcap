@@ -82,6 +82,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     }
     const urls = parseExtractUrls(req.body, allowHosts);
     const schema = parseExtractSchema(req.body);
+    const captureOptions = parseOptions(req.body);
     const model = {
       baseUrl: config.modelApiBaseUrl,
       apiKey: config.modelApiKey,
@@ -99,6 +100,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           model,
           modelTimeoutMs: config.modelTimeoutMs ?? DEFAULT_MODEL_TIMEOUT_MS,
           logger: pinoServiceLogger(req.log),
+          ...(captureOptions !== undefined ? { captureOptions } : {}),
         });
       } catch (err) {
         failures += 1;

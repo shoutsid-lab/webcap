@@ -1,8 +1,21 @@
-import { newContext, type ContextViewportOptions } from './browser.js';
+import type { Page } from 'playwright-core';
+import { newContext, resolveProxyServer, type ContextViewportOptions } from './browser.js';
 import { CaptureError } from './errors.js';
 import { DEFAULT_CAPTURE_TIMEOUT_CAP_MS, DEFAULT_CAPTURE_TIMEOUT_MS } from '../config.js';
 
 export type CaptureFormat = 'png' | 'jpeg' | 'pdf';
+
+export type CaptureProxy = 'auto' | 'stealth' | string;
+
+export interface CaptureWaitFor {
+  readonly selector: string;
+  readonly timeoutMs?: number;
+}
+
+export type CaptureAction =
+  | { readonly type: 'click'; readonly selector: string }
+  | { readonly type: 'type'; readonly selector: string; readonly text: string }
+  | { readonly type: 'wait'; readonly timeoutMs: number };
 
 export interface CaptureOptions {
   readonly timeoutMs?: number;
@@ -12,6 +25,9 @@ export interface CaptureOptions {
   readonly userAgent?: string;
   readonly deviceScaleFactor?: number;
   readonly isMobile?: boolean;
+  readonly proxy?: CaptureProxy;
+  readonly waitFor?: CaptureWaitFor;
+  readonly actions?: readonly CaptureAction[];
 }
 
 export interface CaptureRequest {
@@ -57,12 +73,47 @@ function contextViewport(req: CaptureRequest): ContextViewportOptions {
     ...(o.userAgent !== undefined ? { userAgent: o.userAgent } : {}),
     ...(o.deviceScaleFactor !== undefined ? { deviceScaleFactor: o.deviceScaleFactor } : {}),
     ...(o.isMobile !== undefined ? { isMobile: o.isMobile } : {}),
+    ...(o.proxy !== undefined
+      ? { proxyServer: resolveProxyServer(o.proxy), ...(o.proxy === 'stealth' ? { stealth: true as const } : {}) }
+      : {}),
   };
 }
 
 function resolveTimeout(req: CaptureRequest, timeouts?: CaptureTimeouts): number {
   const requested = req.options?.timeoutMs ?? timeouts?.defaultMs ?? DEFAULT_CAPTURE_TIMEOUT_MS;
   return Math.min(requested, timeouts?.capMs ?? DEFAULT_CAPTURE_TIMEOUT_CAP_MS);
+}
+
+/**
+ * Post-load, pre-shot page settling: an optional selector wait followed by a
+ * bounded client-action loop (click/type/wait, at most MAX_STEALTH_ACTIONS).
+ * Parse-time validation guarantees the bound; the slice is defense in depth.
+ */
+export const MAX_STEALTH_ACTIONS = 5;
+
+async function settlePage(page: Page, req: CaptureRequest): Promise<void> {
+  const waitFor = req.options?.waitFor;
+  if (waitFor !== undefined) {
+    await page.waitForSelector(waitFor.selector, { timeout: waitFor.timeoutMs });
+  }
+  const actions = req.options?.actions ?? [];
+  for (const action of actions.slice(0, MAX_STEALTH_ACTIONS)) {
+    switch (action.type) {
+      case 'click':
+        await page.click(action.selector);
+        break;
+      case 'type':
+        await page.fill(action.selector, action.text);
+        break;
+      case 'wait':
+        await page.waitForTimeout(action.timeoutMs);
+        break;
+      default: {
+        const exhaustive: never = action;
+        throw new Error(`unknown capture action: ${String(exhaustive)}`);
+      }
+    }
+  }
 }
 
 export async function capture(req: CaptureRequest, timeouts?: CaptureTimeouts): Promise<CaptureResult> {
@@ -73,6 +124,7 @@ export async function capture(req: CaptureRequest, timeouts?: CaptureTimeouts): 
       const page = await context.newPage();
       try {
         await page.goto(req.url, { timeout: resolveTimeout(req, timeouts), waitUntil: 'load' });
+        await settlePage(page, req);
         const buffer =
           format === 'pdf' ? await page.pdf({}) : await page.screenshot({ fullPage: req.options?.fullPage, type: format });
         return { buffer, format, bytes: buffer.length };
@@ -96,6 +148,7 @@ export async function captureStructured(req: CaptureRequest, timeouts?: CaptureT
       const page = await context.newPage();
       try {
         await page.goto(req.url, { timeout: resolveTimeout(req, timeouts), waitUntil: 'load' });
+        await settlePage(page, req);
         const structure = await page.evaluate(extractStructureFromDom);
         const html = req.options?.includeHtml === false ? '' : await page.content();
         return { html, structure };

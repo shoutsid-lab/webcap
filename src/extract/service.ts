@@ -10,7 +10,7 @@
  */
 import type { ArtifactRepo } from '../db/artifacts.js';
 import type { WebcapConfig } from '../config.js';
-import type { CaptureFormat, CaptureRequest, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
+import type { CaptureFormat, CaptureOptions, CaptureRequest, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
 import { modelExtract, type ModelConfig } from './model.js';
 import type { ServiceLogger } from '../util/logger.js';
 import type { ExtractedContent } from '../server/extract-parse.js';
@@ -56,6 +56,8 @@ export interface ExtractPageOptions {
   readonly modelTimeoutMs?: number;
   /** Forwarded to modelExtract verbatim (its built-in default applies when undefined). */
   readonly logger?: ServiceLogger;
+  /** Stealth capture options forwarded to captureStructured (proxy/waitFor/actions/viewport). */
+  readonly captureOptions?: CaptureOptions;
 }
 
 /**
@@ -70,7 +72,10 @@ export async function extractPage(options: ExtractPageOptions): Promise<Extracte
   const modelConfigured =
     options.model.apiKey !== '' && options.model.baseUrl !== '' && options.model.model !== '';
   const wantsModel = schema !== null && schema !== undefined && modelConfigured;
-  const captured = await options.captureStructured({ url: options.url, options: { includeHtml: wantsModel } });
+  const captured = await options.captureStructured({
+    url: options.url,
+    options: { ...options.captureOptions, includeHtml: wantsModel },
+  });
   let extracted: Record<string, unknown> | undefined;
   if (schema !== null && schema !== undefined && modelConfigured) {
     extracted = await modelExtract(captured.html, schema, options.model, options.modelTimeoutMs, options.logger);

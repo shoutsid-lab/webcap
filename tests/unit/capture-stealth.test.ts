@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { parseOptions } from '../../src/server/capture-parse.js';
+import { resolveProxyServer } from '../../src/capture/browser.js';
 import { extractPage } from '../../src/extract/service.js';
 import type { CaptureRequest, StructuredCapture } from '../../src/capture/pipeline.js';
 import { HttpError } from '../../src/util/errors.js';
@@ -124,6 +125,33 @@ describe('server/capture-parse stealth actions option', () => {
   it('rejects a wait action with a missing or non-positive timeoutMs with 422', () => {
     expectUnprocessable({ options: { actions: [{ type: 'wait' }] } }, 'actions');
     expectUnprocessable({ options: { actions: [{ type: 'wait', timeoutMs: 0 }] } }, 'actions');
+  });
+});
+
+describe('browser resolveProxyServer semantics', () => {
+  const saved = process.env.WEBCAP_PROXY_URL;
+  afterEach(() => {
+    if (saved === undefined) delete process.env.WEBCAP_PROXY_URL;
+    else process.env.WEBCAP_PROXY_URL = saved;
+  });
+
+  it("resolves auto to WEBCAP_PROXY_URL when set, else direct (undefined)", () => {
+    process.env.WEBCAP_PROXY_URL = 'http://proxy.internal:8080';
+    expect(resolveProxyServer('auto')).toBe('http://proxy.internal:8080');
+    delete process.env.WEBCAP_PROXY_URL;
+    expect(resolveProxyServer('auto')).toBeUndefined();
+  });
+
+  it('resolves stealth routing the same way as auto (hardening is orthogonal)', () => {
+    process.env.WEBCAP_PROXY_URL = 'http://proxy.internal:8080';
+    expect(resolveProxyServer('stealth')).toBe('http://proxy.internal:8080');
+    delete process.env.WEBCAP_PROXY_URL;
+    expect(resolveProxyServer('stealth')).toBeUndefined();
+  });
+
+  it('passes an explicit proxy URL through verbatim regardless of env', () => {
+    process.env.WEBCAP_PROXY_URL = 'http://proxy.internal:8080';
+    expect(resolveProxyServer('http://other:3128')).toBe('http://other:3128');
   });
 });
 
