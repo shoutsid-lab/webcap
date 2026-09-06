@@ -11,7 +11,7 @@ describe('mpp config: disabled by default (x402-only)', () => {
     const cfg = loadMppConfig({}, PUBLIC_URL);
     expect(cfg.enabled).toBe(false);
     expect(cfg.secret.length).toBe(0);
-    expect(cfg.realm).toBe(PUBLIC_URL);
+    expect(cfg.realm).toBe('x.ngrok-free.dev');
     expect(cfg.chainId).toBe(8453);
   });
 
@@ -56,12 +56,14 @@ describe('mpp config: parseMppSecret', () => {
 });
 
 describe('mpp config: realmOf', () => {
-  it('returns scheme+host origin only, stripping any path', () => {
-    expect(realmOf('https://x.ngrok-free.dev/v1/x')).toBe('https://x.ngrok-free.dev');
+  // mppscan rejects scheme-qualified realms (REALM_MISMATCH): realm must be
+  // the bare host of the origin the agent calls.
+  it('returns the bare host only, stripping scheme and path', () => {
+    expect(realmOf('https://x.ngrok-free.dev/v1/x')).toBe('x.ngrok-free.dev');
   });
 
-  it('keeps an explicit port in the origin', () => {
-    expect(realmOf('http://localhost:8080/v1/artifacts/abc')).toBe('http://localhost:8080');
+  it('keeps an explicit port on the host', () => {
+    expect(realmOf('http://localhost:8080/v1/artifacts/abc')).toBe('localhost:8080');
   });
 
   it('throws on an invalid URL', () => {
@@ -74,7 +76,7 @@ describe('mpp config: loadMppConfig enabled path', () => {
     const cfg = loadMppConfig({ MPP_SECRET_KEY: RAW_SECRET }, `${PUBLIC_URL}/v1/x`);
     expect(cfg.enabled).toBe(true);
     expect(cfg.secret.equals(Buffer.from(RAW_SECRET, 'utf8'))).toBe(true);
-    expect(cfg.realm).toBe(PUBLIC_URL);
+    expect(cfg.realm).toBe('x.ngrok-free.dev');
     expect(cfg.chainId).toBe(8453);
   });
 

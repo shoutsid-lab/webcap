@@ -44,7 +44,7 @@ const SEPOLIA_USDC = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
 const MERCHANT_ADDRESS = '0x209693Bc6afc0C5328bA36FaF03C514EF312287C';
 const MPP_SECRET_HEX = 'ab'.repeat(32); // 64 bare-hex chars -> 32 bytes, enables MPP (test-only)
 const PUBLIC_BASE_URL = 'http://localhost:8080';
-const REALM = 'http://localhost:8080';
+const REALM = 'localhost:8080';
 const NIL_WATCH_ID = '00000000-0000-4000-8000-000000000000'; // absent watch -> capture-pack fallback
 const PAYER_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b786900';
 // Sepolia USDC EIP-712 domain (EIP712_DOMAINS['eip155:84532'] in src/config/chains.ts).

@@ -46,14 +46,16 @@ Rules (`src/mpp/config.ts`, `MPP_MIN_SECRET_BYTES = 32`):
 
 ## Realm semantics
 
-`realm` is the scheme-plus-host origin of `WEBCAP_PUBLIC_BASE_URL`, path
-stripped (`realmOf`). For this deployment:
+`realm` is the bare host of `WEBCAP_PUBLIC_BASE_URL` (scheme and path
+stripped, explicit port kept — `realmOf`). mppscan rejects scheme-qualified
+realms (`REALM_MISMATCH`) and attributes on-chain stats to the origin host.
+For this deployment:
 
 ```text
-realm = https://nickname-trident-driveway.ngrok-free.dev
+realm = nickname-trident-driveway.ngrok-free.dev
 ```
 
-The MPP session is bound to that origin. If the public base URL changes
+The MPP session is bound to that host. If the public base URL changes
 (tunnel restart with a new host), the realm changes with it and anything
 bound to the old realm (directory listings, in-flight challenges) must be
 re-registered.

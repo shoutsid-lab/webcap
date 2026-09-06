@@ -15,7 +15,7 @@ const SEPOLIA_USDC = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
 const MERCHANT_ADDRESS = '0x209693Bc6afc0C5328bA36FaF03C514EF312287C';
 const MPP_SECRET = 'ab'.repeat(32); // 64 bare-hex chars -> 32 bytes, enables MPP
 const PUBLIC_BASE_URL = 'http://localhost:8080';
-const REALM = 'http://localhost:8080';
+const REALM = 'localhost:8080';
 
 const CAPTURE_UNITS = 1_000;
 const EXTRACT_UNITS = 10_000;

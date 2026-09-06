@@ -26,7 +26,7 @@ export interface BuildWwwAuthenticateParams {
   readonly amountUsdcUnits: number;
   /** Pay-to address (the recipient of the charge). */
   readonly recipient: string;
-  /** Scheme+host origin the session is bound to (compatible with MppConfig['realm']). */
+  /** Bare host the session is bound to (compatible with MppConfig['realm']). */
   readonly realm: string;
   readonly method: 'evm';
   readonly intent: 'charge';

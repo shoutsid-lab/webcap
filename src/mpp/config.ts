@@ -12,7 +12,7 @@
 export interface MppConfig {
   /** Raw key material; empty when MPP is disabled. Never log this value. */
   readonly secret: Buffer;
-  /** Scheme+host origin the MPP session is bound to (no path). */
+  /** Bare host the MPP session is bound to (no scheme/path; explicit port kept). */
   readonly realm: string;
   /** True when MPP_SECRET_KEY decoded to >=32 bytes. */
   readonly enabled: boolean;
@@ -56,10 +56,14 @@ function tryBareHex(trimmed: string): string | undefined {
   return undefined;
 }
 
-/** Scheme+host origin of a URL (path stripped); throws on an invalid URL. */
+/**
+ * Bare host of a URL (scheme + path stripped, explicit port kept): mppscan
+ * rejects scheme-qualified realms (REALM_MISMATCH) and attributes on-chain
+ * stats to the origin host. Throws on an invalid URL.
+ */
 export function realmOf(raw: string): string {
   try {
-    return new URL(raw).origin;
+    return new URL(raw).host;
   } catch {
     throw new Error(`invalid MPP realm URL: ${raw}`);
   }
