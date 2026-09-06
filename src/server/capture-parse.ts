@@ -1,5 +1,5 @@
 import type { CaptureAction, CaptureFormat, CaptureOptions, CaptureProxy } from '../capture/pipeline.js';
-import { unprocessable } from '../util/errors.js';
+import { HttpError, unprocessable } from '../util/errors.js';
 import { validateCaptureUrl } from '../util/url.js';
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
@@ -180,7 +180,11 @@ export function parseOptions(body: unknown): CaptureOptions | undefined {
 export function validatedUrl(raw: string, allowHosts: readonly string[] | undefined): string {
   try {
     return validateCaptureUrl(raw, { allowHosts });
-  } catch {
+  } catch (err) {
+    const reason = err instanceof HttpError ? err.message : 'invalid url';
+    if (reason.includes('not allowed')) {
+      throw unprocessable('invalid url', { reason, dnsRebindingCaveat: true });
+    }
     throw unprocessable('invalid url');
   }
 }

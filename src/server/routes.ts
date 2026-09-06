@@ -55,6 +55,18 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     const format = parseFormat(body);
     const options = parseOptions(body);
 
+    const payer = x402Payer(req) ?? 'unknown';
+    const spendCap = config.spendCapUsdcUnits;
+    if (spendCap !== undefined && revenue.spentByPayer(payer) >= spendCap) {
+      const spent = revenue.spentByPayer(payer);
+      throw new HttpError(429, 'spend_cap_exceeded', 'per-payer spend cap exceeded', {
+        payer,
+        spent,
+        cap: spendCap,
+        reason: `per-payer spend cap exceeded: spent ${spent} of ${spendCap} USDC units`,
+      });
+    }
+
     let result;
     try {
       result = await deps.capture({ url: normalized, format, options });
@@ -62,7 +74,6 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       if (err instanceof CaptureError) throw new HttpError(502, 'capture_failed', err.message);
       throw err;
     }
-    const payer = x402Payer(req) ?? 'unknown';
     revenue.record({
       endpoint: 'capture',
       payer,

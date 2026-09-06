@@ -97,6 +97,17 @@ export function registerBillingRoutes(app: FastifyInstance, deps: AppDeps): void
     const format = parseFormat(body);
     const options = parseOptions(body);
 
+    const spendCap = config.spendCapCredits;
+    if (spendCap !== undefined && credits.spentByAccount(account.id) >= spendCap) {
+      const spent = credits.spentByAccount(account.id);
+      throw new HttpError(429, 'spend_cap_exceeded', 'per-account spend cap exceeded', {
+        payer: account.address,
+        spent,
+        cap: spendCap,
+        reason: `per-account spend cap exceeded: spent ${spent} of ${spendCap} credits`,
+      });
+    }
+
     const balanceBefore = accounts.getBalance(account.id);
     if (balanceBefore < CAPTURE_COST_CREDITS) {
       const topUp = createInvoice(invoices, config, merchantAddress, account.id, CAPTURE_COST_CREDITS);

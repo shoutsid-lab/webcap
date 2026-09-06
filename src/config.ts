@@ -95,6 +95,18 @@ export interface WebcapConfig {
   readonly bazaarCatalogUrl?: string;
   /** Artifact retention in days; 0 (default) disables the sweep. */
   readonly artifactRetentionDays?: number;
+  /**
+   * Per-payer x402 spend cap in atomic 6-decimal USDC units
+   * (WEBCAP_SPEND_CAP_USDC_UNITS). Unset = unlimited: caps can never block
+   * when this is undefined.
+   */
+  readonly spendCapUsdcUnits?: number;
+  /**
+   * Per-account credits-rail spend cap in credits
+   * (WEBCAP_SPEND_CAP_CREDITS). Unset = unlimited: caps can never block
+   * when this is undefined.
+   */
+  readonly spendCapCredits?: number;
 }
 
 export const DEFAULT_X402_FACILITATOR_URL = 'https://x402.org/facilitator';
@@ -125,6 +137,14 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
   if (raw === undefined || raw.trim() === '') return fallback;
   const value = Number.parseInt(raw, 10);
   if (!Number.isInteger(value) || value <= 0) throw new Error(`invalid numeric env value: ${raw}`);
+  return value;
+}
+
+/** Optional spend-cap env (positive int); empty/unset -> undefined = unlimited. */
+function parseOptionalCap(raw: string | undefined, envName: string): number | undefined {
+  if (raw === undefined || raw.trim() === '') return undefined;
+  const value = Number.parseInt(raw, 10);
+  if (!Number.isInteger(value) || value <= 0) throw new Error(`invalid ${envName}: ${raw}`);
   return value;
 }
 
@@ -269,5 +289,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WebcapConfig {
     previewMarkdownLimit: parsePositiveInt(env.WEBCAP_PREVIEW_MARKDOWN_LIMIT, DEFAULT_PREVIEW_MARKDOWN_LIMIT),
     bazaarCatalogUrl: bazaarCatalogUrl(env.WEBCAP_BAZAAR_CATALOG_URL),
     artifactRetentionDays: parseNonNegativeInt(env.WEBCAP_ARTIFACT_RETENTION_DAYS, DEFAULT_ARTIFACT_RETENTION_DAYS),
+    spendCapUsdcUnits: parseOptionalCap(env.WEBCAP_SPEND_CAP_USDC_UNITS, 'WEBCAP_SPEND_CAP_USDC_UNITS'),
+    spendCapCredits: parseOptionalCap(env.WEBCAP_SPEND_CAP_CREDITS, 'WEBCAP_SPEND_CAP_CREDITS'),
   };
 }
