@@ -33,7 +33,8 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
         summary: 'Capture a URL as a screenshot (paid, x402)',
         description:
           'Capture the URL as a PNG/JPEG/PDF screenshot plus free OG metadata. Unpaid requests receive the ' +
-          'x402 402 challenge; paying clients retry with PAYMENT-SIGNATURE. One payment per URL.',
+          'x402 402 challenge; paying clients retry with PAYMENT-SIGNATURE. One payment per URL. ' +
+          'Optional options tune the render: viewport {width, height}, deviceScaleFactor, isMobile, userAgent, plus timeoutMs/fullPage.',
         requestBody: {
           required: true,
           content: { 'application/json': { schema: captureRequestBody } },

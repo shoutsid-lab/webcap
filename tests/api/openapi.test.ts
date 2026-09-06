@@ -215,6 +215,29 @@ describe('GET /openapi.json (machine-readable catalog)', () => {
     }
   });
 
+  it('documents the capture viewport/mobile options in the requestBody schema', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      const schema = (doc.paths['/v1/x402/capture']?.post?.requestBody?.content?.['application/json']?.schema ?? {}) as {
+        readonly properties?: {
+          readonly options?: { readonly properties?: Record<string, unknown> };
+        };
+      };
+      const options = schema.properties?.options?.properties ?? {};
+      for (const key of ['timeoutMs', 'fullPage', 'viewport', 'deviceScaleFactor', 'isMobile', 'userAgent']) {
+        expect(options, `POST /v1/x402/capture options must document ${key}`).toHaveProperty(key);
+      }
+      expect(options['viewport']).toMatchObject({ type: 'object' });
+      expect(options['deviceScaleFactor']).toMatchObject({ type: 'number' });
+      expect(options['isMobile']).toMatchObject({ type: 'boolean' });
+      expect(options['userAgent']).toMatchObject({ type: 'string' });
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
   it('documents input validation as 422 unprocessable (error envelope) on the x402 capture/extract routes', async () => {
     const fx = makeApiFixture();
     try {

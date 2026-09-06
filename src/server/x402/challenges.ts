@@ -43,6 +43,17 @@ const CAPTURE_INPUT_SCHEMA: Record<string, unknown> = {
       properties: {
         timeoutMs: { type: 'integer', description: 'Page load timeout in milliseconds' },
         fullPage: { type: 'boolean', description: 'Capture the full scrollable page' },
+        viewport: {
+          type: 'object',
+          description: 'Capture viewport in CSS pixels (clamped to 320-3840 wide, 320-2160 tall)',
+          properties: {
+            width: { type: 'integer', description: 'Viewport width in CSS pixels' },
+            height: { type: 'integer', description: 'Viewport height in CSS pixels' },
+          },
+        },
+        deviceScaleFactor: { type: 'number', description: 'Device pixel ratio (clamped to at most 3)' },
+        isMobile: { type: 'boolean', description: 'Render with a mobile viewport' },
+        userAgent: { type: 'string', description: 'Custom user agent string' },
       },
       additionalProperties: false,
     },

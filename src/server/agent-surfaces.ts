@@ -71,6 +71,7 @@ on-chain. You pay USDC only, never ETH gas.
 
 POST /v1/x402/capture
     {"url": "https://example.com", "format": "png"}   // format: png | jpeg | pdf (default: png)
+    // options?: {"timeoutMs", "fullPage", "viewport": {"width", "height"}, "deviceScaleFactor", "isMobile", "userAgent"}
   200 {"artifact": {"format": "png", "bytes": 123, "data": "<base64>", "url": "<base>/v1/artifacts/<uuid>"},
        "payment": {"payer": "0x…", "priceUsdcUnits": ${config.x402PriceUsdcUnits}}}
 
@@ -132,7 +133,7 @@ Base URL: ${config.publicBaseUrl}
 
 | Purpose | Request | Price (USDC) |
 | --- | --- | --- |
-| Screenshot | POST /v1/x402/capture {"url", "format"?} | ${usdc(config.x402PriceUsdcUnits)} |
+| Screenshot | POST /v1/x402/capture {"url", "format"?, "options"? (viewport, deviceScaleFactor, isMobile, userAgent)} | ${usdc(config.x402PriceUsdcUnits)} |
 | Extract (batch of up to 10 URLs, one payment) | POST /v1/x402/extract {"url" or "urls", "schema"?} | ${usdc(config.x402ExtractPriceUsdcUnits)} |
 | Audit (SEO + OG + link health, one URL) | POST /v1/x402/audit {"url"} | ${usdc(config.x402AuditPriceUsdcUnits)} |
 | Watch top-up (100 runs) | POST /v1/x402/watches/topup {"watchId", "runs": 100} | ${usdc(watchTopUpPriceUsdcUnits('capture', config))} (capture watch) / ${usdc(watchTopUpPriceUsdcUnits('extract', config))} (extract watch) |
