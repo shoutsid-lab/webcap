@@ -72,6 +72,18 @@ function tagTable(result: OgResult): string {
   if (result.title !== undefined) rows.push(['og:title', result.title]);
   if (result.description !== undefined) rows.push(['og:description', result.description]);
   if (result.image !== undefined) rows.push(['og:image', result.image]);
+  if (result.twitterCard !== undefined) rows.push(['twitter:card', result.twitterCard]);
+  if (result.twitterSite !== undefined) rows.push(['twitter:site', result.twitterSite]);
+  if (result.twitterCreator !== undefined) rows.push(['twitter:creator', result.twitterCreator]);
+  if (result.twitterTitle !== undefined) rows.push(['twitter:title', result.twitterTitle]);
+  if (result.twitterDescription !== undefined) rows.push(['twitter:description', result.twitterDescription]);
+  if (result.twitterImage !== undefined) rows.push(['twitter:image', result.twitterImage]);
+  if (result.articlePublishedTime !== undefined) rows.push(['article:published_time', result.articlePublishedTime]);
+  if (result.articleAuthor !== undefined) rows.push(['article:author', result.articleAuthor]);
+  if (result.articleSection !== undefined) rows.push(['article:section', result.articleSection]);
+  if (result.articleTags !== undefined) {
+    for (const tag of result.articleTags) rows.push(['article:tag', tag]);
+  }
   if (result.icon !== undefined) rows.push(['icon', result.icon]);
   rows.push(['url', result.url]);
   const body = rows

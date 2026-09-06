@@ -140,8 +140,9 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
         tags: ['discovery'],
         summary: 'Free Open Graph metadata for a URL (no payment)',
         description:
-          'Fetch the page and return its og:title/og:description/og:image (falling back to the <title> tag and ' +
-          'icon link for title/image). Free, no payment and no API key.',
+          'Fetch the page and return its title/description/image (twitter: preferred over og:, ' +
+          'falling back to the <title> tag and icon link) plus twitter:card/site/creator and ' +
+          'article:published_time/author/section/tag. Free, no payment and no API key.',
         parameters: [
           { name: 'url', in: 'query', required: true, schema: { type: 'string' }, description: 'The page to fetch' },
         ],
@@ -157,6 +158,16 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
                 description: { type: 'string' },
                 image: { type: 'string' },
                 icon: { type: 'string' },
+                twitterCard: { type: 'string' },
+                twitterSite: { type: 'string' },
+                twitterCreator: { type: 'string' },
+                twitterTitle: { type: 'string' },
+                twitterDescription: { type: 'string' },
+                twitterImage: { type: 'string' },
+                articlePublishedTime: { type: 'string' },
+                articleAuthor: { type: 'string' },
+                articleSection: { type: 'string' },
+                articleTags: { type: 'array', items: { type: 'string' } },
               },
             }),
           },

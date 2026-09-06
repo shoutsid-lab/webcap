@@ -9,16 +9,39 @@ export interface OgResult {
   readonly description?: string;
   readonly image?: string;
   readonly icon?: string;
+  readonly twitterCard?: string;
+  readonly twitterSite?: string;
+  readonly twitterCreator?: string;
+  readonly twitterTitle?: string;
+  readonly twitterDescription?: string;
+  readonly twitterImage?: string;
+  readonly articlePublishedTime?: string;
+  readonly articleAuthor?: string;
+  readonly articleSection?: string;
+  readonly articleTags?: readonly string[];
 }
 
 export async function ogMetadata(req: { readonly url: string }, timeouts?: CaptureTimeouts): Promise<OgResult> {
   const html = await fetchHtml(req.url, timeouts);
+  const twitterTitle = metaContent(html, 'twitter:title');
+  const twitterDescription = metaContent(html, 'twitter:description');
+  const twitterImage = metaContent(html, 'twitter:image');
   return {
     url: req.url,
-    title: metaContent(html, 'og:title') ?? tagContent(html, 'title'),
-    description: metaContent(html, 'og:description'),
-    image: metaContent(html, 'og:image'),
+    title: twitterTitle ?? metaContent(html, 'og:title') ?? tagContent(html, 'title'),
+    description: twitterDescription ?? metaContent(html, 'og:description'),
+    image: twitterImage ?? metaContent(html, 'og:image'),
     icon: iconHref(html),
+    twitterCard: metaContent(html, 'twitter:card'),
+    twitterSite: metaContent(html, 'twitter:site'),
+    twitterCreator: metaContent(html, 'twitter:creator'),
+    twitterTitle,
+    twitterDescription,
+    twitterImage,
+    articlePublishedTime: metaContent(html, 'article:published_time'),
+    articleAuthor: metaContent(html, 'article:author'),
+    articleSection: metaContent(html, 'article:section'),
+    articleTags: metaAll(html, 'article:tag'),
   };
 }
 
@@ -50,6 +73,19 @@ function metaContent(html: string, property: string): string | undefined {
   const content = tag[0].match(/content\s*=\s*["']([^"']*)["']/i);
   const value = content === null ? undefined : clean(content[1]);
   return value === '' ? undefined : value;
+}
+
+function metaAll(html: string, property: string): readonly string[] | undefined {
+  const tags = html.match(new RegExp(`<meta[^>]+(?:property|name)\\s*=\\s*["']${property}["'][^>]*>`, 'gi'));
+  if (tags === null) return undefined;
+  const values: string[] = [];
+  for (const tag of tags) {
+    const content = tag.match(/content\s*=\s*["']([^"']*)["']/i);
+    if (content?.[1] === undefined) continue;
+    const value = clean(content[1]);
+    if (value !== '') values.push(value);
+  }
+  return values.length > 0 ? values : undefined;
 }
 
 function tagContent(html: string, tag: string): string | undefined {

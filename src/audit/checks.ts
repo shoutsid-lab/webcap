@@ -35,10 +35,30 @@ export interface AuditOg {
   readonly title: string | undefined;
   readonly description: string | undefined;
   readonly image: string | undefined;
+  readonly twitterCard: string | undefined;
+  readonly twitterSite: string | undefined;
+  readonly twitterCreator: string | undefined;
+  readonly twitterTitle: string | undefined;
+  readonly twitterDescription: string | undefined;
+  readonly twitterImage: string | undefined;
+  readonly articlePublishedTime: string | undefined;
+  readonly articleAuthor: string | undefined;
+  readonly articleSection: string | undefined;
+  readonly articleTags: readonly string[] | undefined;
   readonly present: {
     readonly title: boolean;
     readonly description: boolean;
     readonly image: boolean;
+    readonly twitterCard: boolean;
+    readonly twitterSite: boolean;
+    readonly twitterCreator: boolean;
+    readonly twitterTitle: boolean;
+    readonly twitterDescription: boolean;
+    readonly twitterImage: boolean;
+    readonly articlePublishedTime: boolean;
+    readonly articleAuthor: boolean;
+    readonly articleSection: boolean;
+    readonly articleTags: boolean;
   };
 }
 
@@ -87,6 +107,16 @@ export function computeAudit(args: ComputeAuditArgs): AuditResult {
   const ogTitle = metaContent(html, 'og:title');
   const ogDescription = metaContent(html, 'og:description');
   const ogImage = metaContent(html, 'og:image');
+  const twitterCard = metaContent(html, 'twitter:card');
+  const twitterSite = metaContent(html, 'twitter:site');
+  const twitterCreator = metaContent(html, 'twitter:creator');
+  const twitterTitle = metaContent(html, 'twitter:title');
+  const twitterDescription = metaContent(html, 'twitter:description');
+  const twitterImage = metaContent(html, 'twitter:image');
+  const articlePublishedTime = metaContent(html, 'article:published_time');
+  const articleAuthor = metaContent(html, 'article:author');
+  const articleSection = metaContent(html, 'article:section');
+  const articleTags = metaAll(html, 'article:tag');
 
   const links = structure.links;
   const total = links.length;
@@ -135,10 +165,30 @@ export function computeAudit(args: ComputeAuditArgs): AuditResult {
       title: ogTitle,
       description: ogDescription,
       image: ogImage,
+      twitterCard,
+      twitterSite,
+      twitterCreator,
+      twitterTitle,
+      twitterDescription,
+      twitterImage,
+      articlePublishedTime,
+      articleAuthor,
+      articleSection,
+      articleTags,
       present: {
         title: ogTitle !== undefined,
         description: ogDescription !== undefined,
         image: ogImage !== undefined,
+        twitterCard: twitterCard !== undefined,
+        twitterSite: twitterSite !== undefined,
+        twitterCreator: twitterCreator !== undefined,
+        twitterTitle: twitterTitle !== undefined,
+        twitterDescription: twitterDescription !== undefined,
+        twitterImage: twitterImage !== undefined,
+        articlePublishedTime: articlePublishedTime !== undefined,
+        articleAuthor: articleAuthor !== undefined,
+        articleSection: articleSection !== undefined,
+        articleTags: articleTags !== undefined,
       },
     },
     links: { total, internal, external, emptyText, duplicates, sample },
@@ -151,6 +201,19 @@ function metaContent(html: string, property: string): string | undefined {
   const content = tag[0].match(/content\s*=\s*["']([^"']*)["']/i);
   const value = content === null || content[1] === undefined ? undefined : clean(content[1]);
   return value === '' || value === undefined ? undefined : value;
+}
+
+function metaAll(html: string, property: string): readonly string[] | undefined {
+  const tags = html.match(new RegExp(`<meta[^>]+(?:property|name)\\s*=\\s*["']${property}["'][^>]*>`, 'gi'));
+  if (tags === null) return undefined;
+  const values: string[] = [];
+  for (const tag of tags) {
+    const content = tag.match(/content\s*=\s*["']([^"']*)["']/i);
+    if (content?.[1] === undefined) continue;
+    const value = clean(content[1]);
+    if (value !== '') values.push(value);
+  }
+  return values.length > 0 ? values : undefined;
 }
 
 function canonicalHref(html: string): string | undefined {
