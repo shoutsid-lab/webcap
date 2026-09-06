@@ -46,6 +46,8 @@ type RouteSpec = {
   description: string;
   probeBody: string;
   priceUsd: number;
+  category: string;
+  paymentNetwork: string;
 };
 
 const routes: RouteSpec[] = [
@@ -57,6 +59,8 @@ const routes: RouteSpec[] = [
       'Capture a URL as PNG/JPEG/PDF plus free OG metadata. Gasless x402 USDC payment on Base (CDP facilitator).',
     probeBody: '{"url":"https://example.com"}',
     priceUsd: 0.001,
+    category: 'media',
+    paymentNetwork: 'Base',
   },
   {
     route: 'extract',
@@ -66,6 +70,8 @@ const routes: RouteSpec[] = [
       'Extract structured content (headings, links, text, metadata) from one URL or a batch. Gasless x402 USDC payment on Base.',
     probeBody: '{"url":"https://example.com"}',
     priceUsd: 0.01,
+    category: 'web-scraping',
+    paymentNetwork: 'Base',
   },
   {
     route: 'topup',
@@ -75,6 +81,8 @@ const routes: RouteSpec[] = [
       'Top up prepaid page-change watch runs (per-watch challenge, $0.10–$1.00 packs). Gasless x402 USDC payment on Base.',
     probeBody: '{"watchId":"00000000-0000-4000-8000-000000000000","runs":100}',
     priceUsd: 0.1,
+    category: 'tools',
+    paymentNetwork: 'Base',
   },
 ];
 
@@ -92,6 +100,10 @@ for (const r of routes) {
         probe_body: r.probeBody,
         description: r.description,
         price_usd: r.priceUsd,
+        payment_asset: 'USDC',
+        payment_network: r.paymentNetwork,
+        category: r.category,
+        provider: 'webcap',
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
