@@ -30,10 +30,13 @@ describe('fetchJsonWatch B-S1: plain JSON fetch', () => {
   });
 
   it('sends an Accept: application/json header', async () => {
-    const fetchImpl = vi.fn(async () => jsonResponse('{"a":1}'));
+    let seenInit: RequestInit | undefined;
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      seenInit = init;
+      return jsonResponse('{"a":1}');
+    });
     await fetchJsonWatch(JSON_URL, { fetchImpl });
-    const init = fetchImpl.mock.calls[0]?.[1] as RequestInit | undefined;
-    const headers = new Headers(init?.headers);
+    const headers = new Headers(seenInit?.headers);
     expect(headers.get('accept')).toContain('application/json');
   });
 });
@@ -82,8 +85,10 @@ describe('fetchJsonWatch B-S2: failures become error results, never throws', () 
   it('surfaces timeouts as an error instead of throwing', async () => {
     const hanging: typeof fetch = (_url, init) =>
       new Promise((_resolve, reject) => {
-        init?.signal?.addEventListener('abort', () => {
-          reject((init.signal as AbortSignal).reason ?? new Error('aborted'));
+        const signal = init?.signal;
+        if (signal === null || signal === undefined) return;
+        signal.addEventListener('abort', () => {
+          reject(signal.reason ?? new Error('aborted'));
         });
       });
     const result = await fetchJsonWatch(JSON_URL, { fetchImpl: hanging, timeoutMs: 20 });
