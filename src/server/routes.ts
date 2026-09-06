@@ -27,6 +27,8 @@ import { isRecord, parseFormat, parseOptions, validatedUrl } from './capture-par
 import { x402Payer } from './x402.js';
 import { computeAudit } from '../audit/checks.js';
 import type { AppDeps } from './server.js';
+import type { OgResult } from '../capture/og.js';
+import { ogDebuggerHtml } from './pages/og-debugger.js';
 
 // Fixed 60s window for the preview per-peer budget; the preview limit itself
 // is configurable (WEBCAP_PREVIEW_RATE_LIMIT, default DEFAULT_PREVIEW_RATE_LIMIT).
@@ -37,6 +39,10 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
   const revenue = makeRevenueRepo(db);
   const allowHosts = deps.captureAllowHosts;
   const previewLimiter = new RateLimiter(config.previewRateLimit ?? DEFAULT_PREVIEW_RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
+  // The debugger page fetches on the visitor's behalf, so it gets the same
+  // fixed-window per-peer budget family as the preview route (separate
+  // instance so the two free surfaces don't share one budget).
+  const ogDebuggerLimiter = new RateLimiter(config.previewRateLimit ?? DEFAULT_PREVIEW_RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
 
   app.post('/v1/x402/capture', async (req) => {
     if (config.x402Network === undefined) {
@@ -272,5 +278,42 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       if (err instanceof CaptureError) throw new HttpError(502, 'capture_failed', err.message);
       throw err;
     }
+  });
+
+  // Free OG debugger tool page (server-rendered GET form + results). Reuses
+  // the exact deps.og service function as GET /v1/og — no new fetch pipeline.
+  // Every outcome (empty form, gated notice, inline error, results) is 200
+  // HTML; a bad URL is never a 500.
+  app.get('/og-debugger', async (req, reply) => {
+    reply.header('content-type', 'text/html; charset=utf-8');
+    const rawUrl = isRecord(req.query) ? req.query.url : undefined;
+    if (rawUrl === undefined || rawUrl === '') {
+      return reply.send(ogDebuggerHtml(config, { state: 'empty' }));
+    }
+    if (typeof rawUrl !== 'string') {
+      return reply.send(ogDebuggerHtml(config, { state: 'error', rawUrl: '[invalid]', message: 'invalid url' }));
+    }
+    // Key on the actual peer IP only (same rationale as the preview limiter:
+    // X-Forwarded-For is attacker-controlled behind tunnels).
+    if (!ogDebuggerLimiter.allow(req.ip)) {
+      return reply.send(ogDebuggerHtml(config, { state: 'rate_limited' }));
+    }
+    let normalized: string;
+    try {
+      normalized = validatedUrl(rawUrl, allowHosts);
+    } catch (err) {
+      const message = err instanceof HttpError ? err.message : 'invalid url';
+      return reply.send(ogDebuggerHtml(config, { state: 'error', rawUrl, message }));
+    }
+    let result: OgResult;
+    try {
+      result = await deps.og({ url: normalized });
+    } catch (err) {
+      if (err instanceof CaptureError) {
+        return reply.send(ogDebuggerHtml(config, { state: 'error', rawUrl, message: `upstream fetch failed (${err.message})` }));
+      }
+      throw err;
+    }
+    return reply.send(ogDebuggerHtml(config, { state: 'ok', rawUrl, result }));
   });
 }

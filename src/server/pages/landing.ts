@@ -236,6 +236,7 @@ ${topBar(bazaarCatalogUrl)}
       <a href="${bazaarCatalogUrl}" target="_blank" rel="noopener">CDP Bazaar listing <span class="arr">↗</span></a>
       <a href="/openapi.json">/openapi.json — OpenAPI 3.1 catalog <span class="arr">→</span></a>
       <a href="/icon.png">/icon.png — service icon <span class="arr">→</span></a>
+      <a href="/og-debugger">/og-debugger — free OG meta debugger <span class="arr">→</span></a>
       <a href="#pricing">Pricing <span class="arr">→</span></a>
     </div>
     <p class="hint">Independently observed trust (third-party index, live-probed — not a guarantee):</p>

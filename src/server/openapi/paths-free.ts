@@ -65,6 +65,23 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
         security: [],
       },
     },
+    '/og-debugger': {
+      get: {
+        tags: ['discovery'],
+        summary: 'Free OG meta debugger tool page (no payment, rate-limited)',
+        description:
+          'Server-rendered link-preview debugger: omit url for the empty form, or pass ?url=… to see the Open Graph ' +
+          '/ meta tags the free GET /v1/og endpoint returns for that page — a preview card plus a tag table, or an ' +
+          'inline error for bad/unreachable URLs. Plain GET form, no JavaScript. Fetch is rate-limited per client.',
+        parameters: [
+          { name: 'url', in: 'query', required: false, schema: { type: 'string' }, description: 'The page to debug; omit for the empty form' },
+        ],
+        responses: {
+          200: { description: 'The debugger page (text/html; charset=utf-8)', content: { 'text/html': { schema: { type: 'string' } } } },
+        },
+        security: [],
+      },
+    },
     '/v1/artifacts/{id}': {
       get: {
         tags: ['artifacts'],
