@@ -45,6 +45,16 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
                     note: { type: 'string' },
                   },
                 },
+                paidUpgrade: {
+                  type: 'object',
+                  properties: {
+                    endpoint: { type: 'string', example: 'POST /v1/x402/extract', description: 'The paid extract endpoint (method + path) that returns the full result' },
+                    priceUsdc: { type: 'number', example: 0.01, description: 'Per-extract price in USDC (priceUsdcUnits / 1e6), config-derived' },
+                    priceUsdcUnits: { type: 'integer', example: 10000, description: 'Per-extract price in atomic 6-decimal USDC units (config x402ExtractPriceUsdcUnits)' },
+                    howToPay: { type: 'string', description: 'The x402 v2 "exact" scheme payment flow: 402 challenge -> sign a gasless EIP-3009 USDC transferWithAuthorization -> retry with the PAYMENT-SIGNATURE header' },
+                    guide: { type: 'string', description: 'The deployment agent skill guide URL (<public base URL>/skill.md), config-derived' },
+                  },
+                },
               },
             }),
           },

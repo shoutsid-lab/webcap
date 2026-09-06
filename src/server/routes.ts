@@ -147,6 +147,13 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         endpoint: 'POST /v1/x402/extract',
         note: 'paid: full paragraphs + images + batch (up to 10 URLs) + optional model extraction',
       },
+      paidUpgrade: {
+        endpoint: 'POST /v1/x402/extract',
+        priceUsdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE,
+        priceUsdcUnits: config.x402ExtractPriceUsdcUnits,
+        howToPay: 'HTTP 402 -> sign a gasless EIP-3009 USDC transferWithAuthorization -> retry with the PAYMENT-SIGNATURE header (x402 v2 exact scheme)',
+        guide: `${config.publicBaseUrl}/skill.md`,
+      },
     };
   });
 

@@ -1,7 +1,11 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { CaptureError } from '../../src/capture/errors.js';
 import type { StructuredCapture } from '../../src/capture/pipeline.js';
+import { USDC_SCALE } from '../../src/config.js';
 import { closeApiFixture, makeApiFixture } from './fixture.js';
+
+const sha256 = (body: string): string => createHash('sha256').update(body, 'utf8').digest('hex');
 
 describe('GET /v1/extract/preview (free, rate-limited funnel)', () => {
   it('GET / with Accept: application/json returns the service map (JSON front door)', async () => {
@@ -27,6 +31,7 @@ describe('GET /v1/extract/preview (free, rate-limited funnel)', () => {
         preview: { title: string; wordCount: number; markdown: string };
         truncated: boolean;
         upgrade: { endpoint: string };
+        paidUpgrade: { endpoint: string; priceUsdc: number; priceUsdcUnits: number; howToPay: string; guide: string };
       };
       expect(body.url).toBe('https://example.com/');
       expect(body.preview.title).toBe('Stub Title');
@@ -34,6 +39,11 @@ describe('GET /v1/extract/preview (free, rate-limited funnel)', () => {
       expect(typeof body.preview.markdown).toBe('string');
       expect(body.truncated).toBe(true);
       expect(body.upgrade.endpoint).toBe('POST /v1/x402/extract');
+      expect(body.paidUpgrade.endpoint).toBe('POST /v1/x402/extract');
+      expect(body.paidUpgrade.priceUsdcUnits).toBe(fx.config.x402ExtractPriceUsdcUnits);
+      expect(body.paidUpgrade.priceUsdc).toBe(fx.config.x402ExtractPriceUsdcUnits / USDC_SCALE);
+      expect(body.paidUpgrade.guide.endsWith('/skill.md')).toBe(true);
+      expect(Object.keys(body.paidUpgrade).sort()).toEqual(['endpoint', 'guide', 'howToPay', 'priceUsdc', 'priceUsdcUnits']);
     } finally {
       await closeApiFixture(fx);
     }
@@ -44,6 +54,30 @@ describe('GET /v1/extract/preview (free, rate-limited funnel)', () => {
     try {
       const res = await fx.app.inject({ method: 'GET', url: '/v1/extract/preview' });
       expect(res.statusCode).toBe(422);
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('byte-pins the 422 envelope for a missing url (regression lock on today\'s bytes)', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await fx.app.inject({ method: 'GET', url: '/v1/extract/preview' });
+      expect(res.statusCode).toBe(422);
+      expect(sha256(res.body)).toBe('42065384bf8e07ca97cab1f5fc7fb561e4326c9f2cf0c1f30f3507194b3607f7');
+      expect(res.body).toBe('{"error":{"code":"unprocessable","message":"url query parameter is required"}}');
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('byte-pins the 422 envelope for an invalid url (regression lock on today\'s bytes)', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await fx.app.inject({ method: 'GET', url: '/v1/extract/preview?url=not+a+url' });
+      expect(res.statusCode).toBe(422);
+      expect(sha256(res.body)).toBe('f9cd05a702d6b28e3bcbe7cf0dabf29fa953a7f67471839f59386aa8f26e3b3c');
+      expect(res.body).toBe('{"error":{"code":"unprocessable","message":"invalid url"}}');
     } finally {
       await closeApiFixture(fx);
     }
