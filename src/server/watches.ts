@@ -32,6 +32,7 @@ export interface WatchRunView {
   readonly artifactUrl?: string;
   readonly extract?: unknown;
   readonly diffSummary?: string;
+  readonly aiSummary?: string;
   readonly webhook?: string;
   readonly error?: string;
   readonly createdAt: string;
@@ -238,6 +239,7 @@ function runView(run: WatchRunRow): WatchRunView {
     ...(run.artifact_url !== null ? { artifactUrl: run.artifact_url } : {}),
     ...(run.extract_json !== null ? { extract: JSON.parse(run.extract_json) } : {}),
     ...(run.diff_summary !== null ? { diffSummary: run.diff_summary } : {}),
+    ...(run.ai_summary !== null ? { aiSummary: run.ai_summary } : {}),
     ...(run.webhook !== null ? { webhook: run.webhook } : {}),
     ...(run.error !== null ? { error: run.error } : {}),
     createdAt: run.created_at,

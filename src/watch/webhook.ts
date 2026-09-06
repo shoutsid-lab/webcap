@@ -19,6 +19,24 @@ export interface WatchAlert {
   readonly at: string;
   readonly artifactUrl: string | null;
   readonly extract: unknown;
+  /** Nullable AI summary (watch_runs.ai_summary); absent/null renders as omitted. */
+  readonly summary?: string | null;
+}
+
+/** Payload cap for the rendered AI summary; longer text truncates with an ellipsis. */
+export const MAX_AI_SUMMARY_CHARS = 500;
+
+/**
+ * Normalize a nullable AI summary for rendering: blank (null/undefined/empty)
+ * maps to null (the surface omits it — never the strings "false"/"null");
+ * over-cap text truncates with an ellipsis.
+ */
+export function truncateAiSummary(raw: string | null | undefined): string | null {
+  if (raw === null || raw === undefined) return null;
+  const trimmed = raw.trim();
+  if (trimmed === '') return null;
+  if (trimmed.length <= MAX_AI_SUMMARY_CHARS) return trimmed;
+  return `${trimmed.slice(0, MAX_AI_SUMMARY_CHARS - 1)}…`;
 }
 
 /**
@@ -27,9 +45,10 @@ export interface WatchAlert {
  */
 export function buildSlackPayload(alert: WatchAlert): Record<string, unknown> {
   const headline = `Watch ${alert.watchId} changed (${alert.mode})`;
+  const summary = truncateAiSummary(alert.summary);
   const detail = `*Diff:* ${alert.diffSummary ?? 'n/a'}\n*At:* ${alert.at}${
     alert.artifactUrl !== null ? `\n*Artifact:* ${alert.artifactUrl}` : ''
-  }`;
+  }${summary !== null ? `\n*AI summary:* ${summary}` : ''}`;
   return {
     text: `${headline}: ${alert.url}`,
     blocks: [
@@ -47,6 +66,8 @@ export function buildDiscordPayload(alert: WatchAlert): Record<string, unknown> 
   const fields: Array<Record<string, unknown>> = [
     { name: 'Diff', value: alert.diffSummary ?? 'n/a', inline: false },
   ];
+  const summary = truncateAiSummary(alert.summary);
+  if (summary !== null) fields.push({ name: 'AI summary', value: summary, inline: false });
   if (alert.artifactUrl !== null) fields.push({ name: 'Artifact', value: alert.artifactUrl, inline: false });
   return {
     embeds: [
@@ -75,8 +96,11 @@ export function formatAlertPayload(
       return buildSlackPayload(alert);
     case 'discord':
       return buildDiscordPayload(alert);
-    case 'generic':
-      return legacy;
+    case 'generic': {
+      const summary = truncateAiSummary(alert.summary);
+      if (summary === null) return legacy;
+      return { ...legacy, aiSummary: summary };
+    }
   }
 }
 
