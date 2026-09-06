@@ -121,6 +121,16 @@ export interface WebcapConfig {
    * serving (see registerDiscoveryRoutes). Never logged.
    */
   readonly artifactHmacSecret?: string;
+  /**
+   * Watch AI token budgets (fail-open only; consumed by the scheduler's
+   * summarize gate in T11): max model tokens chargeable to one watch's
+   * window (WATCH_AI_MAX_TOKENS_PER_RUN) and to the shared global window
+   * (WATCH_AI_MAX_TOKENS_GLOBAL_WINDOW). loadConfig always sets both;
+   * hand-built test configs may omit them, in which case the matching
+   * DEFAULT_* applies at the use site.
+   */
+  readonly watchAiMaxTokensPerRun?: number;
+  readonly watchAiMaxTokensGlobalWindow?: number;
 }
 
 export const DEFAULT_X402_FACILITATOR_URL = 'https://x402.org/facilitator';
@@ -147,6 +157,8 @@ export const DEFAULT_PREVIEW_LINKS_LIMIT = 10; // free preview slice: links
 export const DEFAULT_PREVIEW_MARKDOWN_LIMIT = 1_500; // free preview slice: markdown chars (mirrored in the OpenAPI doc)
 export const DEFAULT_BAZAAR_CATALOG_URL = 'https://cdp.coinbase.com'; // CDP Bazaar catalog link
 export const DEFAULT_ARTIFACT_RETENTION_DAYS = 0; // 0 disables the artifact sweep
+export const DEFAULT_WATCH_AI_MAX_TOKENS_PER_RUN = 10_000; // watch AI token budget: per-watch window (WATCH_AI_MAX_TOKENS_PER_RUN)
+export const DEFAULT_WATCH_AI_MAX_TOKENS_GLOBAL_WINDOW = 100_000; // watch AI token budget: shared global window (WATCH_AI_MAX_TOKENS_GLOBAL_WINDOW)
 export const ARTIFACT_SWEEP_INTERVAL_MS = 6 * 3_600_000; // retention sweep cadence
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
   if (raw === undefined || raw.trim() === '') return fallback;
@@ -174,6 +186,14 @@ function parseNonNegativeInt(raw: string | undefined, fallback: number): number 
   if (raw === undefined || raw.trim() === '') return fallback;
   const value = Number.parseInt(raw, 10);
   if (!Number.isInteger(value) || value < 0) throw new Error(`invalid non-negative integer env value: ${raw}`);
+  return value;
+}
+
+/** Watch AI token budget env (positive int); empty/unset -> fallback, invalid names the env. */
+function parseWatchAiBudget(raw: string | undefined, fallback: number, envName: string): number {
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const value = Number.parseInt(raw, 10);
+  if (!Number.isInteger(value) || value <= 0) throw new Error(`invalid ${envName}: ${raw}`);
   return value;
 }
 
@@ -318,5 +338,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WebcapConfig {
     spendCapUsdcUnits: parseOptionalCap(env.WEBCAP_SPEND_CAP_USDC_UNITS, 'WEBCAP_SPEND_CAP_USDC_UNITS'),
     spendCapCredits: parseOptionalCap(env.WEBCAP_SPEND_CAP_CREDITS, 'WEBCAP_SPEND_CAP_CREDITS'),
     artifactHmacSecret: parseOptionalSecret(env.WEBCAP_ARTIFACT_HMAC_SECRET),
+    watchAiMaxTokensPerRun: parseWatchAiBudget(
+      env.WATCH_AI_MAX_TOKENS_PER_RUN,
+      DEFAULT_WATCH_AI_MAX_TOKENS_PER_RUN,
+      'WATCH_AI_MAX_TOKENS_PER_RUN',
+    ),
+    watchAiMaxTokensGlobalWindow: parseWatchAiBudget(
+      env.WATCH_AI_MAX_TOKENS_GLOBAL_WINDOW,
+      DEFAULT_WATCH_AI_MAX_TOKENS_GLOBAL_WINDOW,
+      'WATCH_AI_MAX_TOKENS_GLOBAL_WINDOW',
+    ),
   };
 }

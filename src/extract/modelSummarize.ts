@@ -188,3 +188,92 @@ function extractUsage(data: unknown): ModelUsage {
 function toCount(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
+
+/**
+ * Fail-open marker for token-budget gating: when the per-watch or global
+ * window is spent, modelSummarizeWithBudget resolves null without fetching
+ * and T11 stores this marker as the run's ai_summary. Alerts never depend on
+ * it — the scheduler keys change alerts off changed + diffSummary only.
+ */
+export const TOKEN_BUDGET_EXCEEDED_MARKER = 'AI unevaluated — token budget exceeded';
+
+export interface WatchAiTokenBudgetOptions {
+  /** Max model tokens chargeable to one watch's window (0 = everything gates). */
+  readonly maxTokensPerRun: number;
+  /** Max model tokens chargeable to the shared global window (0 = everything gates). */
+  readonly maxTokensGlobalWindow: number;
+}
+
+/** In-memory token counter with per-watch + global windows (fail-open only). */
+export interface WatchAiTokenBudget {
+  readonly maxTokensPerRun: number;
+  readonly maxTokensGlobalWindow: number;
+  /** Tokens recorded across all watches since construction (or reset). */
+  readonly usedTotal: number;
+  /** Tokens recorded for one watch since construction (or reset); 0 when unseen. */
+  usedFor(watchId: string): number;
+  /** True when the watch's window or the global window is spent. */
+  isOverBudget(watchId: string): boolean;
+  /** Add tokens to the watch's window and the global window; never throws. */
+  record(watchId: string, tokens: number): void;
+  /** Clear per-watch and global counters (window rollover). */
+  reset(): void;
+}
+
+/** Build a token budget; negative/non-integer caps clamp to 0 (gate-all). */
+export function createWatchAiTokenBudget(options: WatchAiTokenBudgetOptions): WatchAiTokenBudget {
+  const maxTokensPerRun = clampBudget(options.maxTokensPerRun);
+  const maxTokensGlobalWindow = clampBudget(options.maxTokensGlobalWindow);
+  const perWatch = new Map<string, number>();
+  let usedTotal = 0;
+  return {
+    maxTokensPerRun,
+    maxTokensGlobalWindow,
+    get usedTotal(): number {
+      return usedTotal;
+    },
+    usedFor(watchId: string): number {
+      return perWatch.get(watchId) ?? 0;
+    },
+    isOverBudget(watchId: string): boolean {
+      return (perWatch.get(watchId) ?? 0) >= maxTokensPerRun || usedTotal >= maxTokensGlobalWindow;
+    },
+    record(watchId: string, tokens: number): void {
+      const chargeable = clampBudget(tokens);
+      if (chargeable === 0) return;
+      perWatch.set(watchId, (perWatch.get(watchId) ?? 0) + chargeable);
+      usedTotal += chargeable;
+    },
+    reset(): void {
+      perWatch.clear();
+      usedTotal = 0;
+    },
+  };
+}
+
+function clampBudget(value: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+}
+
+/**
+ * Budget-gated modelSummarize for the watch scheduler (T11 call site):
+ * over-budget resolves null WITHOUT fetching and never throws, so change
+ * alerts always proceed; under budget it delegates and charges usage.total
+ * (null results charge nothing) to the watch's window and the global window.
+ */
+export async function modelSummarizeWithBudget(
+  diff: string,
+  config: ModelConfig,
+  budget: WatchAiTokenBudget,
+  watchId: string,
+  options: ModelSummarizeOptions = {},
+): Promise<ModelSummary | null> {
+  try {
+    if (budget.isOverBudget(watchId)) return null;
+    const result = await modelSummarize(diff, config, options);
+    if (result !== null) budget.record(watchId, result.usage.total);
+    return result;
+  } catch {
+    return null;
+  }
+}
