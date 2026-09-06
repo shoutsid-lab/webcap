@@ -59,7 +59,7 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
             }),
           },
           422: ctx.unprocessable('Missing or invalid url query parameter'),
-          429: jsonError('429', 'Preview rate limit exceeded; use the paid extract endpoint (error envelope, code rate_limited)'),
+          429: jsonError('429', 'Preview rate limit exceeded (error envelope, code rate_limited; detail.retryAfterSeconds + detail.paidUpgrade{endpoint, priceUsdc, priceUsdcUnits, howToPay, guide} point at the paid extract endpoint)'),
           502: ctx.captureFailed,
         },
         security: [],
