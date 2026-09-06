@@ -93,9 +93,10 @@ describe('GET /openapi.json (machine-readable catalog)', () => {
       const doc = res.json() as OpenapiDocView;
       expect(doc.openapi.startsWith('3.1')).toBe(true);
       expect(doc.info.title).toBe('webcap');
+      // Directory auditors (x402gle audition) reject any non-public server URL
+      // in the declaration — the catalog must list exactly the public origin.
       const serverUrls = doc.servers.map((s) => s.url);
-      expect(serverUrls).toContain(fx.config.publicBaseUrl);
-      expect(serverUrls).toContain('http://localhost:8080');
+      expect(serverUrls).toEqual([fx.config.publicBaseUrl]);
 
       const capture = doc.paths['/v1/x402/capture']?.post;
       const extract = doc.paths['/v1/x402/extract']?.post;

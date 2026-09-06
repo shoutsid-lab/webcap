@@ -68,10 +68,9 @@ export async function openapiDocument(config: WebcapConfig): Promise<OpenapiDocu
       'x-guidance': guidance,
       ...(config.contactEmail !== undefined ? { contact: { email: config.contactEmail } } : {}),
     },
-    servers: [
-      { url: config.publicBaseUrl, description: 'public deployment' },
-      { url: 'http://localhost:8080', description: 'local development' },
-    ],
+    // Single public server: directory auditors (x402gle) reject declarations
+    // containing non-public URLs (e.g. localhost).
+    servers: [{ url: config.publicBaseUrl, description: 'public deployment' }],
     tags: [
       { name: 'capture', description: 'URL → PNG/JPEG/PDF screenshot (+ free OG metadata)' },
       { name: 'extract', description: 'URL(s) → structured text/JSON' },
