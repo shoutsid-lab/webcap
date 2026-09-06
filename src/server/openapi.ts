@@ -21,11 +21,13 @@ import { freePaths } from './openapi/paths-free.js';
 import { webPaths } from './openapi/paths-web.js';
 import { x402Paths } from './openapi/paths-x402.js';
 import { jsonError, type PathContext } from './openapi/shared.js';
+import { ownershipProof } from './openapi/ownership.js';
 import type { OpenapiDocument } from './openapi/types.js';
 
 /** Build the full OpenAPI 3.1 document for a deployment. */
-export function openapiDocument(config: WebcapConfig): OpenapiDocument {
+export async function openapiDocument(config: WebcapConfig): Promise<OpenapiDocument> {
   const previewMarkdownLimit = config.previewMarkdownLimit ?? DEFAULT_PREVIEW_MARKDOWN_LIMIT;
+  const ownershipProofs = await ownershipProof(config.publicBaseUrl, config.merchantPrivateKey);
   const ctx: PathContext = {
     badInput: jsonError('400', 'Malformed JSON request body (error envelope, code bad_request)'),
     unprocessable: (message: string) => jsonError('422', `${message} (error envelope, code unprocessable)`),
@@ -35,6 +37,8 @@ export function openapiDocument(config: WebcapConfig): OpenapiDocument {
   };
   return {
     openapi: '3.1.0',
+    // x402scan verified-ownership discovery; omitted entirely when unsigned.
+    ...(ownershipProofs.length > 0 ? { 'x-discovery': { ownershipProofs } } : {}),
     info: {
       title: 'webcap',
       version: '0.1.0',

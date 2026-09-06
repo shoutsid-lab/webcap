@@ -40,6 +40,8 @@ export type OpenapiPaths = { readonly [path: string]: { readonly [method: string
 
 export interface OpenapiDocument {
   readonly openapi: '3.1.0';
+  /** x402scan verified-ownership discovery extension (omitted when there is no merchant key to sign with). */
+  readonly 'x-discovery'?: { readonly ownershipProofs: readonly string[] };
   readonly info: { readonly title: string; readonly version: string; readonly description: string };
   readonly servers: readonly { readonly url: string; readonly description?: string }[];
   readonly tags: readonly { readonly name: string; readonly description: string }[];

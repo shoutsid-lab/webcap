@@ -62,13 +62,13 @@ export function registerDiscoveryRoutes(app: FastifyInstance, deps: AppDeps): vo
   app.get('/.well-known/x402', async (_req, reply) => {
     reply.header('content-type', 'application/json; charset=utf-8');
     reply.header('cache-control', 'public, max-age=300');
-    return reply.send(x402WellKnown(config));
+    return reply.send(await x402WellKnown(config));
   });
 
   app.get('/.well-known/agent-card.json', async (_req, reply) => {
     reply.header('content-type', 'application/json; charset=utf-8');
     reply.header('cache-control', 'public, max-age=300');
-    return reply.send(agentCard(config));
+    return reply.send(await agentCard(config));
   });
 
   app.get('/v1/artifacts/:id', async (req, reply) => {

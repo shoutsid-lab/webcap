@@ -4,6 +4,7 @@
  * WebcapConfig (no Fastify); served by the routes in ./discovery.ts.
  */
 import { USDC_SCALE, WATCH_TOPUP_RUNS, watchTopUpPriceUsdcUnits, type ChainName, type WebcapConfig } from '../config.js';
+import { ownershipProof } from './openapi/ownership.js';
 
 /** Public paths advertised in the sitemap (the stable service surface). */
 const SITEMAP_PATHS = [
@@ -56,8 +57,9 @@ const CHAIN_COPY: Record<ChainName, string> = {
 };
 
 /** x402 machine-discovery catalog: what to call, what it costs, how to pay. */
-export function x402WellKnown(config: WebcapConfig) {
+export async function x402WellKnown(config: WebcapConfig) {
   const base = httpsBase(config.publicBaseUrl);
+  const ownershipProofs = await ownershipProof(config.publicBaseUrl, config.merchantPrivateKey);
   return {
     service: 'webcap',
     description: `Pay-per-call web capture on ${CHAIN_COPY[config.chain.name]}: one-time screenshots (PNG/JPEG/PDF + free Open Graph metadata), structured content extraction, and scheduled monitoring with change-detection webhooks. All paid routes settle gasless USDC via x402 (HTTP 402).`,
@@ -92,16 +94,18 @@ export function x402WellKnown(config: WebcapConfig) {
     ],
     openapi: `${base}/openapi.json`,
     sitemap: `${base}/sitemap.xml`,
+    // x402scan verified-ownership; omitted entirely when unsigned.
+    ...(ownershipProofs.length > 0 ? { ownershipProofs } : {}),
   };
 }
 
 /** A2A-style agent card with an x402/AP2 payments section, for agent-card consumers. */
-export function agentCard(config: WebcapConfig) {
+export async function agentCard(config: WebcapConfig) {
   const base = httpsBase(config.publicBaseUrl);
   return {
     protocolVersion: '0.3.0',
     name: 'webcap',
-    description: x402WellKnown(config).description,
+    description: (await x402WellKnown(config)).description,
     url: base,
     icon: `${base}/icon.png`,
     version: '1.0.0',

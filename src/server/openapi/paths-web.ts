@@ -143,6 +143,11 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
                 },
                 openapi: { type: 'string', description: 'This catalog, https-absolute' },
                 sitemap: { type: 'string', description: 'The sitemap, https-absolute' },
+                ownershipProofs: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'EIP-191 personal_sign of the service origin, signed by the payTo key; x402scan verified-ownership',
+                },
               },
             }),
           },
