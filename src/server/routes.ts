@@ -319,6 +319,32 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         },
         {
           method: 'POST',
+          path: '/v1/x402/map-lite',
+          body: {
+            url: 'string (required)',
+            maxUrls: 'integer (optional, default 20, at most 50) — maximum URLs to return',
+          },
+          priceUsdc: config.x402AuditPriceUsdcUnits / USDC_SCALE,
+          atomicUnits: String(config.x402AuditPriceUsdcUnits),
+          note: 'site URL list via sitemap/robots plus a 1-hop same-host crawl in one call',
+        },
+        {
+          method: 'POST',
+          path: '/v1/x402/video',
+          body: {
+            url: 'string (required)',
+            format: 'mp4|webm (optional, default mp4)',
+            durationMs: 'integer (optional, default 5000, at most 30000) — recording duration in milliseconds',
+            scrollSpeed: 'integer (optional, default 800, at most 5000) — pixels scrolled per choreography step',
+            scrollEasing: 'linear|ease-in-out (optional, default linear)',
+            options: 'object (optional) — viewport forwarded to the recording context',
+          },
+          priceUsdc: config.x402VideoPriceUsdcUnits / USDC_SCALE,
+          atomicUnits: String(config.x402VideoPriceUsdcUnits),
+          note: 'scroll-capture a URL as an MP4/WebM video in one call',
+        },
+        {
+          method: 'POST',
           path: '/v1/x402/watches/topup',
           body: { watchId: 'string (required)', runs: `${WATCH_TOPUP_RUNS} (required; one pack)` },
           priceUsdc: watchTopUpPriceUsdcUnits('capture', config) / USDC_SCALE,
@@ -334,7 +360,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         scheme: 'exact',
       },
       howToPay:
-        'POST /v1/x402/capture or /v1/x402/extract unpaid -> HTTP 402 with a base64 x402 v2 challenge (payment-required header) -> sign a gasless EIP-3009 transferWithAuthorization (from=your wallet, to=price.payTo, value=price.atomicUnits) -> retry with the PAYMENT-SIGNATURE header. The facilitator verifies + settles on-chain; USDC lands in the merchant wallet and the result is returned. Works with any x402 v2 client (@x402/axios) or scripts/x402-pay.ts (capture) / scripts/extract-pay.ts (extract). Free, no-payment preview: GET /v1/extract/preview?url=... (rate-limited).',
+        'POST /v1/x402/capture, /v1/x402/extract, /v1/x402/audit, /v1/x402/map-lite, or /v1/x402/video unpaid -> HTTP 402 with a base64 x402 v2 challenge (payment-required header) -> sign a gasless EIP-3009 transferWithAuthorization (from=your wallet, to=price.payTo, value=price.atomicUnits) -> retry with the PAYMENT-SIGNATURE header. The facilitator verifies + settles on-chain; USDC lands in the merchant wallet and the result is returned. Works with any x402 v2 client (@x402/axios) or scripts/x402-pay.ts (capture) / scripts/extract-pay.ts (extract). Free, no-payment preview: GET /v1/extract/preview?url=... (rate-limited).',
       facilitator: config.x402FacilitatorUrl,
       freeEndpoints: [
         { method: 'GET', path: '/v1/og?url=...', note: 'free OG metadata, no payment' },

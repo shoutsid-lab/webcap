@@ -139,6 +139,8 @@ describe('GET /v1/x402/service (canonical agent descriptor)', () => {
         '/v1/x402/capture',
         '/v1/x402/extract',
         '/v1/x402/audit',
+        '/v1/x402/map-lite',
+        '/v1/x402/video',
         '/v1/x402/watches/topup',
       ]);
       const capture = body.paidEndpoints[0];
