@@ -23,6 +23,7 @@ import {
   DEFAULT_X402_PRICE_USDC_UNITS,
   EIP712_DOMAINS,
   loadConfig,
+  modelExtractionDisabled,
   PACKS,
   getPack,
 } from '../../src/config.js';
@@ -313,6 +314,43 @@ describe('config: extract pricing + compute cost + model', () => {
     expect(overridden.modelApiBaseUrl).toBe('https://api.example.com/v1');
     expect(overridden.modelApiKey).toBe('sk-test');
     expect(overridden.modelName).toBe('gpt-4o-mini');
+  });
+});
+
+describe('config: model extraction availability (boot-time warning)', () => {
+  it('modelExtractionDisabled is true on a live chain (base) with no MODEL_* vars', () => {
+    const cfg = loadConfig({ WEBCAP_CHAIN: 'base', WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL });
+    expect(cfg.x402Network).toBe('eip155:8453');
+    expect(modelExtractionDisabled(cfg)).toBe(true);
+  });
+
+  it('modelExtractionDisabled is false when MODEL_API_BASE_URL, MODEL_API_KEY and MODEL_NAME are all set', () => {
+    const cfg = loadConfig({
+      WEBCAP_CHAIN: 'base',
+      MODEL_API_BASE_URL: 'https://api.example.com/v1',
+      MODEL_API_KEY: 'sk-test',
+      MODEL_NAME: 'gpt-4o-mini',
+      WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL,
+    });
+    expect(modelExtractionDisabled(cfg)).toBe(false);
+  });
+
+  it('modelExtractionDisabled treats empty-string MODEL_API_KEY as unconfigured', () => {
+    const cfg = loadConfig({
+      WEBCAP_CHAIN: 'base',
+      MODEL_API_BASE_URL: 'https://api.example.com/v1',
+      MODEL_API_KEY: '',
+      MODEL_NAME: 'gpt-4o-mini',
+      WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL,
+    });
+    expect(cfg.modelApiKey).toBe('');
+    expect(modelExtractionDisabled(cfg)).toBe(true);
+  });
+
+  it('modelExtractionDisabled is false when x402 is disabled (chain local) even without MODEL_*', () => {
+    const cfg = loadConfig(localEnv);
+    expect(cfg.x402Network).toBeUndefined();
+    expect(modelExtractionDisabled(cfg)).toBe(false);
   });
 });
 

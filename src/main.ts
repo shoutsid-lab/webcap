@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { ARTIFACT_SWEEP_INTERVAL_MS, DEFAULT_ARTIFACT_RETENTION_DAYS, loadConfig } from './config.js';
+import { ARTIFACT_SWEEP_INTERVAL_MS, DEFAULT_ARTIFACT_RETENTION_DAYS, MODEL_EXTRACT_DISABLED_WARNING, loadConfig, modelExtractionDisabled } from './config.js';
 import { openDb } from './db/index.js';
 import { makeArtifactRepo, runRetentionSweep } from './db/artifacts.js';
 import { makeRevenueRepo } from './db/revenue.js';
@@ -25,6 +25,8 @@ async function main(): Promise<void> {
   if (config.merchantAddress === '') {
     throw new Error('merchant address required: set USDC_MERCHANT_PRIVATE_KEY or WEBCAP_MERCHANT_ADDRESS');
   }
+  // Boot-time flag: x402 live but model extraction off (MODEL_API_* unset) would silently degrade extract.
+  if (modelExtractionDisabled(config)) log.warn(MODEL_EXTRACT_DISABLED_WARNING);
 
   mkdirSync(dirname(config.dbPath), { recursive: true });
   const db = openDb(config.dbPath);
