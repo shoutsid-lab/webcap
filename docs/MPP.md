@@ -7,12 +7,13 @@ the body/header credential flow the client already uses. webcap speaks MPP
 alongside x402 so MPP-first directories (mppscan) can list the same paid
 routes x402 clients already pay for.
 
-Status: the MPP secret/realm config module is live (`src/mpp/config.ts`) and
-the 3 paid ops advertise `{ mpp: { method: 'evm' } }` plus the
-`WWW-Authenticate` 402 header in `/openapi.json`. Live header emission on the
-402 responses themselves is still pending, so mppscan registration currently
-fails with "No MPP protocol support" (registered=0 failed=3). Everything below
-describes the target shape the code is converging on.
+Status (2026-09-06): fully live. The 3 paid 402s emit `WWW-Authenticate:
+Payment …method="evm"…` (bare-host realm) alongside the unchanged x402
+`PAYMENT-REQUIRED`, MPP EIP-3009 credentials verify and settle through the
+same facilitator, and mppscan registration succeeded (`registered: 22,
+failed: 0`) — down from the earlier `registered=0 failed=3 "No MPP protocol
+support" plus a `REALM_MISMATCH` round (realm must be the bare host, not the
+origin). Everything below describes this shipped shape.
 
 ## Why dual-protocol
 

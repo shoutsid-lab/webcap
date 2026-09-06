@@ -480,7 +480,7 @@ logs the x402gle listing presence.
 | agent-tools.cloud | Auto-crawl of the public URL | n/a |
 | market.delegare.dev | Aggregator auto-inclusion from the x402scan/MPPScan directory family | n/a (automatic) |
 | x402list.fun | Auto-inclusion via facilitator reporting | n/a (automatic) |
-| mppscan.com | OpenAPI discovery probe passes (`ownership_verified`, guidance on); registration additionally requires a MPP `WWW-Authenticate` 402 header (Machine Payments Protocol) on the paid routes — pending decision | n/a (blocked) |
+| mppscan.com | **Listed** (`registered: 22, failed: 0`): dual-protocol 402s carry MPP `WWW-Authenticate` (`method="evm"`, bare-host realm) next to byte-identical x402 challenges; MPP credentials settle via the same facilitator | `bin/webcap-keepalive.sh` (header probe, log-only) |
 | x402gle.com | Server-side "audition": real paid calls to each route, AI-scored, auto-listing on pass. Our OpenAPI passed discovery after two doc fixes (single public `servers` entry; unambiguous extract body schema); listing pending a transient error on their catalog side | `bin/webcap-keepalive.sh` (presence check, log-only — the audition is never auto-run) |
 | stablecoin.com/402/ | Manual email listing (directory of x402/MPP services) | manual |
 
