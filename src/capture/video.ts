@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import type { BrowserContext, Page } from 'playwright-core';
 import { newContext as baseNewContext, type ContextViewportOptions } from './browser.js';
 import { CaptureError } from './errors.js';
-import { DEFAULT_CAPTURE_TIMEOUT_MS } from '../config.js';
+import type { CaptureTimeouts } from './pipeline.js';
+import { DEFAULT_CAPTURE_TIMEOUT_CAP_MS, DEFAULT_CAPTURE_TIMEOUT_MS } from '../config.js';
 
 export type VideoFormat = 'mp4' | 'webm';
 
@@ -90,6 +91,14 @@ export interface VideoCaptureDeps {
   readonly newContext?: (opts: VideoContextOptions) => Promise<VideoContext>;
 }
 
+/** Page-load timeout tuning + overall capture budget (mirrors pipeline.ts resolveTimeout). */
+export type VideoTimeouts = CaptureTimeouts & { readonly overallMs?: number };
+
+function resolveTimeout(timeouts?: VideoTimeouts): number {
+  const requested = timeouts?.defaultMs ?? DEFAULT_CAPTURE_TIMEOUT_MS;
+  return Math.min(requested, timeouts?.capMs ?? DEFAULT_CAPTURE_TIMEOUT_CAP_MS);
+}
+
 function adaptPage(page: Page): VideoPage {
   return {
     goto: (url, options) =>
@@ -125,17 +134,29 @@ async function defaultNewVideoContext(opts: VideoContextOptions): Promise<VideoC
  * VIDEO_MAX_SCROLL_STEPS iterations and never past startedAt + durationMs
  * (capped at VIDEO_MAX_DURATION_MS). Every wait is capped at the remainder.
  */
-async function runScrollChoreography(page: VideoPage, req: VideoCaptureRequest): Promise<void> {
+async function runScrollChoreography(page: VideoPage, req: VideoCaptureRequest, timeouts?: VideoTimeouts): Promise<void> {
   const durationMs = Math.min(req.durationMs, VIDEO_MAX_DURATION_MS);
   const pixels = req.scrollSpeed ?? VIDEO_DEFAULT_SCROLL_SPEED;
   const deadline = Date.now() + durationMs;
+  const overallDeadline = timeouts?.overallMs !== undefined ? Date.now() + timeouts.overallMs : undefined;
   let steps = 0;
   while (steps < VIDEO_MAX_SCROLL_STEPS && Date.now() < deadline) {
+    if (overallDeadline !== undefined && Date.now() >= overallDeadline) {
+      throw new CaptureError(`video capture exceeded overall budget (${timeouts?.overallMs}ms) for ${req.url}`);
+    }
     await page.evaluate(scrollPageBy, { pixels });
     steps += 1;
     const remaining = deadline - Date.now();
     if (remaining <= 0) break;
-    await page.waitForTimeout(Math.min(VIDEO_SCROLL_STEP_MS, remaining));
+    if (overallDeadline !== undefined) {
+      const overallRemaining = overallDeadline - Date.now();
+      if (overallRemaining <= 0) {
+        throw new CaptureError(`video capture exceeded overall budget (${timeouts?.overallMs}ms) for ${req.url}`);
+      }
+      await page.waitForTimeout(Math.min(VIDEO_SCROLL_STEP_MS, remaining, overallRemaining));
+    } else {
+      await page.waitForTimeout(Math.min(VIDEO_SCROLL_STEP_MS, remaining));
+    }
   }
 }
 
@@ -155,6 +176,7 @@ async function recordToBuffer(
   req: VideoCaptureRequest,
   factory: (opts: VideoContextOptions) => Promise<VideoContext>,
   stagingDir: string,
+  timeouts?: VideoTimeouts,
 ): Promise<VideoCaptureResult> {
   const viewportOpts: ContextViewportOptions = req.viewport !== undefined ? { viewport: req.viewport } : {};
   // TODO(video-wire): browser.newContext does not forward recordVideo yet;
@@ -165,8 +187,8 @@ async function recordToBuffer(
   try {
     const page = await context.newPage();
     try {
-      await page.goto(req.url, { timeout: DEFAULT_CAPTURE_TIMEOUT_MS });
-      await runScrollChoreography(page, req);
+      await page.goto(req.url, { timeout: resolveTimeout(timeouts) });
+      await runScrollChoreography(page, req, timeouts);
       const recording = page.video();
       if (recording !== null) videoPath = await recording.path();
     } finally {
@@ -192,11 +214,12 @@ async function recordToBuffer(
 export async function captureVideo(
   req: VideoCaptureRequest,
   deps?: VideoCaptureDeps,
+  timeouts?: VideoTimeouts,
 ): Promise<VideoCaptureResult> {
   const factory = deps?.newContext ?? defaultNewVideoContext;
   const stagingDir = await mkdtemp(join(tmpdir(), 'webcap-video-'));
   try {
-    return await recordToBuffer(req, factory, stagingDir);
+    return await recordToBuffer(req, factory, stagingDir, timeouts);
   } catch (err) {
     if (err instanceof CaptureError) throw err;
     throw new CaptureError(`video capture failed for ${req.url}: ${errorMessage(err)}`, { cause: err });
