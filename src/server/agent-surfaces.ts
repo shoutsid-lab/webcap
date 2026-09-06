@@ -65,6 +65,8 @@ on-chain. You pay USDC only, never ETH gas.
 | POST /v1/x402/capture | ${usdc(config.x402PriceUsdcUnits)} | Screenshot of one URL: base64 image (png/jpeg/pdf) + persistent public artifact URL |
 | POST /v1/x402/extract | ${usdc(config.x402ExtractPriceUsdcUnits)} | Structured content (title, headings, paragraphs, links, images, markdown); one payment covers a batch of up to 50 URLs |
 | POST /v1/x402/audit | ${usdc(config.x402AuditPriceUsdcUnits)} | SEO basics + link/OG health in one call (title, description, OG tags, link health) |
+| POST /v1/x402/map-lite | ${usdc(config.x402AuditPriceUsdcUnits)} | Site map in one call: URL list from sitemap/robots plus a 1-hop same-host crawl (maxUrls up to 50, default 20) |
+| POST /v1/x402/video | ${usdc(config.x402VideoPriceUsdcUnits)} | Scroll-capture of one URL as video (mp4/webm): base64 artifact |
 | POST /v1/x402/watches/topup | ${usdc(watchTopUpPriceUsdcUnits('capture', config))}–${usdc(watchTopUpPriceUsdcUnits('extract', config))} | 100 scheduled re-capture runs for an existing watch (capture watch ${usdc(watchTopUpPriceUsdcUnits('capture', config))}, extract watch ${usdc(watchTopUpPriceUsdcUnits('extract', config))}) |
 
 ### Request / response shapes
@@ -80,6 +82,17 @@ POST /v1/x402/extract
     {"url": "https://example.com", "schema": "JSON with the fields: title, price"}  // optional schema-constrained extraction
   200 {"results": [{"url": "…", "status": "ok", "data": {"title": "…", "headings": […], "paragraphs": […], "links": […], "images": […], "markdown": "…"}}],
        "payment": {"payer": "0x…", "priceUsdcUnits": ${config.x402ExtractPriceUsdcUnits}}}
+
+POST /v1/x402/map-lite
+    {"url": "https://example.com"}                    // optional "maxUrls": 1–50 (default 20)
+  200 {"urls": ["https://example.com/", "https://example.com/about"],
+       "payment": {"payer": "0x…", "priceUsdcUnits": ${config.x402AuditPriceUsdcUnits}}}
+
+POST /v1/x402/video
+    {"url": "https://example.com", "format": "mp4"}   // format: mp4 | webm (default: mp4)
+    // options?: {"durationMs" (default 5000, at most 30000), "scrollSpeed" (default 800, at most 5000), "scrollEasing": "linear" | "ease-in-out", "viewport": {"width", "height"}}
+  200 {"artifact": {"mime": "video/mp4", "bytes": 1048576, "data": "<base64>"},
+       "payment": {"payer": "0x…", "priceUsdcUnits": ${config.x402VideoPriceUsdcUnits}}}
 
 POST /v1/x402/watches/topup
     {"watchId": "<id from POST /v1/watches>", "runs": 100}
@@ -175,6 +188,8 @@ Base URL: ${config.publicBaseUrl}
 | Screenshot | POST /v1/x402/capture {"url", "format"?, "options"? (viewport, deviceScaleFactor, isMobile, userAgent)} | ${usdc(config.x402PriceUsdcUnits)} |
 | Extract (batch of up to 50 URLs, one payment) | POST /v1/x402/extract {"url" or "urls", "schema"?} | ${usdc(config.x402ExtractPriceUsdcUnits)} |
 | Audit (SEO + OG + link health, one URL) | POST /v1/x402/audit {"url"} | ${usdc(config.x402AuditPriceUsdcUnits)} |
+| Map-lite (site URL list, one call) | POST /v1/x402/map-lite {"url", "maxUrls"? (default 20, at most 50)} | ${usdc(config.x402AuditPriceUsdcUnits)} |
+| Video (scroll-capture mp4/webm, one URL) | POST /v1/x402/video {"url", "format"?, "durationMs"?, "scrollSpeed"?, "scrollEasing"?, "options"? (viewport)} | ${usdc(config.x402VideoPriceUsdcUnits)} |
 | Watch top-up (100 runs) | POST /v1/x402/watches/topup {"watchId", "runs": 100} | ${usdc(watchTopUpPriceUsdcUnits('capture', config))} (capture watch) / ${usdc(watchTopUpPriceUsdcUnits('extract', config))} (extract watch) |
 | Structured preview (truncated) | GET /v1/extract/preview?url=… | free, rate-limited per IP |
 | OG metadata | GET /v1/og?url=… | free |
