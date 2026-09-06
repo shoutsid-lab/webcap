@@ -14,6 +14,7 @@ const SITEMAP_PATHS = [
   '/v1/x402/service',
   '/v1/x402/capture',
   '/v1/x402/extract',
+  '/v1/x402/audit',
   '/v1/x402/watches/topup',
   '/v1/watches',
   '/v1/extract/preview',
@@ -80,6 +81,11 @@ export async function x402WellKnown(config: WebcapConfig) {
           'Structured extraction (title, headings, paragraphs, links, images, document-order markdown); batch up to 10 URLs per payment',
       },
       {
+        path: 'POST /v1/x402/audit',
+        usdc: config.x402AuditPriceUsdcUnits / USDC_SCALE,
+        description: 'SEO basics + link/OG health in one call (title, description, OG tags, link health)',
+      },
+      {
         path: 'POST /v1/x402/watches/topup',
         usdc:
           watchTopUpPriceUsdcUnits('capture', config) / USDC_SCALE,
@@ -133,6 +139,12 @@ export async function agentCard(config: WebcapConfig) {
         tags: ['scraping', 'extraction', 'markdown', 'x402', 'usdc'],
       },
       {
+        id: 'audit',
+        name: 'SEO audit',
+        description: `SEO basics + link/OG health in one call — ${config.x402AuditPriceUsdcUnits / USDC_SCALE} USDC via x402`,
+        tags: ['seo', 'audit', 'links', 'opengraph', 'x402', 'usdc'],
+      },
+      {
         id: 'watch',
         name: 'Scheduled monitoring',
         description: `Pre-pay ${WATCH_TOPUP_RUNS} runs of a capture/extract monitor with change-detection webhooks — ${watchTopUpPriceUsdcUnits('capture', config) / USDC_SCALE}–${watchTopUpPriceUsdcUnits('extract', config) / USDC_SCALE} USDC per pack via x402`,
@@ -157,6 +169,7 @@ export function frontDoorPayload(config: WebcapConfig) {
       paid: [
         { path: 'POST /v1/x402/capture', usdc: config.x402PriceUsdcUnits / USDC_SCALE, note: 'PNG/JPEG/PDF screenshot + free OG' },
         { path: 'POST /v1/x402/extract', usdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE, note: 'structured JSON; batch up to 10 URLs for one payment' },
+        { path: 'POST /v1/x402/audit', usdc: config.x402AuditPriceUsdcUnits / USDC_SCALE, note: 'SEO basics + link/OG health in one call' },
       ],
     },
     catalog: 'GET /v1/x402/service — full agent-discoverable descriptor + the exact x402 payment flow',

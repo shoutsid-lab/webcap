@@ -27,6 +27,7 @@ export function landingHtml(config: WebcapConfig): string {
   const network = config.x402Network ?? 'eip155:84532';
   const capturePrice = usd(config.x402PriceUsdcUnits);
   const extractPrice = usd(config.x402ExtractPriceUsdcUnits);
+  const auditPrice = usd(config.x402AuditPriceUsdcUnits);
   // WATCH_TOPUP_RUNS-run top-up packs (the monitoring prices), always two-decimal.
   const topUpUsd = (usdcUnits: number): string => `$${(usdcUnits / USDC_SCALE).toFixed(2)}`;
   const captureTopUpPrice = topUpUsd(watchTopUpPriceUsdcUnits('capture', config));
@@ -138,6 +139,7 @@ ${topBar(bazaarCatalogUrl)}
         <span class="tag">covered by webcap</span>
       </div>
     </div>
+    <p class="hint">New: <code>POST /v1/x402/audit</code> — SEO basics + link/OG health in one call for ${esc(auditPrice)} per URL.</p>
   </section>
 
   <section class="section wrap" id="pay">

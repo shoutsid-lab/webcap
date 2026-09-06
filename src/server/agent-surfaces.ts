@@ -64,6 +64,7 @@ on-chain. You pay USDC only, never ETH gas.
 | --- | --- | --- |
 | POST /v1/x402/capture | ${usdc(config.x402PriceUsdcUnits)} | Screenshot of one URL: base64 image (png/jpeg/pdf) + persistent public artifact URL |
 | POST /v1/x402/extract | ${usdc(config.x402ExtractPriceUsdcUnits)} | Structured content (title, headings, paragraphs, links, images, markdown); one payment covers a batch of up to 10 URLs |
+| POST /v1/x402/audit | ${usdc(config.x402AuditPriceUsdcUnits)} | SEO basics + link/OG health in one call (title, description, OG tags, link health) |
 | POST /v1/x402/watches/topup | ${usdc(watchTopUpPriceUsdcUnits('capture', config))}–${usdc(watchTopUpPriceUsdcUnits('extract', config))} | 100 scheduled re-capture runs for an existing watch (capture watch ${usdc(watchTopUpPriceUsdcUnits('capture', config))}, extract watch ${usdc(watchTopUpPriceUsdcUnits('extract', config))}) |
 
 ### Request / response shapes
@@ -133,6 +134,7 @@ Base URL: ${config.publicBaseUrl}
 | --- | --- | --- |
 | Screenshot | POST /v1/x402/capture {"url", "format"?} | ${usdc(config.x402PriceUsdcUnits)} |
 | Extract (batch of up to 10 URLs, one payment) | POST /v1/x402/extract {"url" or "urls", "schema"?} | ${usdc(config.x402ExtractPriceUsdcUnits)} |
+| Audit (SEO + OG + link health, one URL) | POST /v1/x402/audit {"url"} | ${usdc(config.x402AuditPriceUsdcUnits)} |
 | Watch top-up (100 runs) | POST /v1/x402/watches/topup {"watchId", "runs": 100} | ${usdc(watchTopUpPriceUsdcUnits('capture', config))} (capture watch) / ${usdc(watchTopUpPriceUsdcUnits('extract', config))} (extract watch) |
 | Structured preview (truncated) | GET /v1/extract/preview?url=… | free, rate-limited per IP |
 | OG metadata | GET /v1/og?url=… | free |

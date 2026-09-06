@@ -28,6 +28,7 @@ the facilitator, and the exact payment flow (`howToPay`). Also free:
 |---|---|---|---|
 | `POST /v1/x402/capture` | $0.001 (1000 units) | `{"url": "https://...", "format": "png"\|"jpeg"\|"pdf"?}` | base64 PNG/JPEG/PDF + persistent public `artifact.url` + free OG |
 | `POST /v1/x402/extract` | $0.01 (10000 units) | `{"url": "https://..."}` or `{"urls": ["...", ...], "schema": "describe the JSON you want"}` | structured JSON. Single URL, or a **batch of up to 10 URLs for one payment** |
+| `POST /v1/x402/audit` | $0.002 (2000 units) | `{"url": "https://..."}` | SEO basics + link/OG health in one call |
 | `POST /v1/x402/watches/topup` | $0.10 capture-pack / $1.00 extract-pack (100000 / 1000000 units) | `{"watchId": "<id>", "runs": 100}` + `?watchId=<id>` on the unpaid call | `{"watchId", "credits", "priceUsdcUnits"}`. **100 pre-paid monitor runs** |
 
 A `schema` plus a server-configured model also returns an `extracted` object;
