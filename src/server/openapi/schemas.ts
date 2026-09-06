@@ -97,17 +97,21 @@ const captureRequestBody = {
   },
 };
 
+// oneOf (not top-level required): the runtime accepts either `url` or `urls`;
+// a schema-driven caller that sees both optional may synthesize a body with
+// neither, which 422s at runtime. The x402gle live audition hit exactly that.
 const extractRequestBody = {
   type: 'object',
+  oneOf: [{ required: ['url'] }, { required: ['urls'] }],
   properties: {
-    url: { type: 'string', description: 'A single page to extract', example: 'https://example.com/' },
+    url: { type: 'string', format: 'uri', description: 'A single absolute http(s) page to extract', example: 'https://example.com/' },
     urls: {
       type: 'array',
-      description: 'Batch of pages for one payment (at most 10)',
-      items: { type: 'string' },
+      description: 'Batch of absolute http(s) pages for one payment (at most 10)',
+      items: { type: 'string', format: 'uri' },
       maxItems: 10,
     },
-    schema: { type: 'string', description: 'Optional natural-language description of the JSON to extract via a model' },
+    schema: { type: 'string', description: 'Optional plain natural-language string describing the JSON to extract via a model (a string, not a JSON object)' },
   },
 };
 

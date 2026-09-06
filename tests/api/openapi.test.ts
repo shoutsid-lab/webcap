@@ -6,6 +6,10 @@ import { closeApiFixture, makeApiFixture } from './fixture.js';
 interface OpenapiOperationView {
   readonly responses: Record<string, unknown>;
   readonly security?: readonly unknown[];
+  readonly requestBody?: {
+    readonly required?: boolean;
+    readonly content: Record<string, { readonly schema: unknown }>;
+  };
   readonly 'x-payment-info'?: {
     readonly price: { readonly mode: string; readonly currency: string; readonly amount?: string; readonly min?: string; readonly max?: string };
     readonly protocols: Array<{ readonly x402?: Record<string, unknown> }>;
@@ -398,6 +402,35 @@ describe('mppscan/x402gle discovery metadata', () => {
         expect(op, `${method.toUpperCase()} ${path} must be documented`).toBeDefined();
         expect(Object.keys(op ?? {}), `${method.toUpperCase()} ${path} must not declare security`).not.toContain('security');
       }
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  // Schema-driven auditors (x402gle's verifier) synthesize the paid request
+  // body from the requestBody schema: an unambiguous url|urls target and a
+  // clearly stringly schema field are what keep the synthesized body valid
+  // at runtime (the live audition otherwise 422s before settling).
+  it('documents the extract body with a oneOf url|urls target so synthesized requests carry a valid URL', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      const schema = (doc.paths['/v1/x402/extract']?.post?.requestBody?.content?.['application/json']?.schema ?? {}) as {
+        readonly oneOf?: Array<{ readonly required?: string[] }>;
+        readonly properties?: {
+          readonly url?: { readonly format?: string; readonly example?: string };
+          readonly schema?: { readonly type?: string; readonly description?: string };
+        };
+      };
+      const oneOf = schema.oneOf ?? [];
+      const requiredSets = oneOf.map((variant) => [...(variant.required ?? [])].sort());
+      expect(requiredSets).toContainEqual(['url']);
+      expect(requiredSets).toContainEqual(['urls']);
+      expect(schema.properties?.url?.format).toBe('uri');
+      expect(schema.properties?.url?.example).toMatch(/^https:\/\//);
+      expect(schema.properties?.schema?.type).toBe('string');
+      expect(schema.properties?.schema?.description ?? '').toMatch(/not a JSON object/i);
     } finally {
       await closeApiFixture(fx);
     }
