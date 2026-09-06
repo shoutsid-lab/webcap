@@ -7,6 +7,7 @@ import { toResponse, type ErrorBody, HttpError } from '../util/errors.js';
 import type { CaptureRequest, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
 import type { OgResult } from '../capture/og.js';
 import { registerBillingRoutes } from './billing.js';
+import { registerAdminHitsRoutes } from './admin-hits.js';
 import { registerMapLiteRoute } from './map-lite.js';
 import { registerJobRoutes } from './jobs.js';
 import { registerRoutes } from './routes.js';
@@ -70,6 +71,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   // paths are unique, so the router is order-independent — but the x402
   // hooks above must still precede every route registration).
   registerBillingRoutes(app, deps);
+  registerAdminHitsRoutes(app, deps);
   registerRoutes(app, deps);
   registerJobRoutes(app, deps);
   registerMapLiteRoute(app, { db: deps.db, config: deps.config, captureAllowHosts: deps.captureAllowHosts });

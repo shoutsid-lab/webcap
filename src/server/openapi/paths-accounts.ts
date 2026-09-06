@@ -136,6 +136,37 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
         },
       },
     },
+    '/v1/admin/hits/summary': {
+      get: {
+        tags: ['accounts'],
+        summary: 'Merchant hits summary (per-endpoint hits + paid counts + conversion)',
+        description: 'Merchant-only: endpoint_hits counts joined with revenue_ledger paid counts per endpoint (conversion = paid/hits, 0 when hits is 0).',
+        responses: {
+          200: {
+            description: 'Per-endpoint {endpoint, hits, paidCount, conversion}, most-hit first',
+            content: jsonContent({
+              type: 'object',
+              properties: {
+                summary: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      endpoint: { type: 'string' },
+                      hits: { type: 'integer' },
+                      paidCount: { type: 'integer' },
+                      conversion: { type: 'number' },
+                    },
+                  },
+                },
+              },
+            }),
+          },
+          401: ctx.unauthorized,
+          403: jsonError('403', 'The authenticated account is not the merchant (error envelope, code forbidden)'),
+        },
+      },
+    },
     '/v1/og': {
       get: {
         tags: ['discovery'],
