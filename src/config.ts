@@ -43,6 +43,12 @@ export interface WebcapConfig {
   readonly x402ExtractPriceUsdcUnits: number;
   /** x402 per-audit price in atomic 6-decimal USDC units. */
   readonly x402AuditPriceUsdcUnits: number;
+  /**
+   * x402 per-video price in atomic 6-decimal USDC units: 5x capture for the
+   * sustained Chromium recording session (~30s vs a ~2-5s capture still) plus
+   * video-bytes storage pressure. Ladder: audit/map-lite 2000 < video 5000 < extract 10000.
+   */
+  readonly x402VideoPriceUsdcUnits: number;
   /** Optional CDP API key pair (CDP_API_KEY_ID/CDP_API_KEY_SECRET) for CDP facilitator auth. */
   readonly cdpApiKey: { readonly id: string; readonly secret: string } | undefined;
   /** Amortized compute cost per paid request, in atomic 6-decimal USDC units (for the P&L ledger). */
@@ -121,6 +127,7 @@ export const DEFAULT_X402_FACILITATOR_URL = 'https://x402.org/facilitator';
 export const DEFAULT_X402_PRICE_USDC_UNITS = 1_000; // $0.001 in 6-decimal atomic units
 export const DEFAULT_X402_EXTRACT_PRICE_USDC_UNITS = 10_000; // $0.01 — a "meaning" price, above raw capture
 export const DEFAULT_X402_AUDIT_PRICE_USDC_UNITS = 2000; // $0.002 — audit price
+export const DEFAULT_X402_VIDEO_PRICE_USDC_UNITS = 5_000; // $0.005 — video price (5x capture, below extract)
 export const DEFAULT_COMPUTE_COST_USDC_UNITS_PER_REQUEST = 200; // $0.0002 amortized compute cost/page-load (override with your real infra/TPU cost)
 export const DEFAULT_PREVIEW_RATE_LIMIT = 10; // free preview requests/min/peer (override with WEBCAP_PREVIEW_RATE_LIMIT)
 
@@ -275,6 +282,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WebcapConfig {
       env.WEBCAP_X402_AUDIT_PRICE_USDC,
       DEFAULT_X402_AUDIT_PRICE_USDC_UNITS,
       'WEBCAP_X402_AUDIT_PRICE_USDC',
+    ),
+    x402VideoPriceUsdcUnits: parseX402PriceUsdc(
+      env.WEBCAP_X402_VIDEO_PRICE_USDC,
+      DEFAULT_X402_VIDEO_PRICE_USDC_UNITS,
+      'WEBCAP_X402_VIDEO_PRICE_USDC',
     ),
     computeCostUsdcUnitsPerRequest: parseComputeCostUsdcUnits(
       env.WEBCAP_COMPUTE_COST_USDC_PER_REQUEST,
