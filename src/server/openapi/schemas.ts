@@ -80,6 +80,47 @@ const extractResponse = (priceUsdcUnits: number): Json => ({
   },
 });
 
+/** Shared capture-option properties for the capture + extract request bodies (mirrors parseOptions). */
+const captureOptionsProperties = {
+  timeoutMs: { type: 'integer', description: 'Page load timeout in milliseconds' },
+  fullPage: { type: 'boolean', description: 'Capture the full scrollable page' },
+  viewport: {
+    type: 'object',
+    description: 'Capture viewport in CSS pixels (clamped to 320-3840 wide, 320-2160 tall)',
+    properties: {
+      width: { type: 'integer', description: 'Viewport width in CSS pixels' },
+      height: { type: 'integer', description: 'Viewport height in CSS pixels' },
+    },
+  },
+  deviceScaleFactor: { type: 'number', description: 'Device pixel ratio (clamped to at most 3)' },
+  isMobile: { type: 'boolean', description: 'Render with a mobile viewport' },
+  userAgent: { type: 'string', description: 'Custom user agent string' },
+  proxy: { type: 'string', description: 'Proxy: "auto", "stealth", or an http(s) proxy URL string' },
+  waitFor: {
+    type: 'object',
+    description: 'Wait for a selector before capture (timeoutMs capped at 10000)',
+    properties: {
+      selector: { type: 'string', description: 'CSS selector to wait for' },
+      timeoutMs: { type: 'integer', description: 'Wait timeout in milliseconds (capped at 10000)' },
+    },
+  },
+  actions: {
+    type: 'array',
+    description: 'Post-load actions: click/type/wait objects (1 to 5)',
+    items: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', enum: ['click', 'type', 'wait'], description: 'Action kind' },
+        selector: { type: 'string', description: 'CSS selector (click/type)' },
+        text: { type: 'string', description: 'Text to type (type only)' },
+        timeoutMs: { type: 'integer', description: 'Wait duration in milliseconds (wait only, capped at 10000)' },
+      },
+    },
+    minItems: 1,
+    maxItems: 5,
+  },
+};
+
 const captureRequestBody = {
   type: 'object',
   required: ['url'],
@@ -89,21 +130,7 @@ const captureRequestBody = {
     options: {
       type: 'object',
       additionalProperties: false,
-      properties: {
-        timeoutMs: { type: 'integer', description: 'Page load timeout in milliseconds' },
-        fullPage: { type: 'boolean', description: 'Capture the full scrollable page' },
-        viewport: {
-          type: 'object',
-          description: 'Capture viewport in CSS pixels (clamped to 320-3840 wide, 320-2160 tall)',
-          properties: {
-            width: { type: 'integer', description: 'Viewport width in CSS pixels' },
-            height: { type: 'integer', description: 'Viewport height in CSS pixels' },
-          },
-        },
-        deviceScaleFactor: { type: 'number', description: 'Device pixel ratio (clamped to at most 3)' },
-        isMobile: { type: 'boolean', description: 'Render with a mobile viewport' },
-        userAgent: { type: 'string', description: 'Custom user agent string' },
-      },
+      properties: captureOptionsProperties,
     },
   },
 };
@@ -123,6 +150,12 @@ const extractRequestBody = {
       maxItems: 10,
     },
     schema: { type: 'string', description: 'Optional plain natural-language string describing the JSON to extract via a model (a string, not a JSON object)' },
+    options: {
+      type: 'object',
+      additionalProperties: false,
+      description: 'Capture options forwarded to the capture pipeline (proxy/waitFor/actions/viewport)',
+      properties: captureOptionsProperties,
+    },
   },
 };
 

@@ -34,7 +34,8 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
         description:
           'Capture the URL as a PNG/JPEG/PDF screenshot plus free OG metadata. Unpaid requests receive the ' +
           'x402 402 challenge; paying clients retry with PAYMENT-SIGNATURE. One payment per URL. ' +
-          'Optional options tune the render: viewport {width, height}, deviceScaleFactor, isMobile, userAgent, plus timeoutMs/fullPage.',
+          'Optional options tune the render: viewport {width, height}, deviceScaleFactor, isMobile, userAgent, ' +
+          'proxy ("auto"/"stealth"/URL), waitFor {selector, timeoutMs}, and actions (click/type/wait, up to 5), plus timeoutMs/fullPage.',
         requestBody: {
           required: true,
           content: { 'application/json': { schema: captureRequestBody } },
@@ -60,7 +61,8 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
         description:
           'Return structured content (title, headings, paragraphs, links, images, word count, markdown) as JSON. ' +
           `Batch up to 10 URLs for ONE payment (${config.x402ExtractPriceUsdcUnits / USDC_SCALE} USDC covers the whole batch). ` +
-          'Optional natural-language "schema" triggers model-based extraction into custom JSON.',
+          'Optional natural-language "schema" triggers model-based extraction into custom JSON. ' +
+          'Optional options tune the capture per URL: proxy, waitFor {selector, timeoutMs}, actions, viewport, and the other render fields.',
         requestBody: {
           required: true,
           content: { 'application/json': { schema: extractRequestBody } },

@@ -216,7 +216,11 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         {
           method: 'POST',
           path: '/v1/x402/capture',
-          body: { url: 'string (required)', format: 'png|jpeg|pdf (optional)' },
+          body: {
+            url: 'string (required)',
+            format: 'png|jpeg|pdf (optional)',
+            options: 'object (optional) — render tuning: viewport, deviceScaleFactor, isMobile, userAgent, proxy, waitFor, actions',
+          },
           priceUsdc: config.x402PriceUsdcUnits / USDC_SCALE,
           atomicUnits: String(config.x402PriceUsdcUnits),
           note: 'screenshot artifact (base64) + free OG metadata',
@@ -227,6 +231,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           body: {
             url: 'string (required, or urls: string[] up to 10 for a batch)',
             schema: 'string (optional) — natural-language description of the JSON to extract; uses a model when one is configured',
+            options: 'object (optional) — capture tuning per URL: proxy, waitFor, actions, viewport, timeoutMs, fullPage',
           },
           priceUsdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE,
           atomicUnits: String(config.x402ExtractPriceUsdcUnits),

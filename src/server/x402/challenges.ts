@@ -31,6 +31,47 @@ const BAZAAR_HTTP_METHOD = 'POST';
 // also imported by the OpenAPI catalog so every doc example uses one literal.
 export const BAZAAR_EXAMPLE_PAYER = '0x000000000000000000000000000000000000dEaD';
 
+/** Shared capture-option properties for the capture + extract input schemas (mirrors parseOptions in ../capture-parse.ts). */
+const CAPTURE_OPTIONS_PROPERTIES: Record<string, unknown> = {
+  timeoutMs: { type: 'integer', description: 'Page load timeout in milliseconds' },
+  fullPage: { type: 'boolean', description: 'Capture the full scrollable page' },
+  viewport: {
+    type: 'object',
+    description: 'Capture viewport in CSS pixels (clamped to 320-3840 wide, 320-2160 tall)',
+    properties: {
+      width: { type: 'integer', description: 'Viewport width in CSS pixels' },
+      height: { type: 'integer', description: 'Viewport height in CSS pixels' },
+    },
+  },
+  deviceScaleFactor: { type: 'number', description: 'Device pixel ratio (clamped to at most 3)' },
+  isMobile: { type: 'boolean', description: 'Render with a mobile viewport' },
+  userAgent: { type: 'string', description: 'Custom user agent string' },
+  proxy: { type: 'string', description: 'Proxy: "auto", "stealth", or an http(s) proxy URL string' },
+  waitFor: {
+    type: 'object',
+    description: 'Wait for a selector before capture (timeoutMs capped at 10000)',
+    properties: {
+      selector: { type: 'string', description: 'CSS selector to wait for' },
+      timeoutMs: { type: 'integer', description: 'Wait timeout in milliseconds (capped at 10000)' },
+    },
+  },
+  actions: {
+    type: 'array',
+    description: 'Post-load actions: click/type/wait objects (1 to 5)',
+    items: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', enum: ['click', 'type', 'wait'], description: 'Action kind' },
+        selector: { type: 'string', description: 'CSS selector (click/type)' },
+        text: { type: 'string', description: 'Text to type (type only)' },
+        timeoutMs: { type: 'integer', description: 'Wait duration in milliseconds (wait only, capped at 10000)' },
+      },
+    },
+    minItems: 1,
+    maxItems: 5,
+  },
+};
+
 /** Bazaar input schema for POST /v1/x402/capture — mirrors url + parseFormat/parseOptions. */
 const CAPTURE_INPUT_SCHEMA: Record<string, unknown> = {
   type: 'object',
@@ -40,21 +81,7 @@ const CAPTURE_INPUT_SCHEMA: Record<string, unknown> = {
     options: {
       type: 'object',
       description: 'Capture options',
-      properties: {
-        timeoutMs: { type: 'integer', description: 'Page load timeout in milliseconds' },
-        fullPage: { type: 'boolean', description: 'Capture the full scrollable page' },
-        viewport: {
-          type: 'object',
-          description: 'Capture viewport in CSS pixels (clamped to 320-3840 wide, 320-2160 tall)',
-          properties: {
-            width: { type: 'integer', description: 'Viewport width in CSS pixels' },
-            height: { type: 'integer', description: 'Viewport height in CSS pixels' },
-          },
-        },
-        deviceScaleFactor: { type: 'number', description: 'Device pixel ratio (clamped to at most 3)' },
-        isMobile: { type: 'boolean', description: 'Render with a mobile viewport' },
-        userAgent: { type: 'string', description: 'Custom user agent string' },
-      },
+      properties: CAPTURE_OPTIONS_PROPERTIES,
       additionalProperties: false,
     },
   },
@@ -71,7 +98,7 @@ const CAPTURE_OUTPUT_EXAMPLE: Record<string, unknown> = {
   payment: { payer: BAZAAR_EXAMPLE_PAYER, priceUsdcUnits: 1_000 },
 };
 
-/** Bazaar input schema for POST /v1/x402/extract — mirrors parseExtractUrls/parseExtractSchema. */
+/** Bazaar input schema for POST /v1/x402/extract — mirrors parseExtractUrls/parseExtractSchema/parseOptions. */
 const EXTRACT_INPUT_SCHEMA: Record<string, unknown> = {
   type: 'object',
   properties: {
@@ -83,6 +110,12 @@ const EXTRACT_INPUT_SCHEMA: Record<string, unknown> = {
       maxItems: MAX_EXTRACT_BATCH,
     },
     schema: { type: 'string', description: 'Optional natural-language description of the JSON to extract via a model' },
+    options: {
+      type: 'object',
+      description: 'Capture options forwarded to the capture pipeline (proxy/waitFor/actions/viewport)',
+      properties: CAPTURE_OPTIONS_PROPERTIES,
+      additionalProperties: false,
+    },
   },
 };
 
