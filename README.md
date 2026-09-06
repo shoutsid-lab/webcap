@@ -326,7 +326,7 @@ log-silent (it is a probe). Host-side logs live under `logs/`
 */5 * * * *      bin/webcap-health.sh
 */5 * * * *      bin/webcap-revenue-alert.sh
 */30 * * * *     bin/webcap-backup.sh
-30 3 * * 1       bin/webcap-keepalive.sh     (Mondays)
+30 3 * * 1,4     bin/webcap-keepalive.sh     (Mondays + Thursdays)
 ```
 
 - `bin/webcap-health.sh` (5 min): requires `GET /v1/x402/service` → 200 **and**
@@ -341,7 +341,10 @@ log-silent (it is a probe). Host-side logs live under `logs/`
   (`better-sqlite3` `db.backup()` against the live WAL, no downtime) →
   `docker cp` to `backups/webcap-<timestamp>.sqlite` → `PRAGMA integrity_check`
   on the host copy → retain the **7 newest**, `chmod 600`.
-- `bin/webcap-keepalive.sh` (weekly, Mondays 03:30): keeps the x402 discovery
+- `bin/webcap-keepalive.sh` (2×/week, Mondays + Thursdays 03:30 — a missed
+  run is caught up 3 days later, keeping the worst-case settlement gap under
+  Bazaar's 30-day delisting window; the 25-day success cooldown bounds the
+  actual settlement cadence): keeps the x402 discovery
   presence alive against CDP Bazaar's 30-day no-settlement delisting. Checks
   Bazaar listing presence (CDP validate ×3 + `discovery/merchant`), attempts
   the $0.001 self-settlement via `scripts/x402-pay.ts` (funds loop back to the

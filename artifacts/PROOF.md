@@ -285,7 +285,8 @@ in `/.well-known/x402`. Cryptographic recovery on the host yields
 Agent-facing surfaces: `/llms.txt`, `/skill.md` (text/markdown,
 config-derived), `/openapi.json`, `/.well-known/x402`, `/v1/x402/service`.
 
-**Keepalive (`bin/webcap-keepalive.sh`, weekly cron, Mondays 03:30).** Checks
+**Keepalive (`bin/webcap-keepalive.sh`, cron 2×/week, Mondays + Thursdays
+03:30).** Checks
 Bazaar presence (CDP validate ×3 + `discovery/merchant`), attempts the $0.001
 self-settlement (25-day success cooldown; funds loop back to the merchant
 wallet; a logged no-op while the payer wallet
@@ -302,8 +303,9 @@ downstream directories follow within hours. Fund
 ```
 X402_CUSTOMER_PRIVATE_KEY=0x… npx tsx scripts/x402-pay.ts https://example.com https://nickname-trident-driveway.ngrok-free.dev
 ```
-Once the wallet is funded, the weekly keepalive performs this automatically —
-and then keeps the listing alive for the 30-day window indefinitely.
+Once the wallet is funded, the keepalive performs this automatically (a
+funded wallet flips the listings within 3 days, worst case) — and then keeps
+the listing alive for the 30-day window indefinitely.
 
 **Status (honest).** The service is **live on Base mainnet** with real
 discovery across 5 channels and the verified-ownership proof served. The
