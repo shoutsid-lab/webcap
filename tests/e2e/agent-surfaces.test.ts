@@ -142,5 +142,7 @@ describe('agent-facing discovery surfaces (free, no payment, no auth)', () => {
     expect(body).toContain('wrapAxiosWithPayment');
     expect(body).toContain('$0.001');
     expect(body).toContain('/v1/extract/preview');
+    expect(body).toContain('detail.paidUpgrade');
+    expect(body).toContain('POST /v1/x402/extract');
   });
 });
