@@ -34,6 +34,7 @@ import { everyMsOf } from './intervals.js';
 import { fetchJsonWatch, executeJsonWatch } from './json-fetch.js';
 import { defaultClock, defaultTimers, type WatchClock, type WatchTimers } from './clock.js';
 import { checkWebhookUrl, fireWebhook, formatAlertPayload, type WatchAlert, type WatchChannel } from './webhook.js';
+import type { WatchAiTokenBudget } from '../extract/modelSummarize.js';
 import { conditionsMatch, parseConditionsField, type ConditionContext } from './conditions.js';
 import type { WatchMode, WatchRepo, WatchRow } from './store.js';
 
@@ -63,6 +64,12 @@ export interface WatchSchedulerInput {
   readonly intervalMs?: number;
   /** Failure/skip logger (default: console, matching the historical output). */
   readonly logger?: ServiceLogger;
+  /**
+   * Fail-open AI token budget for the ai_summary gate (default: from
+   * config.watchAiMaxTokens* with DEFAULT_* fallbacks). Tests inject a
+   * gate-all (0/0) budget to pin the over-budget path without fetching.
+   */
+  readonly aiBudget?: WatchAiTokenBudget;
 }
 
 /** Cumulative scheduler counters (read-only snapshot per call). */
