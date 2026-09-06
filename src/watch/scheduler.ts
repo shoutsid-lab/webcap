@@ -24,7 +24,7 @@
  */
 import type { ArtifactRepo } from '../db/artifacts.js';
 import type { RevenueRepo } from '../db/revenue.js';
-import { DEFAULT_MODEL_TIMEOUT_MS, DEFAULT_WEBHOOK_RETRIES, DEFAULT_WEBHOOK_TIMEOUT_MS, type WebcapConfig } from '../config.js';
+import { DEFAULT_MODEL_TIMEOUT_MS, DEFAULT_WATCH_AI_MAX_TOKENS_GLOBAL_WINDOW, DEFAULT_WATCH_AI_MAX_TOKENS_PER_RUN, DEFAULT_WEBHOOK_RETRIES, DEFAULT_WEBHOOK_TIMEOUT_MS, type WebcapConfig } from '../config.js';
 import type { CaptureRequest, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
 import { captureOptionsOf } from './capture-context.js';
 import { extractPage, storeArtifact } from '../extract/service.js';
@@ -35,6 +35,7 @@ import { fetchJsonWatch, executeJsonWatch } from './json-fetch.js';
 import { defaultClock, defaultTimers, type WatchClock, type WatchTimers } from './clock.js';
 import { checkWebhookUrl, fireWebhook, formatAlertPayload, type WatchAlert, type WatchChannel } from './webhook.js';
 import type { WatchAiTokenBudget } from '../extract/modelSummarize.js';
+import { createWatchAiTokenBudget, modelSummarizeWithBudget } from '../extract/modelSummarize.js';
 import { conditionsMatch, parseConditionsField, type ConditionContext } from './conditions.js';
 import type { WatchMode, WatchRepo, WatchRow } from './store.js';
 
@@ -95,6 +96,7 @@ export function createWatchScheduler(input: WatchSchedulerInput): WatchScheduler
   const timers = input.timers ?? defaultTimers;
   const intervalMs = input.intervalMs ?? DEFAULT_TICK_INTERVAL_MS;
   const log = input.logger ?? consoleServiceLogger();
+  const aiBudget = budgetOf(input);
   /** Per-watch single-flight: a watch that is mid-run never double-runs. */
   const running = new Set<string>();
   // Accumulator mutated by executeWatch's webhook guard; exposed via stats().
@@ -113,7 +115,7 @@ export function createWatchScheduler(input: WatchSchedulerInput): WatchScheduler
         if (running.has(watch.id)) continue;
         running.add(watch.id);
         try {
-          const webhooksSkipped = await executeWatch(input, watch, nowMs);
+          const webhooksSkipped = await executeWatch({ ...input, aiBudget }, watch, nowMs);
           stats.webhooksSkipped += webhooksSkipped;
         } finally {
           running.delete(watch.id);
@@ -229,6 +231,26 @@ async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: 
     error = err instanceof Error ? err.message : String(err);
   }
 
+  let aiSummary: string | null = null;
+  if (status === 'ok' && changed && diffSummary !== null) {
+    try {
+      const summary = await modelSummarizeWithBudget(
+        diffSummary,
+        {
+          baseUrl: input.config.modelApiBaseUrl,
+          apiKey: input.config.modelApiKey,
+          model: input.config.modelName,
+        },
+        budgetOf(input),
+        watch.id,
+        { timeoutMs: input.config.modelTimeoutMs ?? DEFAULT_MODEL_TIMEOUT_MS },
+      );
+      aiSummary = summary?.summary ?? null;
+    } catch {
+      aiSummary = null;
+    }
+  }
+
   // Cost side only: the run's compute cost, accounted like any other request.
   input.revenue.record({
     endpoint: `watch-${watch.mode}`,
@@ -291,6 +313,7 @@ async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: 
     extractJson,
     changed,
     diffSummary,
+    aiSummary,
     webhook,
     error,
     createdAt: at,
@@ -300,6 +323,16 @@ async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: 
 
 function normalizeChannel(raw: string): WatchChannel {
   return raw === 'slack' || raw === 'discord' ? raw : 'generic';
+}
+
+function budgetOf(input: WatchSchedulerInput): WatchAiTokenBudget {
+  return (
+    input.aiBudget ??
+    createWatchAiTokenBudget({
+      maxTokensPerRun: input.config.watchAiMaxTokensPerRun ?? DEFAULT_WATCH_AI_MAX_TOKENS_PER_RUN,
+      maxTokensGlobalWindow: input.config.watchAiMaxTokensGlobalWindow ?? DEFAULT_WATCH_AI_MAX_TOKENS_GLOBAL_WINDOW,
+    })
+  );
 }
 
 /**
