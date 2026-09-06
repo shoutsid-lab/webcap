@@ -13,6 +13,7 @@ import { ExactEvmScheme } from '@x402/evm/exact/server';
 import type { WebcapConfig } from '../config.js';
 import type { Db } from '../db/index.js';
 import { makeWatchRepo } from '../watch/store.js';
+import { registerMppSettleHook } from '../mpp/plugin.js';
 import { buildAllX402Routes } from './x402/routes.js';
 
 export { BAZAAR_EXAMPLE_PAYER, buildUnpaidBody, topUpOutputExample, type UnpaidBazaarMetadata } from './x402/challenges.js';
@@ -36,6 +37,11 @@ export function registerX402Middleware(
     throw new Error('x402 is enabled but no facilitator client was provided');
   }
   const resourceServer = new x402ResourceServer(facilitator).register(network, new ExactEvmScheme());
+  // MPP settle hooks register BEFORE paymentMiddleware so they run first:
+  // the settle onRequest verifies ahead of x402's verify, the settle onSend
+  // consumes the settled marker ahead of x402's settle (single settlement).
+  // Disabled MPP registers zero hooks. The SAME resourceServer is shared.
+  registerMppSettleHook(app, config, db, resourceServer);
   paymentMiddleware(app, buildAllX402Routes(config, makeWatchRepo(db)), resourceServer);
 }
 
