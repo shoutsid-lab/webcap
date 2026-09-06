@@ -47,6 +47,7 @@ function makeConfig(): WebcapConfig {
     x402PayTo: MERCHANT_ADDRESS,
     x402PriceUsdcUnits: CAPTURE_UNITS,
     x402ExtractPriceUsdcUnits: EXTRACT_UNITS,
+    x402AuditPriceUsdcUnits: 2_000,
     computeCostUsdcUnitsPerRequest: 200,
     modelApiBaseUrl: '',
     modelApiKey: '',

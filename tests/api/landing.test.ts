@@ -105,6 +105,7 @@ describe('GET / (content negotiation: landing page + JSON front door)', () => {
           paid: [
             { path: 'POST /v1/x402/capture', usdc: 0.001, note: 'PNG/JPEG/PDF screenshot + free OG' },
             { path: 'POST /v1/x402/extract', usdc: 0.01, note: 'structured JSON; batch up to 10 URLs for one payment' },
+            { path: 'POST /v1/x402/audit', usdc: 0.002, note: 'SEO basics + link/OG health in one call' },
           ],
         },
         catalog: 'GET /v1/x402/service — full agent-discoverable descriptor + the exact x402 payment flow',

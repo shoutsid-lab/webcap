@@ -45,6 +45,7 @@ describe('boot: app with real capture+og serves health, and register upserts acc
       x402PayTo: MERCHANT,
       x402PriceUsdcUnits: 1_000,
       x402ExtractPriceUsdcUnits: 10_000,
+      x402AuditPriceUsdcUnits: 2_000,
       computeCostUsdcUnitsPerRequest: 200,
       modelApiBaseUrl: '',
       modelApiKey: '',

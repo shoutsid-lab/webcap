@@ -161,10 +161,12 @@ describe('GET /.well-known/x402 + GET /.well-known/agent-card.json (machine disc
       expect(body.endpoints.map((e) => e.path)).toEqual([
         'POST /v1/x402/capture',
         'POST /v1/x402/extract',
+        'POST /v1/x402/audit',
         'POST /v1/x402/watches/topup',
       ]);
       expect(body.endpoints[0]?.usdc).toBe(fx.config.x402PriceUsdcUnits / 1_000_000);
       expect(body.endpoints[1]?.usdc).toBe(fx.config.x402ExtractPriceUsdcUnits / 1_000_000);
+      expect(body.endpoints[2]?.usdc).toBe(fx.config.x402AuditPriceUsdcUnits / 1_000_000);
       expect(body.openapi).toContain('/openapi.json');
     } finally {
       await closeApiFixture(fx);
@@ -194,7 +196,7 @@ describe('GET /.well-known/x402 + GET /.well-known/agent-card.json (machine disc
       expect(card.payments.payTo).toBe(
         fx.config.x402Network === undefined ? null : fx.config.x402PayTo,
       );
-      expect(card.skills.map((s) => s.id)).toEqual(['capture', 'extract', 'watch']);
+      expect(card.skills.map((s) => s.id)).toEqual(['capture', 'extract', 'audit', 'watch']);
     } finally {
       await closeApiFixture(fx);
     }

@@ -77,6 +77,7 @@ export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
     x402PayTo: MERCHANT_ADDRESS,
     x402PriceUsdcUnits: 1_000,
     x402ExtractPriceUsdcUnits: 10_000,
+    x402AuditPriceUsdcUnits: 2_000,
     computeCostUsdcUnitsPerRequest: 200,
     modelApiBaseUrl: '',
     modelApiKey: '',

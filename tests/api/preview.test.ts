@@ -15,7 +15,7 @@ describe('GET /v1/extract/preview (free, rate-limited funnel)', () => {
       expect(res.statusCode).toBe(200);
       const body = res.json() as { service: string; endpoints: { paid: Array<{ path: string }> } };
       expect(body.service).toBe('webcap');
-      expect(body.endpoints.paid.map((p) => p.path)).toEqual(['POST /v1/x402/capture', 'POST /v1/x402/extract']);
+      expect(body.endpoints.paid.map((p) => p.path)).toEqual(['POST /v1/x402/capture', 'POST /v1/x402/extract', 'POST /v1/x402/audit']);
     } finally {
       await closeApiFixture(fx);
     }

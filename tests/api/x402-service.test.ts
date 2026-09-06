@@ -82,6 +82,7 @@ function makeX402Fixture(chain: TestChain): X402Fixture {
     x402PayTo: MERCHANT_ADDRESS,
     x402PriceUsdcUnits: 1_000,
     x402ExtractPriceUsdcUnits: 10_000,
+    x402AuditPriceUsdcUnits: 2_000,
     computeCostUsdcUnitsPerRequest: 200,
     modelApiBaseUrl: '',
     modelApiKey: '',
@@ -136,6 +137,7 @@ describe('GET /v1/x402/service (canonical agent descriptor)', () => {
       expect(body.paidEndpoints.map((e) => e.path)).toEqual([
         '/v1/x402/capture',
         '/v1/x402/extract',
+        '/v1/x402/audit',
         '/v1/x402/watches/topup',
       ]);
       const capture = body.paidEndpoints[0];

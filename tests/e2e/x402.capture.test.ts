@@ -108,6 +108,7 @@ beforeAll(async () => {
     x402PayTo: MERCHANT_ADDRESS,
     x402PriceUsdcUnits: 1_000,
     x402ExtractPriceUsdcUnits: 10_000,
+    x402AuditPriceUsdcUnits: 2_000,
     computeCostUsdcUnitsPerRequest: 200,
     modelApiBaseUrl: '',
     modelApiKey: '',
@@ -197,6 +198,7 @@ describe('x402 capture (v2 wire, mock facilitator, no chain)', () => {
     expect(svc.paidEndpoints).toEqual([
       expect.objectContaining({ method: 'POST', path: '/v1/x402/capture', priceUsdc: 0.001, atomicUnits: '1000' }),
       expect.objectContaining({ method: 'POST', path: '/v1/x402/extract', priceUsdc: 0.01, atomicUnits: '10000' }),
+      expect.objectContaining({ method: 'POST', path: '/v1/x402/audit', priceUsdc: 0.002, atomicUnits: '2000' }),
       // Watch top-up pack: WATCH_TOPUP_RUNS × capture unit price (config-derived in routes.ts).
       expect.objectContaining({
         method: 'POST',
