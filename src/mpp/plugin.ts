@@ -24,12 +24,12 @@ import type { PaymentRequirements, SettleResponse } from '@x402/core/types';
 import { DEFAULT_X402_MAX_TIMEOUT_MS, watchTopUpPriceUsdcUnits, type WebcapConfig } from '../config.js';
 import type { Db } from '../db/index.js';
 import { makeWatchRepo, type WatchRepo } from '../watch/store.js';
-import { buildX402Requirement, X402_CAPTURE_PATH, X402_EXTRACT_PATH, X402_TOPUP_PATH } from '../server/x402/routes.js';
+import { buildX402Requirement, X402_AUDIT_PATH, X402_CAPTURE_PATH, X402_EXTRACT_PATH, X402_TOPUP_PATH } from '../server/x402/routes.js';
 import { buildWwwAuthenticate, parseWwwAuthenticate } from './challenge.js';
 import { loadMppConfig } from './config.js';
 import { settleMppPayment } from './settle.js';
 
-const PAID_PATHS: ReadonlySet<string> = new Set([X402_CAPTURE_PATH, X402_EXTRACT_PATH, X402_TOPUP_PATH]);
+const PAID_PATHS: ReadonlySet<string> = new Set([X402_CAPTURE_PATH, X402_EXTRACT_PATH, X402_TOPUP_PATH, X402_AUDIT_PATH]);
 
 /** True when method+path is one of the 6 paid patterns (GET/POST x capture/extract/topup). */
 export function isMppPaidPattern(method: string, url: string): boolean {
@@ -68,6 +68,7 @@ export function resolveMppAmountUsdcUnits(input: MppPriceInput): number {
   const path = input.url.split('?')[0];
   if (path === X402_CAPTURE_PATH) return input.config.x402PriceUsdcUnits;
   if (path === X402_EXTRACT_PATH) return input.config.x402ExtractPriceUsdcUnits;
+  if (path === X402_AUDIT_PATH) return input.config.x402AuditPriceUsdcUnits;
   if (path === X402_TOPUP_PATH) {
     const watchId = watchIdOf(input.url);
     const watch = watchId !== undefined ? input.watchRepo.get(watchId) : null;
