@@ -10,6 +10,7 @@ vi.mock('playwright-core', () => ({
       close: async () => undefined,
       newContext: vi.fn(async (opts: unknown) => ({
         addInitScript: async () => undefined,
+        addCookies: vi.fn(async () => undefined),
         close: async () => undefined,
         captured: opts,
       })),
@@ -17,13 +18,27 @@ vi.mock('playwright-core', () => ({
   },
 }));
 
-async function lastContextOptions(): Promise<Record<string, unknown>> {
+async function lastBrowser(): Promise<{ newContext: Mock }> {
   const launch = chromium.launch as unknown as Mock;
   const result = launch.mock.results[launch.mock.results.length - 1];
   if (result?.type !== 'return') throw new Error('expected chromium.launch to have returned');
-  const browser = result.value as { newContext: Mock };
-  const call = browser.newContext.mock.calls[browser.newContext.mock.calls.length - 1];
-  return (call?.[0] ?? {}) as Record<string, unknown>;
+  return result.value as { newContext: Mock };
+}
+
+async function lastContextOptions(): Promise<Record<string, unknown>> {
+  const browser = await lastBrowser();
+  const calls = browser.newContext.mock.calls;
+  return (calls[calls.length - 1]?.[0] ?? {}) as Record<string, unknown>;
+}
+
+async function lastAddedCookies(): Promise<unknown> {
+  const browser = await lastBrowser();
+  const results = browser.newContext.mock.results;
+  const result = results[results.length - 1];
+  if (result?.type !== 'return') throw new Error('expected browser.newContext to have returned');
+  const context = (await result.value) as { addCookies: Mock };
+  const calls = context.addCookies.mock.calls;
+  return calls[calls.length - 1]?.[0];
 }
 
 afterEach(async () => {
@@ -39,10 +54,10 @@ describe('browser newContext applies per-watch auth', () => {
     });
   });
 
-  it('forwards cookies to the Playwright context options', async () => {
+  it('applies cookies via context.addCookies', async () => {
     const cookies = [{ name: 'sid', value: 'abc', domain: 'example.com' }];
     await newContext({ cookies });
-    expect(await lastContextOptions()).toMatchObject({ cookies });
+    expect(await lastAddedCookies()).toEqual(cookies);
   });
 
   it('forwards auth alongside viewport options', async () => {
@@ -54,8 +69,8 @@ describe('browser newContext applies per-watch auth', () => {
     expect(await lastContextOptions()).toMatchObject({
       viewport: { width: 1280, height: 800 },
       extraHTTPHeaders: { 'x-api-key': 'k-123' },
-      cookies: [{ name: 'sid', value: 'abc' }],
     });
+    expect(await lastAddedCookies()).toEqual([{ name: 'sid', value: 'abc' }]);
   });
 });
 

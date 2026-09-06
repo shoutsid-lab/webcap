@@ -4,6 +4,8 @@ import type { FastifyReply, FastifyRequest, FastifyServerOptions } from 'fastify
 /** Sensitive request-header paths censored from every log line. */
 export const REDACT_PATHS = [
   'req.headers.authorization',
+  'req.headers.cookie',
+  'req.headers["set-cookie"]',
   'req.headers.payment-signature',
   'req.headers.payment-required',
 ] as const;
@@ -14,8 +16,9 @@ export type WebcapLoggerOptions = Exclude<FastifyServerOptions['logger'], boolea
 /**
  * Default pino options for the request logger. The req serializer carries
  * the full header set (Fastify's default omits headers) so the redaction is
- * real, and the redact paths censor the auth + x402 payment headers that
- * carry the API key and payment payloads.
+ * real, and the redact paths censor the auth + cookie + x402 payment headers
+ * that carry the login-macro secrets, session cookies, API key, and payment
+ * payloads.
  */
 export function defaultLoggingOptions(): WebcapLoggerOptions {
   return {

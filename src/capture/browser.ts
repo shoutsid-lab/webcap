@@ -14,6 +14,13 @@ export async function getBrowser(): Promise<Browser> {
   return browser;
 }
 
+/** Per-watch auth cookie applied to the context via addCookies (after creation). */
+export interface ContextCookie {
+  readonly name: string;
+  readonly value: string;
+  readonly domain?: string;
+}
+
 /** Viewport/mobile context options passed through to the Playwright browser context. */
 export interface ContextViewportOptions {
   readonly viewport?: { readonly width: number; readonly height: number };
@@ -24,6 +31,10 @@ export interface ContextViewportOptions {
   readonly proxyServer?: string;
   /** Hardened stealth context: realistic UA/viewport defaults + webdriver mask. No third-party plugin. */
   readonly stealth?: boolean;
+  /** Per-watch auth headers sent with every request in the context. */
+  readonly extraHTTPHeaders?: Record<string, string>;
+  /** Per-watch auth cookies applied via context.addCookies after creation. */
+  readonly cookies?: readonly ContextCookie[];
 }
 
 /**
@@ -56,7 +67,11 @@ export async function newContext(opts?: ContextViewportOptions): Promise<Browser
     deviceScaleFactor: opts?.deviceScaleFactor,
     isMobile: opts?.isMobile,
     ...(opts?.proxyServer !== undefined ? { proxy: { server: opts.proxyServer } } : {}),
+    ...(opts?.extraHTTPHeaders !== undefined ? { extraHTTPHeaders: { ...opts.extraHTTPHeaders } } : {}),
   });
+  if (opts?.cookies !== undefined && opts.cookies.length > 0) {
+    await context.addCookies(opts.cookies.map((cookie) => ({ ...cookie })));
+  }
   if (stealth) {
     await context.addInitScript(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });

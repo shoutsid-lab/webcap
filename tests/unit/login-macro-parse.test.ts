@@ -48,7 +48,7 @@ describe('server/macro-parse parseMacroSteps', () => {
     expectUnprocessable(() => parseMacroSteps(steps, undefined), 'macro');
   });
 
-  it.each([[{}], ['click'], [null], [[{ type: 'click', selector: '#x' }]]])(
+  it.each([[{}], ['click'], [null], [{ type: 'click', selector: '#x' }]])(
     'rejects non-array steps %o with 422',
     (steps) => {
       expectUnprocessable(() => parseMacroSteps(steps, undefined), 'macro');
