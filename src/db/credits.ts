@@ -17,6 +17,7 @@ export interface CreditsRepo {
   /** Atomic 1-credit spend; true when a credit was consumed. */
   recordCharge(accountId: number): boolean;
   getLedger(accountId: number): LedgerRow[];
+  spentByAccount(accountId: number): number;
 }
 
 export function makeCreditsRepo(db: Db): CreditsRepo {
@@ -29,6 +30,9 @@ export function makeCreditsRepo(db: Db): CreditsRepo {
   );
   const selectLedger = db.prepare<[number], LedgerRow>(
     'SELECT id, account_id, delta, reason, ref_id, created_at FROM credits_ledger WHERE account_id = ? ORDER BY id',
+  );
+  const spentByAccountRow = db.prepare<[number], { spent: number }>(
+    'SELECT COALESCE(SUM(-delta), 0) AS spent FROM credits_ledger WHERE account_id = ? AND delta < 0',
   );
 
   const grantTxn = db.transaction(
@@ -47,6 +51,9 @@ export function makeCreditsRepo(db: Db): CreditsRepo {
     },
     getLedger(accountId: number): LedgerRow[] {
       return selectLedger.all(accountId);
+    },
+    spentByAccount(accountId: number): number {
+      return spentByAccountRow.get(accountId)?.spent ?? 0;
     },
   };
 }

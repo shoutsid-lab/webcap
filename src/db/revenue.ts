@@ -31,6 +31,8 @@ export interface RevenueRepo {
   record(entry: RevenueEntry): void;
   /** Aggregate the P&L: totals, request count, and whether margin covers compute. */
   summary(): RevenueSummary;
+  /** Per-payer spend in USDC units (SUM revenue_usdc WHERE payer = ?). */
+  spentByPayer(payer: string): number;
   /** The most recent ledger rows, newest first. */
   recent(limit: number): RevenueRow[];
 }
@@ -44,6 +46,9 @@ export function makeRevenueRepo(db: Db): RevenueRepo {
   );
   const recentRows = db.prepare<[number], RevenueRow>(
     'SELECT id, endpoint, payer, revenue_usdc, cost_usdc, net_margin_usdc, created_at FROM revenue_ledger ORDER BY id DESC LIMIT ?',
+  );
+  const spentByPayerRow = db.prepare<[string], { spent: number }>(
+    'SELECT COALESCE(SUM(revenue_usdc), 0) AS spent FROM revenue_ledger WHERE payer = ?',
   );
 
   return {
@@ -70,6 +75,9 @@ export function makeRevenueRepo(db: Db): RevenueRepo {
     },
     recent(limit: number): RevenueRow[] {
       return recentRows.all(limit);
+    },
+    spentByPayer(payer: string): number {
+      return spentByPayerRow.get(payer)?.spent ?? 0;
     },
   };
 }
