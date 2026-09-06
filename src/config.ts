@@ -107,6 +107,14 @@ export interface WebcapConfig {
    * when this is undefined.
    */
   readonly spendCapCredits?: number;
+  /**
+   * Shared secret for signed artifact URLs (WEBCAP_ARTIFACT_HMAC_SECRET).
+   * Optional: when set it signs/verifies `?exp=&sig=` (HMAC-SHA256 over
+   * `${artifactId}.${exp}`); unset falls back to merchantPrivateKey; when
+   * both are absent sign-verify is disabled and unsigned artifact URLs keep
+   * serving (see registerDiscoveryRoutes). Never logged.
+   */
+  readonly artifactHmacSecret?: string;
 }
 
 export const DEFAULT_X402_FACILITATOR_URL = 'https://x402.org/facilitator';
@@ -138,6 +146,12 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
   const value = Number.parseInt(raw, 10);
   if (!Number.isInteger(value) || value <= 0) throw new Error(`invalid numeric env value: ${raw}`);
   return value;
+}
+
+/** Optional HMAC secret env (non-empty trimmed string); empty/unset -> undefined. */
+function parseOptionalSecret(raw: string | undefined): string | undefined {
+  if (raw === undefined || raw.trim() === '') return undefined;
+  return raw.trim();
 }
 
 /** Optional spend-cap env (positive int); empty/unset -> undefined = unlimited. */
@@ -291,5 +305,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WebcapConfig {
     artifactRetentionDays: parseNonNegativeInt(env.WEBCAP_ARTIFACT_RETENTION_DAYS, DEFAULT_ARTIFACT_RETENTION_DAYS),
     spendCapUsdcUnits: parseOptionalCap(env.WEBCAP_SPEND_CAP_USDC_UNITS, 'WEBCAP_SPEND_CAP_USDC_UNITS'),
     spendCapCredits: parseOptionalCap(env.WEBCAP_SPEND_CAP_CREDITS, 'WEBCAP_SPEND_CAP_CREDITS'),
+    artifactHmacSecret: parseOptionalSecret(env.WEBCAP_ARTIFACT_HMAC_SECRET),
   };
 }

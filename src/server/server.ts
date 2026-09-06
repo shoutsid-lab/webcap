@@ -8,6 +8,7 @@ import type { CaptureRequest, CaptureResult, StructuredCapture } from '../captur
 import type { OgResult } from '../capture/og.js';
 import { registerBillingRoutes } from './billing.js';
 import { registerMapLiteRoute } from './map-lite.js';
+import { registerJobRoutes } from './jobs.js';
 import { registerRoutes } from './routes.js';
 import { registerDiscoveryRoutes } from './discovery.js';
 import { registerAgentSurfaces } from './agent-surfaces.js';
@@ -69,6 +70,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   // hooks above must still precede every route registration).
   registerBillingRoutes(app, deps);
   registerRoutes(app, deps);
+  registerJobRoutes(app, deps);
   registerMapLiteRoute(app, { db: deps.db, config: deps.config, captureAllowHosts: deps.captureAllowHosts });
   registerDiscoveryRoutes(app, deps);
   registerAgentSurfaces(app, deps.config);

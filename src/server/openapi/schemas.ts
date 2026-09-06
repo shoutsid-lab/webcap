@@ -26,6 +26,8 @@ const captureResponse = (priceUsdcUnits: number): Json => ({
       type: 'object',
       properties: {
         payer: { type: 'string', example: BAZAAR_EXAMPLE_PAYER },
+        creditsUsed: { type: 'integer', description: 'Credits charged (credits rail and async jobs; omitted on x402-settled calls)' },
+        costUsdcUnits: { type: 'integer', description: 'Amortized compute cost in atomic 6-decimal USDC units' },
         priceUsdcUnits: { type: 'integer', example: priceUsdcUnits },
       },
     },
@@ -75,6 +77,8 @@ const extractResponse = (priceUsdcUnits: number): Json => ({
       type: 'object',
       properties: {
         payer: { type: 'string', example: BAZAAR_EXAMPLE_PAYER },
+        creditsUsed: { type: 'integer', description: 'Credits charged (credits rail and async jobs; omitted on x402-settled calls)' },
+        costUsdcUnits: { type: 'integer', description: 'Amortized compute cost in atomic 6-decimal USDC units' },
         priceUsdcUnits: { type: 'integer', example: priceUsdcUnits },
       },
     },
@@ -195,6 +199,8 @@ const mapLiteResponse = (priceUsdcUnits: number): Json => ({
       type: 'object',
       properties: {
         payer: { type: 'string', example: BAZAAR_EXAMPLE_PAYER },
+        creditsUsed: { type: 'integer', description: 'Credits charged (credits rail and async jobs; omitted on x402-settled calls)' },
+        costUsdcUnits: { type: 'integer', description: 'Amortized compute cost in atomic 6-decimal USDC units' },
         priceUsdcUnits: { type: 'integer', example: priceUsdcUnits },
       },
     },
@@ -298,6 +304,8 @@ const auditResponse = (priceUsdcUnits: number): Json => ({
       type: 'object',
       properties: {
         payer: { type: 'string', example: BAZAAR_EXAMPLE_PAYER },
+        creditsUsed: { type: 'integer', description: 'Credits charged (credits rail and async jobs; omitted on x402-settled calls)' },
+        costUsdcUnits: { type: 'integer', description: 'Amortized compute cost in atomic 6-decimal USDC units' },
         priceUsdcUnits: { type: 'integer', example: priceUsdcUnits },
       },
     },

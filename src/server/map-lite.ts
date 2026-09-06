@@ -220,7 +220,11 @@ export function registerMapLiteRoute(app: FastifyInstance, deps: MapLiteRouteDep
     });
     return {
       urls: discovery.urls,
-      payment: { payer, priceUsdcUnits: config.x402AuditPriceUsdcUnits },
+      payment: {
+        payer,
+        priceUsdcUnits: config.x402AuditPriceUsdcUnits,
+        costUsdcUnits: config.computeCostUsdcUnitsPerRequest * discovery.fetchCount,
+      },
     };
   });
 }

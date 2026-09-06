@@ -2,8 +2,8 @@
  * The MPP 402-challenge hook: attaches the `Payment` WWW-Authenticate header
  * to unpaid x402 402s (dual-protocol challenge) without touching body bytes.
  *
- * Fires ONLY when the reply is a 402 AND the request is one of the 6 paid
- * patterns (GET/POST x capture/extract/topup). MPP disabled (no
+ * Fires ONLY when the reply is a 402 AND the request is one of the paid
+ * patterns (GET/POST x capture/extract/topup/audit/map-lite, POST jobs). MPP disabled (no
  * MPP_SECRET_KEY -> loadMppConfig returns enabled:false) = no hook
  * registered, zero header change.
  *
@@ -24,14 +24,14 @@ import type { PaymentRequirements, SettleResponse } from '@x402/core/types';
 import { DEFAULT_X402_MAX_TIMEOUT_MS, watchTopUpPriceUsdcUnits, type WebcapConfig } from '../config.js';
 import type { Db } from '../db/index.js';
 import { makeWatchRepo, type WatchRepo } from '../watch/store.js';
-import { buildX402Requirement, X402_AUDIT_PATH, X402_CAPTURE_PATH, X402_EXTRACT_PATH, X402_MAP_LITE_PATH, X402_TOPUP_PATH } from '../server/x402/routes.js';
+import { buildX402Requirement, X402_AUDIT_PATH, X402_CAPTURE_PATH, X402_EXTRACT_PATH, X402_JOBS_PATH, X402_MAP_LITE_PATH, X402_TOPUP_PATH } from '../server/x402/routes.js';
 import { buildWwwAuthenticate, parseWwwAuthenticate } from './challenge.js';
 import { loadMppConfig } from './config.js';
 import { settleMppPayment } from './settle.js';
 
-const PAID_PATHS: ReadonlySet<string> = new Set([X402_CAPTURE_PATH, X402_EXTRACT_PATH, X402_TOPUP_PATH, X402_AUDIT_PATH, X402_MAP_LITE_PATH]);
+const PAID_PATHS: ReadonlySet<string> = new Set([X402_CAPTURE_PATH, X402_EXTRACT_PATH, X402_TOPUP_PATH, X402_AUDIT_PATH, X402_MAP_LITE_PATH, X402_JOBS_PATH]);
 
-/** True when method+path is one of the 6 paid patterns (GET/POST x capture/extract/topup). */
+/** True when method+path is one of the paid patterns (GET/POST on the x402 paths, POST on the jobs submit). */
 export function isMppPaidPattern(method: string, url: string): boolean {
   if (method !== 'GET' && method !== 'POST') return false;
   const path = url.split('?')[0];
@@ -70,6 +70,7 @@ export function resolveMppAmountUsdcUnits(input: MppPriceInput): number {
   if (path === X402_EXTRACT_PATH) return input.config.x402ExtractPriceUsdcUnits;
   if (path === X402_AUDIT_PATH) return input.config.x402AuditPriceUsdcUnits;
   if (path === X402_MAP_LITE_PATH) return input.config.x402AuditPriceUsdcUnits;
+  if (path === X402_JOBS_PATH) return input.config.x402PriceUsdcUnits;
   if (path === X402_TOPUP_PATH) {
     const watchId = watchIdOf(input.url);
     const watch = watchId !== undefined ? input.watchRepo.get(watchId) : null;

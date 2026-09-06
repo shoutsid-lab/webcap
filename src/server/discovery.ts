@@ -4,9 +4,10 @@
  * the artifact download / shareable-page routes. Split out of routes.ts as a
  * pure function move (no behavior change).
  */
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import { readFileSync } from 'node:fs';
-import { CREDITS_PER_USDC, PRICE_PER_CREDIT } from '../config.js';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import { CREDITS_PER_USDC, PRICE_PER_CREDIT, type WebcapConfig } from '../config.js';
 import { HttpError, unprocessable } from '../util/errors.js';
 import { isRecord } from './capture-parse.js';
 import type { AppDeps } from './server.js';
@@ -76,9 +77,36 @@ export function registerDiscoveryRoutes(app: FastifyInstance, deps: AppDeps): vo
     if (typeof rawId !== 'string') throw unprocessable('id is required');
     const artifact = artifacts.get(rawId);
     if (artifact === null) throw new HttpError(404, 'not_found', 'artifact not found');
-    reply.header('content-type', artifact.mime);
-    reply.header('content-length', artifact.bytes.length);
-    return reply.send(artifact.bytes);
+    const query = req.query;
+    const expRaw = isRecord(query) ? query.exp : undefined;
+    const sigRaw = isRecord(query) ? query.sig : undefined;
+    if (expRaw === undefined && sigRaw === undefined) {
+      serveArtifact(reply, artifact.mime, artifact.bytes, true);
+      return;
+    }
+    if (typeof expRaw !== 'string' || typeof sigRaw !== 'string') {
+      throw new HttpError(403, 'forbidden', 'invalid artifact signature');
+    }
+    const secret = artifactHmacSecret(config);
+    if (secret === undefined) {
+      serveArtifact(reply, artifact.mime, artifact.bytes, true);
+      return;
+    }
+    if (!/^\d+$/.test(expRaw)) throw new HttpError(403, 'forbidden', 'invalid artifact signature');
+    const expected = createHmac('sha256', secret).update(`${rawId}.${expRaw}`).digest();
+    let presented: Buffer;
+    try {
+      presented = Buffer.from(sigRaw, 'hex');
+    } catch {
+      throw new HttpError(403, 'forbidden', 'invalid artifact signature');
+    }
+    if (presented.length !== expected.length || !timingSafeEqual(presented, expected)) {
+      throw new HttpError(403, 'forbidden', 'invalid artifact signature');
+    }
+    if (Number(expRaw) <= Math.floor(Date.now() / 1000)) {
+      throw new HttpError(410, 'gone', 'signed artifact URL has expired');
+    }
+    serveArtifact(reply, artifact.mime, artifact.bytes, false);
   });
 
   // Shareable artifact page: same lookup + 404 semantics as the raw route above,
@@ -93,12 +121,25 @@ export function registerDiscoveryRoutes(app: FastifyInstance, deps: AppDeps): vo
   });
 }
 
-// Lazy + cached: loading at module import time would crash app boot (and the
-// test suite) when public/icon.png is absent.
+// Secret for signed artifact URLs: explicit WEBCAP_ARTIFACT_HMAC_SECRET first,
+// merchantPrivateKey fallback, undefined when both are absent (verify disabled,
+// unsigned serves). Resolved per request; never logged.
+function artifactHmacSecret(config: WebcapConfig): string | undefined {
+  if ((config.artifactHmacSecret ?? '').trim() !== '') return (config.artifactHmacSecret ?? '').trim();
+  if (config.merchantPrivateKey !== '') return config.merchantPrivateKey;
+  return undefined;
+}
+
+function serveArtifact(reply: FastifyReply, mime: string, bytes: Buffer, deprecated: boolean): void {
+  reply.header('content-type', mime);
+  reply.header('content-length', bytes.length);
+  if (deprecated) reply.header('Deprecation', 'true');
+  void reply.send(bytes);
+}
+
 let iconPng: Buffer | undefined;
 
-function loadIconPng(): Buffer | undefined {
-  if (iconPng === undefined) {
+function loadIconPng(): Buffer | undefined {  if (iconPng === undefined) {
     try {
       iconPng = readFileSync(new URL('../../public/icon.png', import.meta.url));
     } catch {

@@ -83,7 +83,11 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     const url = storeArtifact(deps.artifacts, config, normalized, result);
     return {
       artifact: { format: result.format, bytes: result.bytes, data: result.buffer.toString('base64'), url },
-      payment: { payer, priceUsdcUnits: config.x402PriceUsdcUnits },
+      payment: {
+        payer,
+        priceUsdcUnits: config.x402PriceUsdcUnits,
+        costUsdcUnits: config.computeCostUsdcUnitsPerRequest,
+      },
     };
   });
 
@@ -127,7 +131,11 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       });
       return {
         results,
-        payment: { payer, priceUsdcUnits: config.x402ExtractPriceUsdcUnits },
+        payment: {
+          payer,
+          priceUsdcUnits: config.x402ExtractPriceUsdcUnits,
+          costUsdcUnits: config.computeCostUsdcUnitsPerRequest * urls.length,
+        },
       };
     }
     const schema = parseExtractSchema(req.body);
@@ -177,7 +185,11 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     });
     return {
       results,
-      payment: { payer, priceUsdcUnits: config.x402ExtractPriceUsdcUnits },
+      payment: {
+        payer,
+        priceUsdcUnits: config.x402ExtractPriceUsdcUnits,
+        costUsdcUnits: config.computeCostUsdcUnitsPerRequest * urls.length,
+      },
     };
   });
 
@@ -206,7 +218,11 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     });
     return {
       audit: { url, ...checks },
-      payment: { payer, priceUsdcUnits: config.x402AuditPriceUsdcUnits },
+      payment: {
+        payer,
+        priceUsdcUnits: config.x402AuditPriceUsdcUnits,
+        costUsdcUnits: config.computeCostUsdcUnitsPerRequest,
+      },
     };
   });
 

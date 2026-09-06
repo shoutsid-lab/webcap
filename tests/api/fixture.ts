@@ -85,6 +85,8 @@ export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
     x402FacilitatorUrl: 'https://x402.org/facilitator',
     publicBaseUrl: 'http://localhost:8080',
     cdpApiKey: undefined,
+    // Matches the C-S2 RED contract in signed-artifacts.test.ts, which signs with this literal.
+    artifactHmacSecret: (process.env.WEBCAP_ARTIFACT_HMAC_SECRET ?? '').trim() || 'test-artifact-signing-secret',
     ...(overrides.contactEmail !== undefined ? { contactEmail: overrides.contactEmail } : {}),
   };
   const accounts = makeAccountsRepo(db);

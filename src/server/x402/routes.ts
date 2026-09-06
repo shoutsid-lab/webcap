@@ -39,6 +39,8 @@ export const X402_MAP_LITE_PATTERN = 'POST /v1/x402/map-lite';
 export const X402_MAP_LITE_PATH = '/v1/x402/map-lite';
 export const X402_TOPUP_PATTERN = 'POST /v1/x402/watches/topup';
 export const X402_TOPUP_PATH = '/v1/x402/watches/topup';
+export const X402_JOBS_PATTERN = 'POST /v1/capture/jobs';
+export const X402_JOBS_PATH = '/v1/capture/jobs';
 
 /**
  * The challenge amount for a top-up request: 100 x the watch's mode unit
@@ -225,6 +227,17 @@ export function buildX402Routes(config: WebcapConfig): Record<string, RouteConfi
     [`GET ${X402_AUDIT_PATH}`]: auditRoute,
     [X402_MAP_LITE_PATTERN]: mapLiteRoute,
     [`GET ${X402_MAP_LITE_PATH}`]: mapLiteRoute,
+    // Async capture submit: same price auth as sync capture (one charge at
+    // submit, polling is free). POST-only: GET /v1/capture/jobs/:id is free.
+    [X402_JOBS_PATTERN]: x402RouteConfig({
+      requirement: captureReq,
+      resourceUrl: `${config.publicBaseUrl}${X402_JOBS_PATH}`,
+      description: X402_CAPTURE_DESCRIPTION,
+      serviceName: BAZAAR_SERVICE_NAME,
+      tags: BAZAAR_TAGS,
+      iconUrl,
+      bazaar: buildCaptureBazaarExtension(),
+    }),
   };
   // Startup guard: flag malformed bazaar metadata at boot (the fastify middleware
   // independently auto-registers the bazaar resource server extension for these routes).

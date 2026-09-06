@@ -7,8 +7,7 @@
  * routes.ts as a pure function move (no behavior change).
  */
 import type { FastifyInstance } from 'fastify';
-import { getAddress, Wallet, ZeroAddress } from 'ethers';
-import {
+import { getAddress, Wallet, ZeroAddress } from 'ethers';import {
   CAPTURE_COST_CREDITS,
   DEFAULT_CREDITS,
   DEFAULT_INVOICE_TTL_MS,
@@ -22,6 +21,7 @@ import {
 import { makeAccountsRepo } from '../db/accounts.js';
 import { makeApiKeysRepo } from '../db/api_keys.js';
 import { makeCreditsRepo } from '../db/credits.js';
+import type { Db } from '../db/index.js';
 import { makeInvoicesRepo, type InvoiceRow } from '../db/invoices.js';
 import { makeRevenueRepo } from '../db/revenue.js';
 import { CaptureError } from '../capture/errors.js';
@@ -164,6 +164,12 @@ export function registerBillingRoutes(app: FastifyInstance, deps: AppDeps): void
 function merchantAddressOf(config: WebcapConfig): string {
   if (config.merchantPrivateKey === '') return ZeroAddress;
   return new Wallet(config.merchantPrivateKey).address;
+}
+
+/** Mint the 1-credit top-up invoice quoted in a 402 insufficient_credits detail (shared with the jobs submit route). */
+export function createInsufficientCreditsInvoice(db: Db, config: WebcapConfig, accountId: number): InvoiceRow {
+  const invoices = makeInvoicesRepo(db);
+  return createInvoice(invoices, config, merchantAddressOf(config), accountId, CAPTURE_COST_CREDITS);
 }
 
 function createInvoice(

@@ -99,6 +99,8 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
             },
           },
           404: jsonError('404', 'Artifact not found (error envelope, code not_found)'),
+          403: jsonError('403', 'Signed URL signature mismatch (error envelope, code forbidden)'),
+          410: jsonError('410', 'Signed URL expired (error envelope, code gone)'),
         },
         security: [],
       },

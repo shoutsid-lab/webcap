@@ -23,6 +23,7 @@ import {
 } from '../config.js';
 import { accountPaths } from './openapi/paths-accounts.js';
 import { freePaths } from './openapi/paths-free.js';
+import { jobsPaths } from './openapi/paths-jobs.js';
 import { webPaths } from './openapi/paths-web.js';
 import { x402Paths } from './openapi/paths-x402.js';
 import { jsonError, type PathContext } from './openapi/shared.js';
@@ -86,6 +87,7 @@ export async function openapiDocument(config: WebcapConfig): Promise<OpenapiDocu
       ...freePaths(ctx),
       ...webPaths(config),
       ...accountPaths(config, ctx),
+      ...jobsPaths(config, ctx),
     },
     components: {
       schemas: {

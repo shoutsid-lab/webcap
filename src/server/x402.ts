@@ -17,7 +17,7 @@ import { registerMppSettleHook } from '../mpp/plugin.js';
 import { buildAllX402Routes } from './x402/routes.js';
 
 export { BAZAAR_EXAMPLE_PAYER, buildUnpaidBody, topUpOutputExample, type UnpaidBazaarMetadata } from './x402/challenges.js';
-export { X402_CAPTURE_PATH, X402_CAPTURE_PATTERN, X402_EXTRACT_PATH, X402_EXTRACT_PATTERN, X402_MAP_LITE_PATH, X402_MAP_LITE_PATTERN, X402_TOPUP_PATH, X402_TOPUP_PATTERN } from './x402/routes.js';
+export { X402_CAPTURE_PATH, X402_CAPTURE_PATTERN, X402_EXTRACT_PATH, X402_EXTRACT_PATTERN, X402_JOBS_PATH, X402_JOBS_PATTERN, X402_MAP_LITE_PATH, X402_MAP_LITE_PATTERN, X402_TOPUP_PATH, X402_TOPUP_PATTERN } from './x402/routes.js';
 export { buildAllX402Routes, buildX402Requirement, buildX402Routes, buildX402TopUpRoute } from './x402/routes.js';
 
 /**
