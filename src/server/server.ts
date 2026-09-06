@@ -9,6 +9,7 @@ import type { OgResult } from '../capture/og.js';
 import { registerBillingRoutes } from './billing.js';
 import { registerRoutes } from './routes.js';
 import { registerDiscoveryRoutes } from './discovery.js';
+import { registerAgentSurfaces } from './agent-surfaces.js';
 import { registerWatchRoutes } from './watches.js';
 import { registerX402Middleware } from './x402.js';
 import { makeWebcapLogController } from './logging.js';
@@ -62,6 +63,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   registerBillingRoutes(app, deps);
   registerRoutes(app, deps);
   registerDiscoveryRoutes(app, deps);
+  registerAgentSurfaces(app, deps.config);
   registerWatchRoutes(app, deps);
   return app;
 }

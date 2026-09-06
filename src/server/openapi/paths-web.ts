@@ -1,9 +1,10 @@
 /**
  * The web discovery path docs: GET /v1/x402/service, GET /v1/health,
  * GET /robots.txt, GET /sitemap.xml, GET /.well-known/x402,
- * GET /.well-known/agent-card.json. Split out of openapi.ts as a pure move
- * (no behavior change); the key order within the table is preserved so the
- * generated JSON stays byte-identical.
+ * GET /.well-known/agent-card.json, GET /llms.txt, GET /skill.md. Split out
+ * of openapi.ts as a pure move (no behavior change); the key order within
+ * the table is preserved so the generated JSON stays byte-identical (the two
+ * agent-surface paths were appended last, after the pre-existing keys).
  */
 import {
   CREDITS_PER_USDC,
@@ -189,6 +190,37 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
                 skills: { type: 'array', items: { type: 'object' } },
               },
             }),
+          },
+        },
+      },
+    },
+    '/llms.txt': {
+      get: {
+        tags: ['discovery'],
+        summary: 'llms.txt convention document for LLM agents (markdown)',
+        description:
+          'The llms.txt document: what webcap is, how to pay (x402, USDC on Base, gasless EIP-3009, CDP ' +
+          'facilitator), the paid endpoints with prices and request/response shapes, the free endpoints, ' +
+          'pointers to /v1/x402/service and /openapi.json, and a minimal x402 payment flow. Free, no payment.',
+        responses: {
+          200: {
+            description: 'text/markdown; charset=utf-8 — the llms.txt document (base URL and prices from config)',
+            content: { 'text/markdown': { schema: { type: 'string' } } },
+          },
+        },
+      },
+    },
+    '/skill.md': {
+      get: {
+        tags: ['discovery'],
+        summary: 'Installable agent skill file (markdown with YAML frontmatter)',
+        description:
+          'An agent skill (name: webcap) teaching how to call webcap with an x402 client (@x402/axios quick ' +
+          'start, raw EIP-3009 fallback), with the pricing table and the free-preview alternative. Free, no payment.',
+        responses: {
+          200: {
+            description: 'text/markdown; charset=utf-8 — YAML frontmatter (name, description) + usage instructions',
+            content: { 'text/markdown': { schema: { type: 'string' } } },
           },
         },
       },
