@@ -34,6 +34,16 @@ export const VIDEO_STAGING_MAX_BYTES = 100_000_000;
  */
 export const VIDEO_STAGING_MAX_AGE_MS = 6 * 60 * 60 * 1_000;
 
+/**
+ * Inline response ceiling for the recorded bytes (base64-in-JSON
+ * mitigation): a capture whose recording exceeds this resolves with the
+ * bytes DROPPED but metadata kept (empty buffer, original byte count, mime,
+ * + note) instead of rejecting — inline-only, nothing is persisted here.
+ * Stays under VIDEO_STAGING_MAX_BYTES (the tmp-fill guard, which still
+ * rejects), so the drop path is reachable without risking tmp.
+ */
+export const VIDEO_INLINE_MAX_BYTES = 10_000_000;
+
 /** Pixels scrolled per choreography step when the client sends no scrollSpeed. */
 export const VIDEO_DEFAULT_SCROLL_SPEED = 800;
 
@@ -75,6 +85,23 @@ function releaseVideoSlot(): void {
   videoActiveCount = Math.max(0, videoActiveCount - 1);
 }
 
+/**
+ * 502 sub-codes for the video failure taxonomy: every member stays instanceof
+ * CaptureError, so the route keeps its 502 video_failed envelope — `code`
+ * tells which path failed (timeout vs encode-fail vs missing-file).
+ */
+export type VideoFailureCode = 'video_timeout' | 'video_encode_failed' | 'video_missing_recording';
+
+export class VideoCaptureError extends CaptureError {
+  readonly code: VideoFailureCode;
+
+  constructor(code: VideoFailureCode, message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = 'VideoCaptureError';
+    this.code = code;
+  }
+}
+
 const MIME_BY_VIDEO_FORMAT: Record<VideoFormat, VideoMime> = {
   mp4: 'video/mp4',
   webm: 'video/webm',
@@ -93,6 +120,8 @@ export interface VideoCaptureResult {
   readonly buffer: Buffer;
   readonly mime: VideoMime;
   readonly bytes: number;
+  /** Present when the bytes were dropped by the inline cap: why, metadata kept. */
+  readonly note?: string;
 }
 
 /** One scroll-choreography step (serializable: crosses page.evaluate). */
@@ -184,7 +213,10 @@ async function runScrollChoreography(page: VideoPage, req: VideoCaptureRequest, 
   let steps = 0;
   while (steps < VIDEO_MAX_SCROLL_STEPS && Date.now() < deadline) {
     if (overallDeadline !== undefined && Date.now() >= overallDeadline) {
-      throw new CaptureError(`video capture exceeded overall budget (${timeouts?.overallMs}ms) for ${req.url}`);
+      throw new VideoCaptureError(
+        'video_timeout',
+        `video capture exceeded overall budget (${timeouts?.overallMs}ms) for ${req.url}`,
+      );
     }
     await page.evaluate(scrollPageBy, { pixels });
     steps += 1;
@@ -193,7 +225,10 @@ async function runScrollChoreography(page: VideoPage, req: VideoCaptureRequest, 
     if (overallDeadline !== undefined) {
       const overallRemaining = overallDeadline - Date.now();
       if (overallRemaining <= 0) {
-        throw new CaptureError(`video capture exceeded overall budget (${timeouts?.overallMs}ms) for ${req.url}`);
+        throw new VideoCaptureError(
+          'video_timeout',
+          `video capture exceeded overall budget (${timeouts?.overallMs}ms) for ${req.url}`,
+        );
       }
       await page.waitForTimeout(Math.min(VIDEO_SCROLL_STEP_MS, remaining, overallRemaining));
     } else {
@@ -263,7 +298,15 @@ async function recordToBuffer(
       await page.goto(req.url, { timeout: resolveTimeout(timeouts) });
       await runScrollChoreography(page, req, timeouts);
       const recording = page.video();
-      if (recording !== null) videoPath = await recording.path();
+      if (recording !== null) {
+        try {
+          videoPath = await recording.path();
+        } catch (err) {
+          throw new VideoCaptureError('video_encode_failed', `video capture encode failed for ${req.url}`, {
+            cause: err,
+          });
+        }
+      }
     } finally {
       await page.close();
     }
@@ -272,12 +315,27 @@ async function recordToBuffer(
     await context.close();
   }
   videoPath ??= await findStagedVideo(stagingDir);
-  if (videoPath === undefined) throw new CaptureError(`video capture produced no recording for ${req.url}`);
-  const buffer = await readFile(videoPath);
+  if (videoPath === undefined) {
+    throw new VideoCaptureError('video_missing_recording', `video capture produced no recording for ${req.url}`);
+  }
+  let buffer: Buffer;
+  try {
+    buffer = await readFile(videoPath);
+  } catch (err) {
+    throw new VideoCaptureError('video_encode_failed', `video capture encode failed for ${req.url}`, { cause: err });
+  }
   if (buffer.length > VIDEO_STAGING_MAX_BYTES) {
     throw new CaptureError(
       `video staging oversize (${buffer.length} bytes exceeds ${VIDEO_STAGING_MAX_BYTES} cap) for ${req.url}`,
     );
+  }
+  if (buffer.length > VIDEO_INLINE_MAX_BYTES) {
+    return {
+      buffer: Buffer.alloc(0),
+      mime: MIME_BY_VIDEO_FORMAT[req.format],
+      bytes: buffer.length,
+      note: `video inline oversize (${buffer.length} bytes exceeds ${VIDEO_INLINE_MAX_BYTES} inline cap) for ${req.url}: bytes dropped, metadata kept`,
+    };
   }
   return { buffer, mime: MIME_BY_VIDEO_FORMAT[req.format], bytes: buffer.length };
 }
@@ -294,6 +352,11 @@ async function recordToBuffer(
  * dirs behind — call reapStaleVideoStaging() once at boot to sweep them.
  * The VIDEO_STAGING_MAX_BYTES guard bounds each capture so a runaway
  * recording fails fast instead of filling tmp.
+ *
+ * NOTE(encode-cost): recordVideo relies on Chromium software encoding — no
+ * GPU in server containers, so sustained capture is CPU-bound. That cost is
+ * why video is priced 5x capture and capped at VIDEO_MAX_CONCURRENT_DEFAULT
+ * concurrent recordings; no transcoding pipeline exists by design.
  */
 export async function captureVideo(
   req: VideoCaptureRequest,
@@ -318,8 +381,20 @@ export async function captureVideo(
     try {
       return await recordToBuffer(req, factory, stagingDir, timeouts);
     } catch (err) {
+      if (err instanceof VideoCaptureError) throw err;
       if (err instanceof CaptureError) throw err;
-      throw new CaptureError(`video capture failed for ${req.url}: ${errorMessage(err)}`, { cause: err });
+      if (isTimeoutLike(err)) {
+        throw new VideoCaptureError(
+          'video_timeout',
+          `video capture timed out for ${req.url}: ${errorMessage(err)}`,
+          { cause: err },
+        );
+      }
+      throw new VideoCaptureError(
+        'video_encode_failed',
+        `video capture failed for ${req.url}: ${errorMessage(err)}`,
+        { cause: err },
+      );
     } finally {
       await rm(stagingDir, { recursive: true, force: true });
     }
@@ -330,4 +405,11 @@ export async function captureVideo(
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+function isTimeoutLike(err: unknown): boolean {
+  if (err !== null && typeof err === 'object' && (err as { readonly name?: unknown }).name === 'TimeoutError') {
+    return true;
+  }
+  return /timeout|timed out|overall|budget|exceed/i.test(errorMessage(err));
 }
