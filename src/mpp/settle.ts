@@ -47,6 +47,7 @@ export type MppSettleFailureReason =
   | 'challenge_expired'
   | 'amount_mismatch'
   | 'recipient_mismatch'
+  | 'chain_mismatch'
   | 'authorization_window_invalid'
   | 'invalid_signature'
   | 'verify_rejected'
@@ -229,6 +230,10 @@ export async function settleMppPayment(params: MppSettleParams): Promise<MppSett
   }
   if (credential.value !== requirements.amount) return fail('amount_mismatch');
   if (credential.to.toLowerCase() !== requirements.payTo.toLowerCase()) return fail('recipient_mismatch');
+  const requestDetails = (requestBody as { methodDetails?: unknown }).methodDetails;
+  const requestChainId =
+    isRecord(requestDetails) && typeof requestDetails['chainId'] === 'number' ? requestDetails['chainId'] : undefined;
+  if (requestChainId !== chainIdOf(requirements.network)) return fail('chain_mismatch');
 
   // 5. EIP-3009 time window (strict server-clock check, no skew grace: the
   //    signer mints fresh windows per challenge, so tolerance only widens replay).

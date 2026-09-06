@@ -34,7 +34,6 @@ import { makeArtifactRepo } from '../../src/db/artifacts.js';
 import { WATCH_TOPUP_RUNS, type WebcapConfig } from '../../src/config.js';
 import { buildApp } from '../../src/server/server.js';
 import { parseWwwAuthenticate } from '../../src/mpp/challenge.js';
-import { MPP_DEFAULT_CHAIN_ID } from '../../src/mpp/config.js';
 import { X402_CAPTURE_PATH, X402_EXTRACT_PATH, X402_TOPUP_PATH } from '../../src/server/x402/routes.js';
 import { FAKE_PNG } from '../api/fixture.js';
 import { makeMockFacilitator, type MockFacilitator } from '../helpers/facilitator.js';
@@ -73,7 +72,9 @@ const TOPUP_FALLBACK_UNITS = WATCH_TOPUP_RUNS * CAPTURE_UNITS; // unknown watch 
 // bodies, re-verified byte-identical at every deploy gate via curl. The pins
 // below lock the fixture config instead; the invariant that matters in-test —
 // enabled body == disabled body == pin (MPP changes zero body bytes) — holds.
-// src/server/x402/* is untouched (zero-line diff), so no reconciliation needed.
+// src/server/x402/* (the directory) is untouched (zero-line diff), so no
+// reconciliation needed. (Sibling file src/server/x402.ts carries the +6-line
+// settle-hook registration — runtime 402 construction is unaffected.)
 const CAPTURE_POST_SHA = '1954d11ff143cd2a73f4aa725b244a4956752e1f5337006b995713b24c53cb40';
 const EXTRACT_POST_SHA = 'c52d7f87d8d3bd52fb21a8c97adcf8fe65cbcb574e40e2808bdbf3a287156945';
 const TOPUP_POST_SHA = 'c9690b435aa6337fd3d2bf2091bf1499e90b19ad54356268b4a3af13c6f6dafb';
@@ -274,7 +275,7 @@ describe('surface lock (b): all 6 paid patterns carry a recomputable MPP challen
       expect(requestJson.currency).toBe('USD');
       expect(requestJson.recipient).toBe(MERCHANT_ADDRESS);
       expect(requestJson.methodDetails.credentialTypes).toEqual(['authorization']);
-      expect(requestJson.methodDetails.chainId).toBe(MPP_DEFAULT_CHAIN_ID);
+      expect(requestJson.methodDetails.chainId).toBe(84532);
       expect(requestJson.methodDetails.decimals).toBe(6);
     });
   }

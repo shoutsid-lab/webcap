@@ -154,7 +154,7 @@ describe('mpp 402 header (dual-protocol challenge)', () => {
       expect(requestJson.amount).toBe((paid.expectedUnits / 1_000_000).toFixed(6));
       expect(requestJson.currency).toBe('USD');
       expect(requestJson.recipient).toBe(MERCHANT_ADDRESS);
-      expect(requestJson.methodDetails.chainId).toBe(8453);
+      expect(requestJson.methodDetails.chainId).toBe(84532);
       // Body bytes untouched: sha256 pin equals the MPP-disabled response.
       const plain = await disabled.inject({ method: paid.method, url: paid.url, payload: { url: 'https://example.com' } });
       expect(plain.statusCode).toBe(402);

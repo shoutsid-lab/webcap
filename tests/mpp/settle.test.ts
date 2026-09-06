@@ -304,6 +304,33 @@ describe('mpp settle: HMAC vs expiry vs signature vs amount taxonomy', () => {
     expect(mock.calls.settle).toBe(0);
   });
 
+  it('chain: a challenge minted for another chain is rejected with no settle', async () => {
+    const { mock, resourceServer } = setup();
+    const foreign = buildWwwAuthenticate({
+      amountUsdcUnits: Number(AMOUNT),
+      recipient: PAY_TO,
+      realm: REALM,
+      method: 'evm',
+      intent: 'charge',
+      secret: SECRET,
+      expiresAtSec: nowSec() + 300,
+      chainId: 84532,
+    });
+    const authorization = await authorizationHeader(challengeIdOf(foreign));
+    const result = await settleMppPayment({
+      authorizationHeader: authorization,
+      challengeHeader: foreign,
+      requirements: requirements(),
+      secret: SECRET,
+      realm: REALM,
+      resourceServer,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected failure');
+    expect(result.reason).toBe('chain_mismatch');
+    expect(mock.calls.settle).toBe(0);
+  });
+
   it('signature: a from-field swapped after signing fails recovery with no settle', async () => {
     const { mock, resourceServer } = setup();
     const challenge = challengeHeader(nowSec() + 300);

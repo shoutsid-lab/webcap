@@ -88,7 +88,7 @@ export function resolveMppAmountUsdcUnits(input: MppPriceInput): number {
  * carries the credential, not the challenge.
  */
 export function registerMppChallengeHook(app: FastifyInstance, config: WebcapConfig, db: Db): void {
-  const mpp = loadMppConfig(process.env, config.publicBaseUrl);
+  const mpp = loadMppConfig(process.env, config.publicBaseUrl, config.chainId);
   if (!mpp.enabled) return;
   const watchRepo = makeWatchRepo(db);
   const maxTimeoutSeconds = Math.round((config.x402MaxTimeoutMs ?? DEFAULT_X402_MAX_TIMEOUT_MS) / 1000);
@@ -199,7 +199,7 @@ export function registerMppSettleHook(
   db: Db,
   resourceServer: x402ResourceServer,
 ): void {
-  const mpp = loadMppConfig(process.env, config.publicBaseUrl);
+  const mpp = loadMppConfig(process.env, config.publicBaseUrl, config.chainId);
   if (!mpp.enabled) return;
   const watchRepo = makeWatchRepo(db);
   const settled = new WeakMap<FastifyRequest, SettleResponse>();
