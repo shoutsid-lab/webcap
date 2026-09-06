@@ -351,9 +351,13 @@ log-silent (it is a probe). Host-side logs live under `logs/`
   merchant wallet; 25-day success cooldown; non-fatal while the payer wallet
   `X402_CUSTOMER_PRIVATE_KEY` is unfunded — the attempt doubles as the balance
   probe), re-asserts the 402index registration (idempotent upsert on
-  url+protocol), and re-registers on x402scan (SIWX, merchant key) only if the
-  origin dropped off there. State + receipts: `state/webcap-keepalive.state` +
-  `state/webcap-keepalive/`. Dry run: `WEBKEEPALIVE_DRY_RUN=1`.
+   url+protocol), re-registers on x402scan (SIWX, merchant key) only if the
+   origin dropped off there, and logs the x402gle listing presence (listed
+   pages embed a `skills.json` link; unlisted hosts get a 200 soft-404 shell —
+   the audition itself is a merchant test requiring explicit approval and is
+   never run by the keepalive). State + receipts:
+   `state/webcap-keepalive.state` + `state/webcap-keepalive/`.
+   Dry run: `WEBKEEPALIVE_DRY_RUN=1`.
 - `bin/ngrok-watchdog.sh` + `bin/tunnel-watchdog.sh` (1 min): keep the public
   tunnels alive. The ngrok one (stable `*.ngrok-free.dev` subdomain) probes the
   **public URL** `/v1/health`; process alive but URL dead for **3 consecutive
@@ -461,18 +465,24 @@ the flip.
 **30-day delisting.** Resources with no settlement for 30 days are removed
 from the Bazaar catalog and search results
 (docs.cdp.coinbase.com/x402/seller/get-discovered). `bin/webcap-keepalive.sh`
-(weekly) keeps the listing alive via the gated self-settlement; the 402index
-and x402scan registrations are re-asserted by the same script.
+(2×/week) keeps the listing alive via the gated self-settlement; the 402index
+and x402scan registrations are re-asserted by the same script, which also
+logs the x402gle listing presence.
 
 ## Distribution channels
 
 | Channel | Listing mechanism | Re-asserted by |
 |---|---|---|
-| CDP Bazaar (catalog, Bazaar MCP, Amazon Bedrock AgentCore, agentic.market) | Settlement through the CDP facilitator indexes the route | `bin/webcap-keepalive.sh` (weekly self-settlement) |
+| CDP Bazaar (catalog, Bazaar MCP, Amazon Bedrock AgentCore, agentic.market) | Settlement through the CDP facilitator indexes the route (agentic.market follows the Bazaar entry — currently sepolia-only until the first mainnet settlement) | `bin/webcap-keepalive.sh` (2×/week self-settlement) |
 | 402index.io | Direct registration (idempotent upsert on url+protocol) + hourly Bazaar poll | `bin/webcap-keepalive.sh` |
-| x402scan.com | SIWX origin registration (merchant wallet signs, auth-only) + OpenAPI crawl; the `x-discovery.ownershipProofs` EIP-191 origin signature served in `/openapi.json` earns the verified-ownership mark | `bin/webcap-keepalive.sh` (only if the listing drops) |
+| x402scan.com | SIWX origin registration (merchant wallet signs, auth-only) + OpenAPI crawl; the `x-discovery.ownershipProofs` EIP-191 origin signature served in `/openapi.json` earns the verified-ownership mark; `x-payment-info` + `info.x-guidance` earn paid-route classification + agent guidance | `bin/webcap-keepalive.sh` (only if the listing drops) |
 | x402.arena | Health-probe registration (verified) | manual |
 | agent-tools.cloud | Auto-crawl of the public URL | n/a |
+| market.delegare.dev | Aggregator auto-inclusion from the x402scan/MPPScan directory family | n/a (automatic) |
+| x402list.fun | Auto-inclusion via facilitator reporting | n/a (automatic) |
+| mppscan.com | OpenAPI discovery probe passes (`ownership_verified`, guidance on); registration additionally requires a MPP `WWW-Authenticate` 402 header (Machine Payments Protocol) on the paid routes — pending decision | n/a (blocked) |
+| x402gle.com | Server-side "audition": real paid calls to each route, AI-scored, auto-listing on pass. Our OpenAPI passed discovery after two doc fixes (single public `servers` entry; unambiguous extract body schema); listing pending a transient error on their catalog side | `bin/webcap-keepalive.sh` (presence check, log-only — the audition is never auto-run) |
+| stablecoin.com/402/ | Manual email listing (directory of x402/MPP services) | manual |
 
 Agent-facing discovery surfaces: `/llms.txt`, `/skill.md`, `/openapi.json`,
 `/.well-known/x402`, `/v1/x402/service`.

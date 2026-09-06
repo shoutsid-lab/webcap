@@ -272,18 +272,31 @@ in `/.well-known/x402`. Cryptographic recovery on the host yields
 `checkDiscovery` reports `ownershipProofs: 1` — their verifier awards the
 `ownership_verified` tier from exactly this proof.
 
-**Distribution (5 channels, all live 2026-09-06).**
+**Distribution (11 channels, statuses verified 2026-09-06).**
 
 | Channel | Status |
 |---|---|
 | CDP Bazaar | capture + extract indexed (`discovery/merchant` total 2; topup indexes on its first settlement); listing terms from the 2026-09-05 sepolia settlement — see funding flip; 30-day no-settlement delisting (docs.cdp.coinbase.com/x402/seller/get-discovered) mitigated by the keepalive |
 | 402index.io | all 3 routes directly registered (idempotent upsert on url+protocol; the bazaar-derived capture row was updated to our POST metadata) |
-| x402scan.com | origin SIWX-registered (merchant wallet, auth-only); 26 resources discovered; ownership proof served |
+| x402scan.com | origin SIWX-registered (merchant wallet, auth-only); 26 resources discovered; ownership proof served (`ownership_verified` tier); now also classifies the paid routes `authMode: paid` + fixed/dynamic USD prices from our `x-payment-info` |
 | x402.arena | registered, `verified: true, active` (health probe) |
 | agent-tools.cloud | auto-crawled, health ok |
+| agentic.market | auto-derived from the CDP Bazaar — empty until the mainnet flip (queries for webcap/origin return `total: 0`; the only Bazaar entry is sepolia) |
+| market.delegare.dev | aggregator that auto-includes the x402scan/MPPScan family; live, re-checked after any mppscan registration |
+| x402list.fun | auto-inclusion via facilitator reporting; no public search API (`/explore` 500) — presence unverifiable read-only |
+| mppscan.com | probe PASSES (discovery `found: true`, `trustTier: ownership_verified`, `guidanceAvailable: true`, 3 paid endpoints classified with prices + `protocols: [x402]`) but registration is a **NO-GO**: their runtime probe requires a MPP `WWW-Authenticate` 402 header (Machine Payments Protocol — Tempo/mpp.dev, IETF draft-ryan-httpauth-payment). x402-only 402s (our `PAYMENT-REQUIRED` wire) are rejected: "No MPP protocol support." → user decision (dual-protocol header, additive; body byte-lock preserved) |
+| x402gle.com | auditioned 2026-09-06: our two doc defects fixed (single public `servers` entry; unambiguous extract body schema — `oneOf` url\|urls, `format: uri`, stringly `schema`); the remaining failure is on their infra — `Catalog flush could not persist 1 resource write` (persistent across origin- and endpoint-scoped retries over 10 min) → surfaced (email to support@dexter.cash drafted) |
+| stablecoin.com/402/ | manual email listing (dan@quellhorst.com) — draft ready, send is a user action |
 
 Agent-facing surfaces: `/llms.txt`, `/skill.md` (text/markdown,
 config-derived), `/openapi.json`, `/.well-known/x402`, `/v1/x402/service`.
+
+**Directory registration one-liners (for the pending decisions).**
+mppscan (once the MPP header decision is made):
+`curl -X POST https://mppscan.com/api/register -H 'content-type: application/json' -d '{"url":"https://nickname-trident-driveway.ngrok-free.dev"}'`
+(pre-probe: `GET https://mppscan.com/api/trpc/register.probe?input={"json":{"url":"<origin>"}}` — URL-encoded).
+x402gle (re-audition after their flush error clears; the auditor makes real
+paid calls to us): `npx @dexterai/opendexter@latest audition https://nickname-trident-driveway.ngrok-free.dev --json`.
 
 **Keepalive (`bin/webcap-keepalive.sh`, cron 2×/week, Mondays + Thursdays
 03:30).** Checks
@@ -291,10 +304,13 @@ Bazaar presence (CDP validate ×3 + `discovery/merchant`), attempts the $0.001
 self-settlement (25-day success cooldown; funds loop back to the merchant
 wallet; a logged no-op while the payer wallet
 `0xBAc4987c4Bc949f0B2833b6BC7C5B9F7b5B9757B` holds no USDC — the attempt
-doubles as the balance probe), re-asserts the 402index registrations, and
-re-registers x402scan (SIWX) only if the origin drops off there. Verified
-live: dry-run and real run exit 0, ledger unchanged (7 rows), state + receipts
-in `state/webcap-keepalive.state` + `state/webcap-keepalive/`.
+doubles as the balance probe), re-asserts the 402index registrations,
+re-registers x402scan (SIWX) only if the origin drops off there, and checks
+the x402gle listing presence (log-only — unlisted hosts serve a 200 soft-404
+shell, so the verdict is the page's `skills.json` marker; the audition itself
+is a merchant test requiring explicit approval and is never auto-run).
+Verified live: dry-run and real run exit 0, ledger unchanged (7 rows), state
++ receipts in `state/webcap-keepalive.state` + `state/webcap-keepalive/`.
 
 **Funding flip (the one outstanding user action).** One **mainnet**
 settlement flips the Bazaar listings to `eip155:8453` in ~10–15 min and
@@ -308,7 +324,10 @@ funded wallet flips the listings within 3 days, worst case) — and then keeps
 the listing alive for the 30-day window indefinitely.
 
 **Status (honest).** The service is **live on Base mainnet** with real
-discovery across 5 channels and the verified-ownership proof served. The
+discovery across 11 channels (7 actively listed/indexed; agentic.market
+waits for the mainnet flip; mppscan and x402gle blocked on a protocol
+decision and their infra error respectively — see the table) and the
+verified-ownership proof served. The
 **first mainnet settlement is pending**: the test wallet holds **$0.00 USDC
 on Base mainnet** (proven via Basescan; the CDP self-pay correctly reverts on
 balance), and all 7 ledger rows are test-wallet verify-stage records. The
