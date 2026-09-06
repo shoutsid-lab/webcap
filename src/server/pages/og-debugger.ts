@@ -12,6 +12,7 @@
  */
 import { DEFAULT_BAZAAR_CATALOG_URL, USDC_SCALE, type WebcapConfig } from '../../config.js';
 import type { OgResult } from '../../capture/og.js';
+import { OG_SCORE_LOW_THRESHOLD, computeOgScore } from '../../capture/og-score.js';
 import { footer, topBar } from './chrome.js';
 import { BASE_CSS, OG_DEBUGGER_CSS } from './css.js';
 import { esc } from './format.js';
@@ -95,10 +96,57 @@ function tagTable(result: OgResult): string {
   </table></div>`;
 }
 
-function ctaBand(config: WebcapConfig): string {
+function scoreBand(result: OgResult): string {
+  const { score, issues, suggestedTags } = computeOgScore(result);
+  const issueList =
+    issues.length === 0
+      ? `<p class="hint">No issues found — every core tag is present.</p>`
+      : `<ul>${issues.map((issue) => `<li>${esc(issue)}</li>`).join('')}</ul>`;
+  const tags =
+    suggestedTags.length === 0
+      ? ''
+      : `<p class="hint">Suggested tags: ${suggestedTags.map((tag) => `<code>${esc(tag)}</code>`).join(' ')}</p>`;
+  return `<section class="tag-wrap" aria-label="preview score">
+    <h3 class="sub-h">Preview score: ${score}/100</h3>
+    ${issueList}${tags}
+  </section>`;
+}
+
+function hintBand(result: OgResult): string {
+  const image = safeImageUrl(result.image);
+  const imageNote =
+    image === undefined
+      ? `<li><b>Image:</b> no shareable image found — add <code>og:image</code>.</li>`
+      : `<li><b>Image:</b> <code>${esc(image)}</code> — square crops better on WhatsApp, 1200x630 wins on Discord.</li>`;
+  return `<section class="tag-wrap" aria-label="chat app hints">
+    <h3 class="sub-h">How chats will render this</h3>
+    <ul>
+      <li><b>WhatsApp:</b> keeps ~60 title / ~100 description chars; square images crop best.</li>
+      <li><b>Discord:</b> prefers 1200x630 with <code>summary_large_image</code> for the big embed.</li>
+      <li><b>Slack:</b> unfurls on <code>og:title</code> + <code>og:description</code> and shows the site name.</li>
+      ${imageNote}
+    </ul>
+  </section>`;
+}
+
+function ctaBand(config: WebcapConfig, score?: number): string {
   const capturePrice = usd(config.x402PriceUsdcUnits);
   const extractPrice = usd(config.x402ExtractPriceUsdcUnits);
   const auditPrice = usd(config.x402AuditPriceUsdcUnits);
+  if (score !== undefined && score < OG_SCORE_LOW_THRESHOLD) {
+    return `<section class="cta-band" aria-label="paid API">
+    <p class="eyebrow">Low preview score — ${score}/100</p>
+    <h2>Fix this preview with one paid call.</h2>
+    <p class="hint">The debugger above is the free sample. <code>POST /v1/x402/audit</code>
+      reports every SEO + OG gap, and <code>POST /v1/x402/extract</code> returns the
+      structure to rebuild the tags — per URL over x402 USDC micropayments, no keys, gasless.</p>
+    <div class="dbg-links">
+      <a href="/#pay"><b>Audit — ${esc(auditPrice)} / URL</b><span><code>POST /v1/x402/audit</code>: SEO basics + link / OG health in one call</span></a>
+      <a href="/#pricing"><b>Extract — ${esc(extractPrice)} / batch</b><span><code>POST /v1/x402/extract</code>: title, headings, paragraphs, links, images, markdown</span></a>
+      <a href="/#pricing"><b>Capture — ${esc(capturePrice)} / URL</b><span><code>POST /v1/x402/capture</code>: PNG / JPEG / PDF screenshot + free OG metadata</span></a>
+    </div>
+  </section>`;
+  }
   return `<section class="cta-band" aria-label="paid API">
     <p class="eyebrow">Need this at scale?</p>
     <h2>One paid call returns the screenshot, the structure, or the audit.</h2>
@@ -117,6 +165,7 @@ export function ogDebuggerHtml(config: WebcapConfig, data: OgDebuggerData): stri
   const rawUrl = data.state === 'error' || data.state === 'ok' ? data.rawUrl : undefined;
 
   let result = '';
+  let ctaScore: number | undefined;
   if (data.state === 'rate_limited') {
     result = `<div class="alert" role="alert"><b>Rate limit reached.</b>
       <p>Free debugging is rate-limited per client. Retry in a minute, sample the
@@ -126,7 +175,9 @@ export function ogDebuggerHtml(config: WebcapConfig, data: OgDebuggerData): stri
     result = `<div class="alert" role="alert"><b>Could not debug that URL.</b>
       <p>could not fetch <code>${esc(data.rawUrl)}</code>: ${esc(data.message)}</p></div>`;
   } else if (data.state === 'ok') {
-    result = `${previewCard(data.result)}<h3 class="sub-h">Tags found</h3>${tagTable(data.result)}`;
+    const { score } = computeOgScore(data.result);
+    ctaScore = score;
+    result = `${previewCard(data.result)}${scoreBand(data.result)}${hintBand(data.result)}<h3 class="sub-h">Tags found</h3>${tagTable(data.result)}`;
   }
 
   return `<!doctype html>
@@ -150,7 +201,7 @@ ${topBar(bazaarCatalogUrl)}
     tag. Free, rate-limited, no payment.</p>
   ${formCard(rawUrl)}
   ${result}
-  ${ctaBand(config)}
+  ${ctaBand(config, ctaScore)}
 </main>
 ${footer(bazaarCatalogUrl)}
 </body>
