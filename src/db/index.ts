@@ -19,6 +19,7 @@ export function openDb(path: string): Db {
   db.exec(readFileSync(schemaPath, 'utf8'));
   migrateWatchChatOps(db);
   migrateWatchJsonAuth(db);
+  migrateWatchAiSummary(db);
   migrateCaptureJobs(db);
   migrateEndpointHits(db);
   return db;
@@ -50,6 +51,23 @@ function migrateWatchJsonAuth(db: Db): void {
   if (!existing.has('headers_json')) db.exec('ALTER TABLE watches ADD COLUMN headers_json TEXT');
   if (!existing.has('cookies_json')) db.exec('ALTER TABLE watches ADD COLUMN cookies_json TEXT');
   if (!existing.has('steps_json')) db.exec('ALTER TABLE watches ADD COLUMN steps_json TEXT');
+}
+
+/**
+ * Additive, nullable-tolerant migration for the watch AI-summary columns
+ * (watches.summary_prompt_append + watch_runs.ai_summary): existing rows stay
+ * valid (both NULL, i.e. no prompt override and no cached summary); fresh
+ * databases already carry the columns via schema.sql.
+ */
+function migrateWatchAiSummary(db: Db): void {
+  const watchCols = new Set(
+    (db.prepare('PRAGMA table_info(watches)').all() as Array<{ name: string }>).map((col) => col.name),
+  );
+  if (!watchCols.has('summary_prompt_append')) db.exec('ALTER TABLE watches ADD COLUMN summary_prompt_append TEXT');
+  const runCols = new Set(
+    (db.prepare('PRAGMA table_info(watch_runs)').all() as Array<{ name: string }>).map((col) => col.name),
+  );
+  if (!runCols.has('ai_summary')) db.exec('ALTER TABLE watch_runs ADD COLUMN ai_summary TEXT');
 }
 
 /**

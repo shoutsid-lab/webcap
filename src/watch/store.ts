@@ -31,6 +31,7 @@ export interface WatchRow {
   readonly headers_json: string | null;
   readonly cookies_json: string | null;
   readonly steps_json: string | null;
+  readonly summary_prompt_append: string | null;
   readonly credits: number;
   readonly baseline_hash: string | null;
   readonly baseline_json: string | null;
@@ -48,6 +49,7 @@ export interface WatchRunRow {
   readonly extract_json: string | null;
   readonly changed: 0 | 1;
   readonly diff_summary: string | null;
+  readonly ai_summary: string | null;
   /** Webhook delivery outcome (status code or error); null when no webhook fired. */
   readonly webhook: string | null;
   readonly error: string | null;
@@ -66,6 +68,7 @@ export interface NewWatch {
   readonly headersJson?: string | null;
   readonly cookiesJson?: string | null;
   readonly stepsJson?: string | null;
+  readonly summaryPromptAppend?: string | null;
   readonly credits: number;
   readonly nextRunAt: string | null;
   readonly createdAt: string;
@@ -78,6 +81,7 @@ export interface NewWatchRun {
   readonly extractJson: string | null;
   readonly changed: boolean;
   readonly diffSummary: string | null;
+  readonly aiSummary?: string | null;
   readonly webhook: string | null;
   readonly error: string | null;
   readonly createdAt: string;
@@ -117,7 +121,19 @@ export interface WatchRepo {
 
 const selectRow =
   'SELECT id, url, every, mode, schema_json, webhook_url, conditions_json, channel, headers_json, cookies_json, steps_json, ' +
-  'credits, baseline_hash, baseline_json, next_run_at, paused, created_at, last_run_at FROM watches';
+  'summary_prompt_append, credits, baseline_hash, baseline_json, next_run_at, paused, created_at, last_run_at FROM watches';
+
+/**
+ * Effective per-watch summary prompt suffix: the watch-level override wins,
+ * otherwise the global default applies, otherwise no suffix. Null and
+ * undefined both mean "unset" at either level.
+ */
+export function resolveSummaryPromptAppend(
+  watchValue: string | null | undefined,
+  globalDefault: string | null | undefined,
+): string | undefined {
+  return watchValue ?? globalDefault ?? undefined;
+}
 
 export function makeWatchRepo(db: Db): WatchRepo {
   const insertWatch = db.prepare<
@@ -133,6 +149,7 @@ export function makeWatchRepo(db: Db): WatchRepo {
       string | null,
       string | null,
       string | null,
+      string | null,
       number,
       string | null,
       string,
@@ -140,7 +157,7 @@ export function makeWatchRepo(db: Db): WatchRepo {
     unknown
   >(
     'INSERT INTO watches (id, url, every, mode, schema_json, webhook_url, conditions_json, channel, headers_json, cookies_json, ' +
-      'steps_json, credits, next_run_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'steps_json, summary_prompt_append, credits, next_run_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
   );
   const fetchWatch = db.prepare<[string], WatchRow>(`${selectRow} WHERE id = ?`);
   const deleteRuns = db.prepare<[string], unknown>('DELETE FROM watch_runs WHERE watch_id = ?');
@@ -159,14 +176,14 @@ export function makeWatchRepo(db: Db): WatchRepo {
     'UPDATE watches SET baseline_hash = ?, baseline_json = ? WHERE id = ?',
   );
   const insertRun = db.prepare<
-    [string, string, string | null, string | null, number, string | null, string | null, string | null, string],
+    [string, string, string | null, string | null, number, string | null, string | null, string | null, string | null, string],
     unknown
   >(
-    'INSERT INTO watch_runs (watch_id, status, artifact_url, extract_json, changed, diff_summary, webhook, error, created_at) ' +
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO watch_runs (watch_id, status, artifact_url, extract_json, changed, diff_summary, ai_summary, webhook, error, created_at) ' +
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
   );
   const recentRunRows = db.prepare<[string, number], WatchRunRow>(
-    'SELECT id, watch_id, status, artifact_url, extract_json, changed, diff_summary, webhook, error, created_at ' +
+    'SELECT id, watch_id, status, artifact_url, extract_json, changed, diff_summary, ai_summary, webhook, error, created_at ' +
       'FROM watch_runs WHERE watch_id = ? ORDER BY id DESC LIMIT ?',
   );
   const watchCount = db.prepare<[string], { n: number }>('SELECT COUNT(*) AS n FROM watches WHERE id = ?');
@@ -185,6 +202,7 @@ export function makeWatchRepo(db: Db): WatchRepo {
         watch.headersJson ?? null,
         watch.cookiesJson ?? null,
         watch.stepsJson ?? null,
+        watch.summaryPromptAppend ?? null,
         watch.credits,
         watch.nextRunAt,
         watch.createdAt,
@@ -211,7 +229,7 @@ export function makeWatchRepo(db: Db): WatchRepo {
     },
     recordNoCredit(watchId: string, at: string): number {
       const record = db.transaction((id: string, when: string): number => {
-        const info = insertRun.run(id, 'no-credit', null, null, 0, null, null, null, when);
+        const info = insertRun.run(id, 'no-credit', null, null, 0, null, null, null, null, when);
         pauseWatch.run(id);
         return Number(info.lastInsertRowid);
       });
@@ -237,6 +255,7 @@ export function makeWatchRepo(db: Db): WatchRepo {
         run.extractJson,
         run.changed ? 1 : 0,
         run.diffSummary,
+        run.aiSummary ?? null,
         run.webhook,
         run.error,
         run.createdAt,

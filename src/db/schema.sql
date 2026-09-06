@@ -90,6 +90,7 @@ CREATE TABLE IF NOT EXISTS watches (
   headers_json TEXT,
   cookies_json TEXT,
   steps_json TEXT,
+  summary_prompt_append TEXT,
   credits INTEGER NOT NULL DEFAULT 0,
   baseline_hash TEXT,
   baseline_json TEXT,
@@ -107,6 +108,7 @@ CREATE TABLE IF NOT EXISTS watch_runs (
   extract_json TEXT,
   changed INTEGER NOT NULL DEFAULT 0,
   diff_summary TEXT,
+  ai_summary TEXT,
   webhook TEXT,
   error TEXT,
   created_at TEXT NOT NULL
