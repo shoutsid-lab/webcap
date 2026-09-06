@@ -112,4 +112,60 @@ describe('GET /v1/extract/preview (free, rate-limited funnel)', () => {
       await closeApiFixture(fx);
     }
   });
+
+  it('rate-limit 429 carries a machine-readable paidUpgrade next-step', async () => {
+    const fx = makeApiFixture();
+    try {
+      let last429: Awaited<ReturnType<typeof fx.app.inject>> | undefined = undefined;
+      for (let i = 0; i < 15; i += 1) {
+        const res = await fx.app.inject({ method: 'GET', url: '/v1/extract/preview?url=https://example.com/' });
+        if (res.statusCode === 429) {
+          last429 = res;
+        }
+      }
+      if (last429 === undefined) {
+        throw new Error('expected a 429 preview response after exhausting the budget');
+      }
+      expect(last429.statusCode).toBe(429);
+      const retryAfter = last429.headers['retry-after'];
+      expect(typeof retryAfter).toBe('string');
+      const retryAfterStr = retryAfter as string;
+      expect(String(Number.parseInt(retryAfterStr, 10))).toBe(retryAfterStr);
+      expect(Number.parseInt(retryAfterStr, 10)).toBeGreaterThanOrEqual(1);
+      type RateLimitedEnvelope = {
+        error: {
+          code: string;
+          message: string;
+          detail: {
+            retryAfterSeconds: number;
+            paidUpgrade: {
+              endpoint: string;
+              priceUsdc: number;
+              priceUsdcUnits: number;
+              guide: string;
+              howToPay: string;
+            };
+          };
+        };
+      };
+      const body = last429.json() as RateLimitedEnvelope;
+      expect(body.error.code).toBe('rate_limited');
+      expect(typeof body.error.detail.retryAfterSeconds).toBe('number');
+      expect({
+        endpoint: body.error.detail.paidUpgrade.endpoint,
+        priceUsdc: body.error.detail.paidUpgrade.priceUsdc,
+        priceUsdcUnits: body.error.detail.paidUpgrade.priceUsdcUnits,
+      }).toEqual({
+        endpoint: 'POST /v1/x402/extract',
+        priceUsdc: fx.config.x402ExtractPriceUsdcUnits / USDC_SCALE,
+        priceUsdcUnits: fx.config.x402ExtractPriceUsdcUnits,
+      });
+      expect(typeof body.error.detail.paidUpgrade.guide).toBe('string');
+      expect(body.error.detail.paidUpgrade.guide.endsWith('/skill.md')).toBe(true);
+      expect(typeof body.error.detail.paidUpgrade.howToPay).toBe('string');
+      expect(body.error.detail.paidUpgrade.howToPay.length).toBeGreaterThan(0);
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
 });
