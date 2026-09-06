@@ -245,6 +245,77 @@ describe('x402 extract (v2 wire, mock facilitator, no chain)', () => {
     expect(code).toBe('unprocessable');
   });
 
+  it('T3-S3a: a paid batch of 11 URLs is accepted (the old 10-cap is gone)', async () => {
+    const urls = Array.from({ length: 11 }, (_, i) => `https://example.com/t3-${i}`);
+    const res = await paidExtract({ urls });
+    expect(res.status).toBe(200);
+    const body = res.data as { results: Array<{ url: string; status: string }> };
+    expect(body.results).toHaveLength(11);
+    expect(body.results.every((r) => r.status === 'ok')).toBe(true);
+  });
+
+  it('T3-S3b: a paid batch of 51 URLs returns 422 unprocessable', async () => {
+    const urls = Array.from({ length: 51 }, (_, i) => `https://example.com/t3-${i}`);
+    let err: unknown;
+    try {
+      await paidExtract({ urls });
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    const { status, code } = responseOf(err);
+    expect(status).toBe(422);
+    expect(code).toBe('unprocessable');
+  });
+
+  it('T3-S3c: the extract price is flat 10000 at batch 1 AND at batch 50', async () => {
+    const single = await paidExtract({ url: GOOD_URL });
+    expect(single.status).toBe(200);
+    expect((single.data as { payment: { priceUsdcUnits: number } }).payment.priceUsdcUnits).toBe(10_000);
+    const urls = Array.from({ length: 50 }, (_, i) => `https://example.com/t3-full-${i}`);
+    const full = await paidExtract({ urls });
+    expect(full.status).toBe(200);
+    const fullBody = full.data as {
+      results: Array<{ url: string; status: string }>;
+      payment: { payer: string; priceUsdcUnits: number };
+    };
+    expect(fullBody.results).toHaveLength(50);
+    expect(fullBody.payment.priceUsdcUnits).toBe(10_000);
+  });
+
+  it('T3-S3d: the batch-50 margin tradeoff — per-URL floor 200 units equals the compute cost', async () => {
+    // MARGIN TRADEOFF (batch 10 -> 50): the extract price stays flat at 10000
+    // while cost scales as 200 x N, so a full batch-50 nets exactly zero and the
+    // per-URL revenue floor (10000 / 50 = 200 = $0.0002) equals one compute unit.
+    // That floor is the loss boundary: any per-URL cost above 200 units loses
+    // money on full batches, which is why the cap stops at 50.
+    const rows = ledgerRows();
+    const fullBatch = rows.find((r) => r.endpoint === 'extract' && r.cost_usdc === 200 * 50);
+    expect(fullBatch).toBeDefined();
+    expect(fullBatch).toMatchObject({ revenue_usdc: 10_000, cost_usdc: 10_000, net_margin_usdc: 0 });
+    expect(10_000 / 50).toBe(200);
+  });
+
+  it('T3-S3e: an all-fail batch still returns 502 extract_failed and records nothing', async () => {
+    failingUrls.add(GOOD_URL);
+    failingUrls.add(BAD_URL);
+    const before = ledgerRows().length;
+    let err: unknown;
+    try {
+      await paidExtract({ urls: [GOOD_URL, BAD_URL] });
+    } catch (e) {
+      err = e;
+    } finally {
+      failingUrls.delete(GOOD_URL);
+      failingUrls.delete(BAD_URL);
+    }
+    expect(err).toBeDefined();
+    const { status, code } = responseOf(err);
+    expect(status).toBe(502);
+    expect(code).toBe('extract_failed');
+    expect(ledgerRows().length).toBe(before);
+  });
+
   it('local chain: the extract route returns 503 x402_disabled', async () => {
     const fx = makeApiFixture();
     try {
