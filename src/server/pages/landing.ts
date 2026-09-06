@@ -129,7 +129,7 @@ ${topBar(bazaarCatalogUrl)}
         <h3>Extract</h3>
         <div class="amount">${esc(extractPrice)} <small>/ URL batch</small></div>
         <p>Structured text/JSON — title, description, headings, paragraphs, links,
-          images, word count, clean markdown. Batch up to 10 URLs for one payment;
+          images, word count, clean markdown. Batch up to 50 URLs for one payment;
           optional model extraction via a natural-language schema.</p>
         <span class="tag">POST /v1/x402/extract</span>
       </div>

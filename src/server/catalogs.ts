@@ -79,7 +79,7 @@ export async function x402WellKnown(config: WebcapConfig) {
         path: 'POST /v1/x402/extract',
         usdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE,
         description:
-          'Structured extraction (title, headings, paragraphs, links, images, document-order markdown); batch up to 10 URLs per payment',
+          'Structured extraction (title, headings, paragraphs, links, images, document-order markdown); batch up to 50 URLs per payment',
       },
       {
         path: 'POST /v1/x402/audit',
@@ -136,7 +136,7 @@ export async function agentCard(config: WebcapConfig) {
       {
         id: 'extract',
         name: 'Structured extraction',
-        description: `Title, headings, paragraphs, links, images, document-order markdown; batch up to 10 URLs — ${config.x402ExtractPriceUsdcUnits / USDC_SCALE} USDC via x402`,
+        description: `Title, headings, paragraphs, links, images, document-order markdown; batch up to 50 URLs — ${config.x402ExtractPriceUsdcUnits / USDC_SCALE} USDC via x402`,
         tags: ['scraping', 'extraction', 'markdown', 'x402', 'usdc'],
       },
       {
@@ -169,7 +169,7 @@ export function frontDoorPayload(config: WebcapConfig) {
       ],
       paid: [
         { path: 'POST /v1/x402/capture', usdc: config.x402PriceUsdcUnits / USDC_SCALE, note: 'PNG/JPEG/PDF screenshot + free OG' },
-        { path: 'POST /v1/x402/extract', usdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE, note: 'structured JSON; batch up to 10 URLs for one payment' },
+        { path: 'POST /v1/x402/extract', usdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE, note: 'structured JSON; batch up to 50 URLs for one payment' },
         { path: 'POST /v1/x402/audit', usdc: config.x402AuditPriceUsdcUnits / USDC_SCALE, note: 'SEO basics + link/OG health in one call' },
       ],
     },
