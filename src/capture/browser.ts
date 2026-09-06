@@ -14,9 +14,17 @@ export async function getBrowser(): Promise<Browser> {
   return browser;
 }
 
+/** Viewport/mobile context options passed through to the Playwright browser context. */
+export interface ContextViewportOptions {
+  readonly viewport?: { readonly width: number; readonly height: number };
+  readonly userAgent?: string;
+  readonly deviceScaleFactor?: number;
+  readonly isMobile?: boolean;
+}
+
 /** Fresh, isolated context for one capture/OG operation. */
-export async function newContext(): Promise<BrowserContext> {
-  return (await getBrowser()).newContext();
+export async function newContext(opts?: ContextViewportOptions): Promise<BrowserContext> {
+  return (await getBrowser()).newContext({ ...opts });
 }
 
 /** Close the shared browser (service shutdown / test teardown). */

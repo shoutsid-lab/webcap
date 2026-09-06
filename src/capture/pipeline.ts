@@ -1,4 +1,4 @@
-import { newContext } from './browser.js';
+import { newContext, type ContextViewportOptions } from './browser.js';
 import { CaptureError } from './errors.js';
 import { DEFAULT_CAPTURE_TIMEOUT_CAP_MS, DEFAULT_CAPTURE_TIMEOUT_MS } from '../config.js';
 
@@ -8,6 +8,10 @@ export interface CaptureOptions {
   readonly timeoutMs?: number;
   readonly fullPage?: boolean;
   readonly includeHtml?: boolean;
+  readonly viewport?: { readonly width: number; readonly height: number };
+  readonly userAgent?: string;
+  readonly deviceScaleFactor?: number;
+  readonly isMobile?: boolean;
 }
 
 export interface CaptureRequest {
@@ -45,6 +49,17 @@ export interface CaptureTimeouts {
   readonly capMs?: number;
 }
 
+function contextViewport(req: CaptureRequest): ContextViewportOptions {
+  const o = req.options;
+  if (o === undefined) return {};
+  return {
+    ...(o.viewport !== undefined ? { viewport: o.viewport } : {}),
+    ...(o.userAgent !== undefined ? { userAgent: o.userAgent } : {}),
+    ...(o.deviceScaleFactor !== undefined ? { deviceScaleFactor: o.deviceScaleFactor } : {}),
+    ...(o.isMobile !== undefined ? { isMobile: o.isMobile } : {}),
+  };
+}
+
 function resolveTimeout(req: CaptureRequest, timeouts?: CaptureTimeouts): number {
   const requested = req.options?.timeoutMs ?? timeouts?.defaultMs ?? DEFAULT_CAPTURE_TIMEOUT_MS;
   return Math.min(requested, timeouts?.capMs ?? DEFAULT_CAPTURE_TIMEOUT_CAP_MS);
@@ -53,7 +68,7 @@ function resolveTimeout(req: CaptureRequest, timeouts?: CaptureTimeouts): number
 export async function capture(req: CaptureRequest, timeouts?: CaptureTimeouts): Promise<CaptureResult> {
   const format: CaptureFormat = req.format ?? 'png';
   try {
-    const context = await newContext();
+    const context = await newContext(contextViewport(req));
     try {
       const page = await context.newPage();
       try {
@@ -76,7 +91,7 @@ export async function capture(req: CaptureRequest, timeouts?: CaptureTimeouts): 
 /** Capture a URL and extract its rendered DOM structure + HTML (for the structured-output endpoint). */
 export async function captureStructured(req: CaptureRequest, timeouts?: CaptureTimeouts): Promise<StructuredCapture> {
   try {
-    const context = await newContext();
+    const context = await newContext(contextViewport(req));
     try {
       const page = await context.newPage();
       try {
