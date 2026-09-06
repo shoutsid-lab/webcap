@@ -49,6 +49,7 @@ function makeX402Fixture(): X402Fixture {
     x402PriceUsdcUnits: 1_000,
     x402ExtractPriceUsdcUnits: 10_000,
     x402AuditPriceUsdcUnits: 2_000,
+    x402VideoPriceUsdcUnits: 5_000,
     computeCostUsdcUnitsPerRequest: 200,
     modelApiBaseUrl: '',
     modelApiKey: '',
