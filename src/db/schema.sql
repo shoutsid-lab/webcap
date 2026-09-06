@@ -123,3 +123,15 @@ CREATE TABLE IF NOT EXISTS capture_jobs (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS endpoint_hits (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  endpoint TEXT NOT NULL,
+  status INTEGER NOT NULL,
+  payer_hash TEXT NOT NULL DEFAULT 'anonymous',
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_endpoint_hits_endpoint_created ON endpoint_hits(endpoint, created_at);
+
+/* deferred to run #4: per-endpoint rollup triggers (counts/revenue join) live here. */

@@ -19,6 +19,7 @@ export function openDb(path: string): Db {
   db.exec(readFileSync(schemaPath, 'utf8'));
   migrateWatchChatOps(db);
   migrateCaptureJobs(db);
+  migrateEndpointHits(db);
   return db;
 }
 
@@ -78,4 +79,36 @@ function migrateCaptureJobs(db: Db): void {
   if (!existing.has('cost_usdc_units')) db.exec('ALTER TABLE capture_jobs ADD COLUMN cost_usdc_units INTEGER');
   if (!existing.has('created_at')) db.exec("ALTER TABLE capture_jobs ADD COLUMN created_at TEXT NOT NULL DEFAULT ''");
   if (!existing.has('updated_at')) db.exec("ALTER TABLE capture_jobs ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''");
+}
+
+/**
+ * Additive, idempotent migration for the metrics endpoint_hits table: fresh
+ * databases already carry it via schema.sql; pre-existing database files gain
+ * the table (or any missing nullable column) here so they stay valid without
+ * a wipe. The raw payer is never stored — only the sha256 slice (payer_hash).
+ */
+function migrateEndpointHits(db: Db): void {
+  const table = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'endpoint_hits'")
+    .get() as { name: string } | undefined;
+  if (table === undefined) {
+    db.exec(
+      'CREATE TABLE endpoint_hits (' +
+        'id INTEGER PRIMARY KEY AUTOINCREMENT, ' +
+        'endpoint TEXT NOT NULL, ' +
+        'status INTEGER NOT NULL, ' +
+        "payer_hash TEXT NOT NULL DEFAULT 'anonymous', " +
+        'created_at TEXT NOT NULL)',
+    );
+    db.exec('CREATE INDEX IF NOT EXISTS idx_endpoint_hits_endpoint_created ON endpoint_hits(endpoint, created_at)');
+    return;
+  }
+  const existing = new Set(
+    (db.prepare('PRAGMA table_info(endpoint_hits)').all() as Array<{ name: string }>).map((col) => col.name),
+  );
+  if (!existing.has('endpoint')) db.exec("ALTER TABLE endpoint_hits ADD COLUMN endpoint TEXT NOT NULL DEFAULT ''");
+  if (!existing.has('status')) db.exec('ALTER TABLE endpoint_hits ADD COLUMN status INTEGER NOT NULL DEFAULT 0');
+  if (!existing.has('payer_hash')) db.exec("ALTER TABLE endpoint_hits ADD COLUMN payer_hash TEXT NOT NULL DEFAULT 'anonymous'");
+  if (!existing.has('created_at')) db.exec("ALTER TABLE endpoint_hits ADD COLUMN created_at TEXT NOT NULL DEFAULT ''");
+  db.exec('CREATE INDEX IF NOT EXISTS idx_endpoint_hits_endpoint_created ON endpoint_hits(endpoint, created_at)');
 }

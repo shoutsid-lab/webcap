@@ -15,6 +15,7 @@ import { registerAgentSurfaces } from './agent-surfaces.js';
 import { registerWatchRoutes } from './watches.js';
 import { registerX402Middleware } from './x402.js';
 import { registerMppChallengeHook } from '../mpp/plugin.js';
+import { registerHitsHook } from '../db/hits.js';
 import { makeWebcapLogController } from './logging.js';
 
 export interface AppDeps {
@@ -75,6 +76,9 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   registerDiscoveryRoutes(app, deps);
   registerAgentSurfaces(app, deps.config);
   registerWatchRoutes(app, deps);
+  // Metrics write path (additive, zero-risk): onResponse hit rows carry only
+  // the hashed payer; a throwing write never 500s a paid request.
+  registerHitsHook(app, deps.db);
   return app;
 }
 
