@@ -12,6 +12,7 @@ import { registerDiscoveryRoutes } from './discovery.js';
 import { registerAgentSurfaces } from './agent-surfaces.js';
 import { registerWatchRoutes } from './watches.js';
 import { registerX402Middleware } from './x402.js';
+import { registerMppChallengeHook } from '../mpp/plugin.js';
 import { makeWebcapLogController } from './logging.js';
 
 export interface AppDeps {
@@ -53,6 +54,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   // Payment hooks must be installed before routes so onRequest/onSend/onError
   // cover the gated /v1/x402/capture + /v1/x402/watches/topup handlers.
   registerX402Middleware(app, deps.config, deps.x402Facilitator, deps.db);
+  registerMppChallengeHook(app, deps.config, deps.db);
   // After the x402 hooks on purpose: the x402 402 challenge must win for the
   // GET /v1/x402/* discovery paths, which register no GET route of their own.
   registerNotFoundEnvelope(app);
