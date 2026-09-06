@@ -3,7 +3,8 @@
  *
  * 402index live-probes each URL and requires an x402 402 response, which our
  * POST mirrors satisfy (the probe body is the exact body that triggers the
- * challenge on each route). Used by bin/webcap-keepalive.sh monthly and safe
+ * challenge on each route). Re-asserted DAILY via bin/402index-reassert.sh
+ * (cron) plus bin/webcap-keepalive.sh 2x/week (Mon+Thu); safe
  * to re-run any time: re-registering an existing url+protocol updates the row.
  *
  * Usage (from the repo root):
@@ -79,6 +80,17 @@ const routes: RouteSpec[] = [
     name: 'webcap — audit (SEO + link/OG health)',
     description:
       'SEO basics + link/OG health for any URL in one call. Gasless x402 USDC payment on Base.',
+    probeBody: '{"url":"https://example.com"}',
+    priceUsd: 0.002,
+    category: 'web-scraping',
+    paymentNetwork: 'Base',
+  },
+  {
+    route: 'map-lite',
+    path: '/v1/x402/map-lite',
+    name: 'webcap — map-lite (single-URL site map)',
+    description:
+      'Single-URL site map (same-origin link graph) in one call. Gasless x402 USDC payment on Base.',
     probeBody: '{"url":"https://example.com"}',
     priceUsd: 0.002,
     category: 'web-scraping',
