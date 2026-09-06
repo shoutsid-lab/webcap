@@ -306,6 +306,91 @@ describe('GET /openapi.json (machine-readable catalog)', () => {
   });
 });
 
+describe('run #2 headliner surface (spend caps, typed extract, jobs, signed artifacts)', () => {
+  it('documents 429 spend_cap_exceeded exactly where the handlers enforce it', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      // Enforced: x402 capture (per-payer), credits capture (per-account), jobs submit (both rails).
+      const enforced: Array<[string, string]> = [
+        ['post', '/v1/x402/capture'],
+        ['post', '/v1/capture'],
+        ['post', '/v1/capture/jobs'],
+      ];
+      for (const [method, path] of enforced) {
+        const limited = doc.paths[path]?.[method]?.responses['429'] as { description?: string } | undefined;
+        expect(limited, `${method.toUpperCase()} ${path} must document 429`).toBeDefined();
+        expect(String(limited?.description ?? '')).toMatch(/spend_cap_exceeded/);
+      }
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('documents the 402 reason detail (top-up invoice) on the credits-rail submits', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      for (const path of ['/v1/capture', '/v1/capture/jobs']) {
+        const required = doc.paths[path]?.post?.responses['402'] as { description?: string } | undefined;
+        expect(required, `POST ${path} must document 402`).toBeDefined();
+        expect(String(required?.description ?? '')).toMatch(/insufficient_credits/);
+        expect(String(required?.description ?? '')).toMatch(/invoiceId/);
+      }
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('documents the deterministic object-schema path (spans + 422 detail shape) on the extract body', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      const schema = (doc.paths['/v1/x402/extract']?.post?.requestBody?.content?.['application/json']?.schema ?? {}) as {
+        readonly properties?: {
+          readonly schema?: { readonly type?: string; readonly description?: string };
+          readonly spans?: { readonly type?: string };
+        };
+      };
+      // Optional-only: the stringly schema field stays a string (schema-driven
+      // callers synthesize valid bodies), with the object path described.
+      expect(schema.properties?.schema?.type).toBe('string');
+      expect(schema.properties?.schema?.description ?? '').toMatch(/deterministic/);
+      expect(schema.properties?.spans?.type).toBe('array');
+      const validation = doc.paths['/v1/x402/extract']?.post?.responses['422'] as { description?: string } | undefined;
+      expect(String(validation?.description ?? '')).toMatch(/unsupported keyword/);
+      expect(String(validation?.description ?? '')).toMatch(/dnsRebindingCaveat/);
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('documents the signed-artifact 403/410 on the artifact route and the jobs receipt fields', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      expect(doc.paths['/v1/artifacts/{id}']?.get?.responses['403'], 'GET /v1/artifacts/{id} must document 403').toBeDefined();
+      expect(doc.paths['/v1/artifacts/{id}']?.get?.responses['410'], 'GET /v1/artifacts/{id} must document 410').toBeDefined();
+      const poll = (
+        doc.paths['/v1/capture/jobs/{id}']?.get?.responses['200'] as {
+          readonly content?: Record<string, { readonly schema?: { readonly properties?: Record<string, unknown> } }>;
+        }
+      )?.content?.['application/json']?.schema?.properties;
+      expect(poll, 'GET /v1/capture/jobs/{id} 200 must carry the payment receipt').toHaveProperty('payment');
+      const submit = (doc.paths['/v1/capture/jobs']?.post?.requestBody?.content?.['application/json']?.schema ?? {}) as {
+        readonly properties?: Record<string, unknown>;
+      };
+      expect(submit.properties, 'POST /v1/capture/jobs must document the optional webhookUrl').toHaveProperty('webhookUrl');
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+});
+
 describe('mppscan/x402gle discovery metadata', () => {
   // The free/public ops: genuinely open (no payment, no auth) -> security: [].
   const FREE_OPS: ReadonlyArray<readonly [method: string, path: string]> = [

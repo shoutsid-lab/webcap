@@ -17,7 +17,18 @@ export function jobsPaths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
           'An optional https webhookUrl receives the terminal delivery (signed with x-hub-signature-256 when a job secret is configured).',
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: captureRequestBody } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['url'],
+                properties: {
+                  ...(captureRequestBody.properties as Record<string, unknown>),
+                  webhookUrl: { type: 'string', description: 'Optional https URL receiving the terminal delivery ({jobId, status, artifactUrl|error}); signed with x-hub-signature-256 when a job secret is configured' },
+                },
+              },
+            },
+          },
         },
         responses: {
           202: {
@@ -33,11 +44,13 @@ export function jobsPaths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
           401: ctx.unauthorized,
           402: {
             description:
-              'Payment required: insufficient credits on the API-key rail (error envelope, code insufficient_credits), ' +
+              'Payment required: insufficient credits on the API-key rail (error envelope, code insufficient_credits; ' +
+              'detail {invoiceId, requiredUsdc, balance} names the 1-credit top-up invoice), ' +
               'or the x402 challenge on x402 deployments',
             content: jsonContent({ $ref: '#/components/schemas/Error' }),
           },
-          422: ctx.unprocessable('Invalid input: missing/invalid url or format'),
+          422: ctx.unprocessable('Invalid input: missing/invalid url, format, or webhookUrl'),
+          429: jsonError('429', 'Spend cap exceeded (error envelope, code spend_cap_exceeded; detail {payer, spent, cap, reason}; per-payer USDC units on x402, per-account credits on the API-key rail; unset cap means unlimited)'),
         },
       },
     },
@@ -47,7 +60,8 @@ export function jobsPaths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
         summary: 'Poll an async capture job (free, no auth)',
         description:
           'Free status poll: queued|processing while the capture runs, completed with result.artifactUrl, ' +
-          'or failed with error. Terminal states carry the payment receipt (payer, priceUsdcUnits, plus creditsUsed/costUsdcUnits where applicable).',
+          'or failed with error. Terminal states carry the payment receipt (payer, priceUsdcUnits, plus creditsUsed/costUsdcUnits where applicable). ' +
+          'The artifact URL accepts optional signed query ?exp=&sig= (HMAC-SHA256 over "<id>.<exp>"): bad signatures 403 (code forbidden), expired ones 410 (code gone); unsigned fetches keep serving with a Deprecation header.',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
         responses: {
           200: {

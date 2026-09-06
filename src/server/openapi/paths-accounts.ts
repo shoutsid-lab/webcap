@@ -108,8 +108,9 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
         responses: {
           200: { description: 'The artifact (base64) + its canonical public URL, plus the credit charge and remaining balance', content: jsonContent(captureCreditResponse) },
           401: ctx.unauthorized,
-          402: jsonError('402', 'Insufficient credits; the error detail carries a top-up invoice (error envelope, code insufficient_credits)'),
-          422: ctx.unprocessable('Invalid input: missing/invalid url, format or options'),
+          402: jsonError('402', 'Insufficient credits; the error detail carries the 1-credit top-up invoice {invoiceId, requiredUsdc, balance} (error envelope, code insufficient_credits)'),
+          422: ctx.unprocessable('Invalid input: missing/invalid url, format or options. SSRF-blocked hosts 422 with detail {reason, dnsRebindingCaveat: true}'),
+          429: jsonError('429', 'Per-account spend cap exceeded (error envelope, code spend_cap_exceeded; detail {payer, spent, cap, reason}; WEBCAP_SPEND_CAP_CREDITS, unset means unlimited)'),
           502: ctx.captureFailed,
         },
       },

@@ -46,7 +46,8 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
           200: { description: 'Paid + settled; the artifact (base64) and its canonical public URL', content: jsonContent(captureResponse(config.x402PriceUsdcUnits)) },
           402: x402Challenge(config, { priceUsdcUnits: config.x402PriceUsdcUnits, resourcePath: '/v1/x402/capture' }),
           400: ctx.badInput,
-          422: ctx.unprocessable('Invalid input: missing/invalid url, format or options'),
+          422: ctx.unprocessable('Invalid input: missing/invalid url, format or options. SSRF-blocked hosts 422 with detail {reason, dnsRebindingCaveat: true}'),
+          429: jsonError('429', 'Per-payer spend cap exceeded (error envelope, code spend_cap_exceeded; detail {payer, spent, cap, reason}; caps come from WEBCAP_SPEND_CAP_USDC_UNITS, unset means unlimited)'),
           502: ctx.captureFailed,
           503: jsonError('503', 'x402 disabled on this deployment (WEBCAP_CHAIN=local)'),
         },
@@ -62,8 +63,10 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
         summary: 'Extract structured content from one URL or a batch (paid, x402)',
         description:
           'Return structured content (title, headings, paragraphs, links, images, word count, markdown) as JSON. ' +
-          `Batch up to 50 URLs for ONE payment (${config.x402ExtractPriceUsdcUnits / USDC_SCALE} USDC covers the whole batch). ` +
+          `Batch up to 50 URLs for ONE payment (${config.x402ExtractPriceUsdcUnits / USDC_SCALE} USDC covers the whole batch; the price is flat per batch while compute cost scales per URL, so one payment covers repeat extractions of the same batch only when re-requested). ` +
           'Optional natural-language "schema" triggers model-based extraction into custom JSON. ' +
+          'A JSON object "schema" instead takes the deterministic path: zero model calls, the response data gains an "extracted" projection, ' +
+          'with optional "spans" grounding each {field, quote, page} as a verbatim markdown substring. ' +
           'Optional options tune the capture per URL: proxy, waitFor {selector, timeoutMs}, actions, viewport, and the other render fields.',
         requestBody: {
           required: true,
@@ -73,7 +76,7 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
           200: { description: 'Paid + settled; per-URL results (ok/error)', content: jsonContent(extractResponse(config.x402ExtractPriceUsdcUnits)) },
           402: x402Challenge(config, { priceUsdcUnits: config.x402ExtractPriceUsdcUnits, resourcePath: '/v1/x402/extract' }),
           400: ctx.badInput,
-          422: ctx.unprocessable('Invalid input: missing/invalid url(s) or schema'),
+          422: ctx.unprocessable('Invalid input: missing/invalid url(s), schema, or spans. Object-schema failures carry $-rooted detail string[] (schema mismatch, ungrounded spans, unsupported keywords oneOf/anyOf/allOf/$ref/format); SSRF-blocked hosts carry detail {reason, dnsRebindingCaveat: true}'),
           502: jsonError('502', 'All URLs in the batch failed to extract (error envelope, code extract_failed)'),
           503: jsonError('503', 'x402 disabled on this deployment (WEBCAP_CHAIN=local)'),
         },
@@ -98,7 +101,7 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
           200: { description: 'Paid + settled; the audit report', content: jsonContent(auditResponse(config.x402AuditPriceUsdcUnits)) },
           402: x402Challenge(config, { priceUsdcUnits: config.x402AuditPriceUsdcUnits, resourcePath: '/v1/x402/audit' }),
           400: ctx.badInput,
-          422: ctx.unprocessable('Invalid input: missing/invalid url'),
+          422: ctx.unprocessable('Invalid input: missing/invalid url. SSRF-blocked hosts 422 with detail {reason, dnsRebindingCaveat: true}'),
           502: jsonError('502', 'Audit failed for the URL (error envelope, code audit_failed)'),
           503: jsonError('503', 'x402 disabled on this deployment (WEBCAP_CHAIN=local)'),
         },
@@ -125,7 +128,7 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
           200: { description: 'Paid + settled; the discovered URL list (empty when none found)', content: jsonContent(mapLiteResponse(config.x402AuditPriceUsdcUnits)) },
           402: x402Challenge(config, { priceUsdcUnits: config.x402AuditPriceUsdcUnits, resourcePath: '/v1/x402/map-lite' }),
           400: ctx.badInput,
-          422: ctx.unprocessable('Invalid input: missing/invalid url or maxUrls'),
+          422: ctx.unprocessable('Invalid input: missing/invalid url or maxUrls. SSRF-blocked hosts 422 with detail {reason, dnsRebindingCaveat: true}'),
           502: jsonError('502', 'Map-lite discovery failed for the URL (error envelope, code map_failed)'),
           503: jsonError('503', 'x402 disabled on this deployment (WEBCAP_CHAIN=local)'),
         },

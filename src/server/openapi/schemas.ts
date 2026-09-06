@@ -154,7 +154,19 @@ const extractRequestBody = {
       items: { type: 'string', format: 'uri' },
       maxItems: MAX_EXTRACT_BATCH,
     },
-    schema: { type: 'string', description: 'Optional plain natural-language string describing the JSON to extract via a model (a string, not a JSON object)' },
+    schema: { type: 'string', description: 'Optional plain natural-language string describing the JSON to extract via a model (a string, not a JSON object). A JSON object schema instead takes the deterministic path: zero model calls, the response data gains an "extracted" projection of the page structure, and failures 422 with detail string[] ($-rooted schema errors, "span not grounded" grounding errors, or "unsupported schema keyword" for oneOf/anyOf/allOf/$ref/format)' },
+    spans: {
+      type: 'array',
+      description: 'Optional grounding spans for the deterministic object-schema path: each {field, quote, page} must be a verbatim substring of the cited markdown page, else 422 (omitted or [] skips grounding)',
+      items: {
+        type: 'object',
+        properties: {
+          field: { type: 'string', description: 'Extracted field the quote grounds' },
+          quote: { type: 'string', description: 'Verbatim substring of the cited page markdown' },
+          page: { type: 'integer', description: 'Zero-based index into the batch markdown pages' },
+        },
+      },
+    },
     options: {
       type: 'object',
       additionalProperties: false,

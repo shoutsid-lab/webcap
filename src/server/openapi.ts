@@ -48,7 +48,7 @@ export async function openapiDocument(config: WebcapConfig): Promise<OpenapiDocu
   const guidance =
     'Agent usage: paid x402 endpoints settle per call in USDC - POST /v1/x402/capture ' +
     `(${usd(config.x402PriceUsdcUnits)} USDC), POST /v1/x402/extract (${usd(config.x402ExtractPriceUsdcUnits)} USDC, ` +
-    'batch up to 10 URLs for one payment), POST /v1/x402/audit (' +
+    'batch up to 50 URLs for one payment), POST /v1/x402/audit (' +
     `${usd(config.x402AuditPriceUsdcUnits)} USDC, SEO basics + link/OG health in one call), ` +
     'and POST /v1/x402/watches/topup (dynamic ' +
     `${usd(watchTopUpPriceUsdcUnits('capture', config))}-${usd(watchTopUpPriceUsdcUnits('extract', config))} USDC ` +

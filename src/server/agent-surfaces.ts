@@ -63,7 +63,7 @@ on-chain. You pay USDC only, never ETH gas.
 | Method + path | Price | Returns |
 | --- | --- | --- |
 | POST /v1/x402/capture | ${usdc(config.x402PriceUsdcUnits)} | Screenshot of one URL: base64 image (png/jpeg/pdf) + persistent public artifact URL |
-| POST /v1/x402/extract | ${usdc(config.x402ExtractPriceUsdcUnits)} | Structured content (title, headings, paragraphs, links, images, markdown); one payment covers a batch of up to 10 URLs |
+| POST /v1/x402/extract | ${usdc(config.x402ExtractPriceUsdcUnits)} | Structured content (title, headings, paragraphs, links, images, markdown); one payment covers a batch of up to 50 URLs |
 | POST /v1/x402/audit | ${usdc(config.x402AuditPriceUsdcUnits)} | SEO basics + link/OG health in one call (title, description, OG tags, link health) |
 | POST /v1/x402/watches/topup | ${usdc(watchTopUpPriceUsdcUnits('capture', config))}–${usdc(watchTopUpPriceUsdcUnits('extract', config))} | 100 scheduled re-capture runs for an existing watch (capture watch ${usdc(watchTopUpPriceUsdcUnits('capture', config))}, extract watch ${usdc(watchTopUpPriceUsdcUnits('extract', config))}) |
 
@@ -76,7 +76,7 @@ POST /v1/x402/capture
        "payment": {"payer": "0x…", "priceUsdcUnits": ${config.x402PriceUsdcUnits}}}
 
 POST /v1/x402/extract
-    {"url": "https://example.com"}                    // or "urls": string[] (up to 10) in one payment
+    {"url": "https://example.com"}                    // or "urls": string[] (up to 50) in one payment
     {"url": "https://example.com", "schema": "JSON with the fields: title, price"}  // optional schema-constrained extraction
   200 {"results": [{"url": "…", "status": "ok", "data": {"title": "…", "headings": […], "paragraphs": […], "links": […], "images": […], "markdown": "…"}}],
        "payment": {"payer": "0x…", "priceUsdcUnits": ${config.x402ExtractPriceUsdcUnits}}}
@@ -101,6 +101,45 @@ POST /v1/x402/watches/topup
 4. The facilitator verifies and settles on-chain; the 200 response carries the result plus a PAYMENT-RESPONSE settlement header (transaction hash, payer, amount).
 
 Any x402 v2 client does steps 1–3 for you (e.g. @x402/axios with wrapAxiosWithPayment) — a ready-to-paste example lives in ${config.publicBaseUrl}/skill.md.
+
+## Spend caps
+
+Deployments may cap spend per payer (x402, atomic USDC units) or per account
+(credits rail) via WEBCAP_SPEND_CAP_USDC_UNITS / WEBCAP_SPEND_CAP_CREDITS. Past
+the cap, paid submits answer 429 spend_cap_exceeded with detail {payer, spent,
+cap, reason}. Unset means unlimited: a cap that isn't configured can never block.
+
+## URL safety (SSRF)
+
+Targets pass a static allowlist guard. Blocked hosts 422 with
+detail {reason, dnsRebindingCaveat: true}, so a policy block is distinguishable
+from a malformed URL. The guard's own caveat, quoted from the source:
+
+> NOTE: this is a static (parse-time) guard only. DNS rebinding — a hostname
+> that resolves publicly here but to a private IP at fetch time — is a
+> documented residual risk and must be re-checked where the actual fetch
+> happens. Do not add async DNS resolution to this function.
+
+## Async capture + signed artifacts
+
+POST /v1/capture/jobs {"url", "format"?, "webhookUrl"?} charges once and
+returns 202 {jobId, status}. Poll GET /v1/capture/jobs/{id} (free, no auth)
+until completed|failed; terminal states carry the payment receipt (payer,
+priceUsdcUnits, plus creditsUsed/costUsdcUnits where applicable). An optional
+https webhookUrl gets the terminal delivery. Artifact URLs accept signed query
+?exp=&sig= (HMAC-SHA256 over "<id>.<exp>"): bad signatures 403, expired ones
+410; unsigned fetches still serve.
+
+## Extraction notes
+
+One extract payment covers the whole batch (up to 50 URLs). Asking again costs
+again: the price stays flat per batch while compute scales per URL. A JSON
+object schema takes the deterministic path (zero model calls, no model needed):
+the response data gains an "extracted" projection of the page structure, and
+optional "spans" [{field, quote, page}] ground each quote as a verbatim
+markdown substring. Object-schema failures 422 with dollar-rooted detail
+strings (schema mismatch, ungrounded spans, or unsupported keywords
+oneOf/anyOf/allOf/$ref/format).
 `;
 }
 
@@ -134,7 +173,7 @@ Base URL: ${config.publicBaseUrl}
 | Purpose | Request | Price (USDC) |
 | --- | --- | --- |
 | Screenshot | POST /v1/x402/capture {"url", "format"?, "options"? (viewport, deviceScaleFactor, isMobile, userAgent)} | ${usdc(config.x402PriceUsdcUnits)} |
-| Extract (batch of up to 10 URLs, one payment) | POST /v1/x402/extract {"url" or "urls", "schema"?} | ${usdc(config.x402ExtractPriceUsdcUnits)} |
+| Extract (batch of up to 50 URLs, one payment) | POST /v1/x402/extract {"url" or "urls", "schema"?} | ${usdc(config.x402ExtractPriceUsdcUnits)} |
 | Audit (SEO + OG + link health, one URL) | POST /v1/x402/audit {"url"} | ${usdc(config.x402AuditPriceUsdcUnits)} |
 | Watch top-up (100 runs) | POST /v1/x402/watches/topup {"watchId", "runs": 100} | ${usdc(watchTopUpPriceUsdcUnits('capture', config))} (capture watch) / ${usdc(watchTopUpPriceUsdcUnits('extract', config))} (extract watch) |
 | Structured preview (truncated) | GET /v1/extract/preview?url=… | free, rate-limited per IP |
@@ -160,7 +199,7 @@ const shot = await api.post('/v1/x402/capture', { url: 'https://example.com', fo
 const pngBase64 = shot.data.artifact.data;
 const artifactUrl = shot.data.artifact.url; // persistent, shareable
 
-// Extract — one ${usdc(config.x402ExtractPriceUsdcUnits)} payment covers up to 10 urls
+// Extract — one ${usdc(config.x402ExtractPriceUsdcUnits)} payment covers up to 50 urls
 const page = await api.post('/v1/x402/extract', { url: 'https://example.com' });
 const { title, headings, paragraphs, links, images } = page.data.results[0].data;
 \`\`\`
@@ -181,8 +220,28 @@ extraction.
 
 ## Failure modes
 
-- 402 again after retry: the authorization was rejected (wrong amount, payTo, network, signature, or expiry window) — fetch a fresh challenge and sign it again.
+- 402 again after retry: the authorization was rejected (wrong amount, payTo, network, signature, or expiry window) — fetch a fresh challenge and sign it again. On the credits rail / jobs submit, 402 means insufficient_credits and the detail names the 1-credit top-up invoice {invoiceId, requiredUsdc, balance}.
+- 429 spend-cap exceeded: detail {payer, spent, cap, reason} (code spend_cap_exceeded; WEBCAP_SPEND_CAP_USDC_UNITS on x402, WEBCAP_SPEND_CAP_CREDITS on the credits rail; unset means unlimited) — wait for the window or raise the cap, retrying the same payment won't help.
 - 429 on the free preview: rate-limited — the 429 body's detail.paidUpgrade carries the paid next-step (endpoint POST /v1/x402/extract, price, howToPay, skill guide); wait a minute, or pay for extract.
+- 422 on blocked hosts: detail {reason, dnsRebindingCaveat: true} marks the SSRF policy block. Parse-time guard only: DNS rebinding (public here, private at fetch time) is a documented residual risk.
 - 502: the upstream page capture failed — nothing is charged when capture fails; retry later.
+
+## Async capture + signed artifacts
+
+For slow pages, submit once and poll: POST /v1/capture/jobs
+{"url", "format"?, "webhookUrl"?} returns 202 {jobId, status}; GET
+/v1/capture/jobs/{id} is free without auth and ends in completed (with
+result.artifactUrl) or failed (with error), always carrying the payment receipt
+(payer, priceUsdcUnits, creditsUsed/costUsdcUnits where applicable). Share the
+artifact with a signed URL (?exp=&sig=, HMAC-SHA256 over "<id>.<exp>"): bad
+signatures 403, expired ones 410.
+
+## Extraction notes
+
+One payment covers the whole batch (up to 50 URLs); each re-run bills again
+because compute scales per URL while the price stays flat. A JSON object schema
+skips the model entirely (deterministic, zero model calls): you get an
+"extracted" projection plus optional "spans" grounding, and any mismatch 422s
+with dollar-rooted detail strings.
 `;
 }
