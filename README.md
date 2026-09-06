@@ -487,6 +487,12 @@ logs the x402gle listing presence.
 Agent-facing discovery surfaces: `/llms.txt`, `/skill.md`, `/openapi.json`,
 `/.well-known/x402`, `/v1/x402/service`.
 
+MPP note: the same 3 paid routes double as Machine Payments Protocol
+endpoints (see `docs/MPP.md` for the `WWW-Authenticate` header anatomy,
+`MPP_SECRET_KEY` setup, realm semantics, and the mppscan registration
+pre-probe plus `POST /api/register` steps); x402 payers see zero change,
+and `bin/webcap-keepalive.sh` probes the paid 402s for the header log-only.
+
 ## Unit economics
 
 - `capture` $0.001 — priced at the market cluster floor (a volume/discovery
