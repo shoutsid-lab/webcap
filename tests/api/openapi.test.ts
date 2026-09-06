@@ -252,6 +252,35 @@ describe('GET /openapi.json (machine-readable catalog)', () => {
       await closeApiFixture(fx);
     }
   });
+
+  it('documents the enriched twitter/article fields on GET /v1/og', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      const schema = (
+        doc.paths['/v1/og']?.get?.responses['200'] as {
+          readonly content?: Record<string, { readonly schema?: { readonly properties?: Record<string, unknown> } }>;
+        }
+      )?.content?.['application/json']?.schema?.properties;
+      for (const field of [
+        'twitterCard',
+        'twitterSite',
+        'twitterCreator',
+        'twitterTitle',
+        'twitterDescription',
+        'twitterImage',
+        'articlePublishedTime',
+        'articleAuthor',
+        'articleSection',
+        'articleTags',
+      ]) {
+        expect(schema, `GET /v1/og 200 schema must document ${field}`).toHaveProperty(field);
+      }
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
 });
 
 describe('mppscan/x402gle discovery metadata', () => {

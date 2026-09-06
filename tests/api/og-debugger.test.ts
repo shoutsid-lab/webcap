@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CaptureError } from '../../src/capture/errors.js';
+import type { OgResult } from '../../src/capture/og.js';
 import { closeApiFixture, makeApiFixture } from './fixture.js';
 
 describe('GET /og-debugger (free OG meta debugger tool page)', () => {
@@ -46,6 +47,47 @@ describe('GET /og-debugger (free OG meta debugger tool page)', () => {
       // Funnel: the free tool points at the paid API.
       expect(html).toContain('POST /v1/x402/capture');
       expect(html).toContain('POST /v1/x402/extract');
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('renders twitter and article rows in the tag table', async () => {
+    const enriched = {
+      url: 'https://example.com/',
+      title: 'Twitter Rich Title',
+      description: 'Twitter Rich Description',
+      image: '/twitter-rich.png',
+      twitterCard: 'summary_large_image',
+      twitterSite: '@webcap',
+      twitterCreator: '@author',
+      twitterTitle: 'Twitter Rich Title',
+      twitterDescription: 'Twitter Rich Description',
+      twitterImage: '/twitter-rich.png',
+      articlePublishedTime: '2026-01-02T03:04:05Z',
+      articleAuthor: 'Jane Author',
+      articleSection: 'Technology',
+      articleTags: ['web', 'og'],
+    } as OgResult;
+    const fx = makeApiFixture({
+      og: async (req: { url: string }) => ({ ...enriched, url: req.url }),
+    });
+    try {
+      const res = await fx.app.inject({ method: 'GET', url: '/og-debugger?url=https://example.com/' });
+      expect(res.statusCode).toBe(200);
+      const html = res.payload;
+      expect(html).toContain('twitter:card');
+      expect(html).toContain('summary_large_image');
+      expect(html).toContain('twitter:site');
+      expect(html).toContain('twitter:creator');
+      expect(html).toContain('twitter:title');
+      expect(html).toContain('twitter:description');
+      expect(html).toContain('twitter:image');
+      expect(html).toContain('article:published_time');
+      expect(html).toContain('article:author');
+      expect(html).toContain('article:section');
+      expect(html).toContain('article:tag');
+      expect(html).toContain('Jane Author');
     } finally {
       await closeApiFixture(fx);
     }
