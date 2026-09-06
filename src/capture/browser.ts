@@ -35,6 +35,11 @@ export interface ContextViewportOptions {
   readonly extraHTTPHeaders?: Record<string, string>;
   /** Per-watch auth cookies applied via context.addCookies after creation. */
   readonly cookies?: readonly ContextCookie[];
+  /**
+   * Playwright video recording dir, forwarded verbatim into the context
+   * options. Unset (default) = no recording; never default it here.
+   */
+  readonly recordVideo?: { readonly dir: string };
 }
 
 /**
@@ -68,6 +73,7 @@ export async function newContext(opts?: ContextViewportOptions): Promise<Browser
     isMobile: opts?.isMobile,
     ...(opts?.proxyServer !== undefined ? { proxy: { server: opts.proxyServer } } : {}),
     ...(opts?.extraHTTPHeaders !== undefined ? { extraHTTPHeaders: { ...opts.extraHTTPHeaders } } : {}),
+    ...(opts?.recordVideo !== undefined ? { recordVideo: { ...opts.recordVideo } } : {}),
   });
   if (opts?.cookies !== undefined && opts.cookies.length > 0) {
     await context.addCookies(opts.cookies.map((cookie) => ({ ...cookie })));
