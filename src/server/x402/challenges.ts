@@ -21,6 +21,7 @@ export const X402_CAPTURE_DESCRIPTION = 'Capture a URL as PNG/JPEG/PDF + free OG
 export const X402_EXTRACT_DESCRIPTION = 'Capture a URL and return its structured content (title, headings, text, links, images) as JSON';
 export const X402_TOPUP_DESCRIPTION =
   'Top up a webcap watch with a 100-run pack, priced at the watch mode unit price x 100 (capture or extract)';
+export const X402_AUDIT_DESCRIPTION = 'Audit a URL for SEO basics + link/OG health in one call';
 export const X402_MIME_TYPE = 'application/json';
 
 export const BAZAAR_SERVICE_NAME = 'Webcap';
@@ -125,6 +126,38 @@ export function buildExtractBazaarExtension(): BodyDiscoveryExtension {
         input: { url: 'https://example.com' },
         inputSchema: EXTRACT_INPUT_SCHEMA,
         output: { example: EXTRACT_OUTPUT_EXAMPLE },
+      }),
+    ),
+  );
+}
+
+/** Bazaar input schema for POST /v1/x402/audit — mirrors the audit handler (url only). */
+export const AUDIT_INPUT_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    url: { type: 'string', description: 'The page to audit' },
+  },
+  required: ['url'],
+};
+
+export const AUDIT_OUTPUT_EXAMPLE: Record<string, unknown> = {
+  audit: {
+    url: 'https://example.com',
+    seo: { title: { present: true, length: 13, ok: true } },
+    og: { present: { title: true } },
+    links: { total: 1 },
+  },
+  payment: { payer: BAZAAR_EXAMPLE_PAYER, priceUsdcUnits: 2000 },
+};
+
+export function buildAuditBazaarExtension(): BodyDiscoveryExtension {
+  return withRoutedMethod(
+    bazaarFromDeclared(
+      declareDiscoveryExtension({
+        bodyType: 'json',
+        input: { url: 'https://example.com' },
+        inputSchema: AUDIT_INPUT_SCHEMA,
+        output: { example: AUDIT_OUTPUT_EXAMPLE },
       }),
     ),
   );
