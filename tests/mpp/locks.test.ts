@@ -76,7 +76,7 @@ const TOPUP_FALLBACK_UNITS = WATCH_TOPUP_RUNS * CAPTURE_UNITS; // unknown watch 
 // reconciliation needed. (Sibling file src/server/x402.ts carries the +6-line
 // settle-hook registration — runtime 402 construction is unaffected.)
 const CAPTURE_POST_SHA = '368178997ab44c30390926d7da43fdfb65945ee6f2bcddf8dc4f6af17766d828';
-const EXTRACT_POST_SHA = 'b8176e3a180de3199beb606868cc833f8221a137ee1a41e112159a3023c2f965';
+const EXTRACT_POST_SHA = '982f5dead7b7e08fda81616e0dc0f3352b3b511af514e612e8f7e2105d759382';
 const TOPUP_POST_SHA = 'c9690b435aa6337fd3d2bf2091bf1499e90b19ad54356268b4a3af13c6f6dafb';
 
 function sha256Hex(raw: string): string {

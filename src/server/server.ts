@@ -7,6 +7,7 @@ import { toResponse, type ErrorBody, HttpError } from '../util/errors.js';
 import type { CaptureRequest, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
 import type { OgResult } from '../capture/og.js';
 import { registerBillingRoutes } from './billing.js';
+import { registerMapLiteRoute } from './map-lite.js';
 import { registerRoutes } from './routes.js';
 import { registerDiscoveryRoutes } from './discovery.js';
 import { registerAgentSurfaces } from './agent-surfaces.js';
@@ -64,6 +65,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   // hooks above must still precede every route registration).
   registerBillingRoutes(app, deps);
   registerRoutes(app, deps);
+  registerMapLiteRoute(app, { db: deps.db, config: deps.config, captureAllowHosts: deps.captureAllowHosts });
   registerDiscoveryRoutes(app, deps);
   registerAgentSurfaces(app, deps.config);
   registerWatchRoutes(app, deps);

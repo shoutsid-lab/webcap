@@ -128,14 +128,14 @@ describe('x402 bazaar discovery (service metadata + route extensions)', () => {
     expect(optionProps['userAgent']).toMatchObject({ type: 'string' });
   });
 
-  it('extract bazaar schema describes url (string) and urls (string[] maxItems 10) per parseExtractUrls', () => {
+  it('extract bazaar schema describes url (string) and urls (string[] maxItems 50) per parseExtractUrls', () => {
     const route = routes[X402_EXTRACT_PATTERN];
     expect(route).toBeDefined();
     const body = bazaarOf(route ?? {}).schema.properties.input.properties.body;
     expect(body['type']).toBe('object');
     const props = body['properties'] as Record<string, unknown>;
     expect(props['url']).toMatchObject({ type: 'string' });
-    expect(props['urls']).toMatchObject({ type: 'array', maxItems: 10 });
+    expect(props['urls']).toMatchObject({ type: 'array', maxItems: 50 });
     expect((props['urls'] as { items: unknown })['items']).toMatchObject({ type: 'string' });
   });
 

@@ -2,7 +2,7 @@ import type { PageStructure } from '../capture/pipeline.js';
 import { unprocessable } from '../util/errors.js';
 import { isRecord, validatedUrl } from './capture-parse.js';
 
-export const MAX_EXTRACT_BATCH = 10;
+export const MAX_EXTRACT_BATCH = 50;
 
 export type ExtractedContent = PageStructure & { readonly extracted?: Record<string, unknown> };
 

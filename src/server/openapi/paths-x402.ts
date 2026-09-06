@@ -13,6 +13,8 @@ import {
   captureResponse,
   extractRequestBody,
   extractResponse,
+  mapLiteRequestBody,
+  mapLiteResponse,
   watchCreateBody,
   watchStateResponse,
   watchTopUpBody,
@@ -60,7 +62,7 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
         summary: 'Extract structured content from one URL or a batch (paid, x402)',
         description:
           'Return structured content (title, headings, paragraphs, links, images, word count, markdown) as JSON. ' +
-          `Batch up to 10 URLs for ONE payment (${config.x402ExtractPriceUsdcUnits / USDC_SCALE} USDC covers the whole batch). ` +
+          `Batch up to 50 URLs for ONE payment (${config.x402ExtractPriceUsdcUnits / USDC_SCALE} USDC covers the whole batch). ` +
           'Optional natural-language "schema" triggers model-based extraction into custom JSON. ' +
           'Optional options tune the capture per URL: proxy, waitFor {selector, timeoutMs}, actions, viewport, and the other render fields.',
         requestBody: {
@@ -98,6 +100,33 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
           400: ctx.badInput,
           422: ctx.unprocessable('Invalid input: missing/invalid url'),
           502: jsonError('502', 'Audit failed for the URL (error envelope, code audit_failed)'),
+          503: jsonError('503', 'x402 disabled on this deployment (WEBCAP_CHAIN=local)'),
+        },
+        'x-payment-info': {
+          price: { mode: 'fixed', currency: 'USD', amount: usdAmount(config.x402AuditPriceUsdcUnits) },
+          protocols: [{ x402: {} }, { mpp: { method: 'evm' } }],
+        },
+      },
+    },
+    '/v1/x402/map-lite': {
+      post: {
+        tags: ['map-lite'],
+        summary: 'Map a site to its URL list via sitemap/robots + 1-hop crawl (paid, x402)',
+        description:
+          'Return the same-host URL list for a seed page: sitemap.xml (via robots.txt Sitemap lines, ' +
+          'falling back to /sitemap.xml, following sitemap indexes) plus a 1-hop same-host link crawl ' +
+          'when no sitemap yields URLs. Unpaid requests receive the x402 402 challenge; paying clients ' +
+          'retry with PAYMENT-SIGNATURE. One payment per seed (audit tier).',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: mapLiteRequestBody } },
+        },
+        responses: {
+          200: { description: 'Paid + settled; the discovered URL list (empty when none found)', content: jsonContent(mapLiteResponse(config.x402AuditPriceUsdcUnits)) },
+          402: x402Challenge(config, { priceUsdcUnits: config.x402AuditPriceUsdcUnits, resourcePath: '/v1/x402/map-lite' }),
+          400: ctx.badInput,
+          422: ctx.unprocessable('Invalid input: missing/invalid url or maxUrls'),
+          502: jsonError('502', 'Map-lite discovery failed for the URL (error envelope, code map_failed)'),
           503: jsonError('503', 'x402 disabled on this deployment (WEBCAP_CHAIN=local)'),
         },
         'x-payment-info': {

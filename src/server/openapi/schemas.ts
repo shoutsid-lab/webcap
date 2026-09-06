@@ -5,6 +5,7 @@
  */
 import { CAPTURE_COST_CREDITS, WATCH_TOPUP_RUNS } from '../../config.js';
 import { BAZAAR_EXAMPLE_PAYER } from '../x402.js';
+import { MAX_EXTRACT_BATCH } from '../extract-parse.js';
 import type { Json } from './types.js';
 
 const artifactSchema: Json = {
@@ -145,9 +146,9 @@ const extractRequestBody = {
     url: { type: 'string', format: 'uri', description: 'A single absolute http(s) page to extract', example: 'https://example.com/' },
     urls: {
       type: 'array',
-      description: 'Batch of absolute http(s) pages for one payment (at most 10)',
+      description: 'Batch of absolute http(s) pages for one payment (at most 50)',
       items: { type: 'string', format: 'uri' },
-      maxItems: 10,
+      maxItems: MAX_EXTRACT_BATCH,
     },
     schema: { type: 'string', description: 'Optional plain natural-language string describing the JSON to extract via a model (a string, not a JSON object)' },
     options: {
@@ -166,6 +167,39 @@ const auditRequestBody = {
     url: { type: 'string', format: 'uri', example: 'https://example.com/' },
   },
 };
+
+const mapLiteRequestBody = {
+  type: 'object',
+  required: ['url'],
+  properties: {
+    url: { type: 'string', format: 'uri', description: 'The seed page to map', example: 'https://example.com/' },
+    maxUrls: {
+      type: 'integer',
+      minimum: 1,
+      maximum: 50,
+      default: 20,
+      description: 'Maximum URLs to return (default 20, at most 50)',
+    },
+  },
+};
+
+const mapLiteResponse = (priceUsdcUnits: number): Json => ({
+  type: 'object',
+  properties: {
+    urls: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Same-host URLs discovered via sitemap/robots plus a 1-hop crawl (empty when none found)',
+    },
+    payment: {
+      type: 'object',
+      properties: {
+        payer: { type: 'string', example: BAZAAR_EXAMPLE_PAYER },
+        priceUsdcUnits: { type: 'integer', example: priceUsdcUnits },
+      },
+    },
+  },
+});
 
 const auditResponse = (priceUsdcUnits: number): Json => ({
   type: 'object',
@@ -342,6 +376,8 @@ export {
   captureResponse,
   extractRequestBody,
   extractResponse,
+  mapLiteRequestBody,
+  mapLiteResponse,
   watchCreateBody,
   watchStateResponse,
   watchTopUpBody,

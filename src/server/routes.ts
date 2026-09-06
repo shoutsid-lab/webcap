@@ -113,6 +113,13 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       throw new HttpError(502, 'extract_failed', 'all urls failed to extract');
     }
     const payer = x402Payer(req) ?? 'unknown';
+    // MARGIN TRADEOFF (batch 10 -> 50): the extract price stays FLAT at 10000
+    // units ($0.01) while the compute cost scales as 200 x N, so a full
+    // batch-50 nets exactly zero and the per-URL revenue floor
+    // (10000 / 50 = 200 units = $0.0002) EQUALS one unit of compute cost.
+    // That floor is the loss boundary: any per-URL cost above 200 units loses
+    // money on full batches, which is why the batch cap stops at 50. The
+    // T3-S3d e2e test pins this invariant against the revenue ledger.
     revenue.record({
       endpoint: 'extract',
       payer,
@@ -191,7 +198,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       truncated: true,
       upgrade: {
         endpoint: 'POST /v1/x402/extract',
-        note: 'paid: full paragraphs + images + batch (up to 10 URLs) + optional model extraction',
+        note: 'paid: full paragraphs + images + batch (up to 50 URLs) + optional model extraction',
       },
       paidUpgrade: {
         endpoint: 'POST /v1/x402/extract',
@@ -229,7 +236,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           method: 'POST',
           path: '/v1/x402/extract',
           body: {
-            url: 'string (required, or urls: string[] up to 10 for a batch)',
+            url: 'string (required, or urls: string[] up to 50 for a batch)',
             schema: 'string (optional) — natural-language description of the JSON to extract; uses a model when one is configured',
             options: 'object (optional) — capture tuning per URL: proxy, waitFor, actions, viewport, timeoutMs, fullPage',
           },

@@ -17,11 +17,13 @@ import {
   X402_CAPTURE_DESCRIPTION,
   X402_AUDIT_DESCRIPTION,
   X402_EXTRACT_DESCRIPTION,
+  X402_MAP_LITE_DESCRIPTION,
   X402_MIME_TYPE,
   X402_TOPUP_DESCRIPTION,
   buildCaptureBazaarExtension,
   buildAuditBazaarExtension,
   buildExtractBazaarExtension,
+  buildMapLiteBazaarExtension,
   buildTopUpBazaarExtension,
   buildUnpaidBody,
   type UnpaidBazaarMetadata,
@@ -33,6 +35,8 @@ export const X402_EXTRACT_PATTERN = 'POST /v1/x402/extract';
 export const X402_EXTRACT_PATH = '/v1/x402/extract';
 export const X402_AUDIT_PATTERN = 'POST /v1/x402/audit';
 export const X402_AUDIT_PATH = '/v1/x402/audit';
+export const X402_MAP_LITE_PATTERN = 'POST /v1/x402/map-lite';
+export const X402_MAP_LITE_PATH = '/v1/x402/map-lite';
 export const X402_TOPUP_PATTERN = 'POST /v1/x402/watches/topup';
 export const X402_TOPUP_PATH = '/v1/x402/watches/topup';
 
@@ -170,6 +174,7 @@ export function buildX402Routes(config: WebcapConfig): Record<string, RouteConfi
   const captureReq = buildX402Requirement(config, config.x402PriceUsdcUnits);
   const extractReq = buildX402Requirement(config, config.x402ExtractPriceUsdcUnits);
   const auditReq = buildX402Requirement(config, config.x402AuditPriceUsdcUnits);
+  const mapLiteReq = buildX402Requirement(config, config.x402AuditPriceUsdcUnits);
   const iconUrl = `${config.publicBaseUrl}/icon.png`;
   // Register both POST and GET for each route. POST is the real payment method;
   // GET returns an identical 402 challenge so GET-based crawlers (402index, search
@@ -202,6 +207,15 @@ export function buildX402Routes(config: WebcapConfig): Record<string, RouteConfi
     iconUrl,
     bazaar: buildAuditBazaarExtension(),
   });
+  const mapLiteRoute = x402RouteConfig({
+    requirement: mapLiteReq,
+    resourceUrl: `${config.publicBaseUrl}${X402_MAP_LITE_PATH}`,
+    description: X402_MAP_LITE_DESCRIPTION,
+    serviceName: BAZAAR_SERVICE_NAME,
+    tags: BAZAAR_TAGS,
+    iconUrl,
+    bazaar: buildMapLiteBazaarExtension(),
+  });
   const routes: RoutesConfig = {
     [X402_CAPTURE_PATTERN]: captureRoute,
     [`GET ${X402_CAPTURE_PATH}`]: captureRoute,
@@ -209,6 +223,8 @@ export function buildX402Routes(config: WebcapConfig): Record<string, RouteConfi
     [`GET ${X402_EXTRACT_PATH}`]: extractRoute,
     [X402_AUDIT_PATTERN]: auditRoute,
     [`GET ${X402_AUDIT_PATH}`]: auditRoute,
+    [X402_MAP_LITE_PATTERN]: mapLiteRoute,
+    [`GET ${X402_MAP_LITE_PATH}`]: mapLiteRoute,
   };
   // Startup guard: flag malformed bazaar metadata at boot (the fastify middleware
   // independently auto-registers the bazaar resource server extension for these routes).

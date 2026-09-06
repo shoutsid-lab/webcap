@@ -22,6 +22,7 @@ export const X402_EXTRACT_DESCRIPTION = 'Capture a URL and return its structured
 export const X402_TOPUP_DESCRIPTION =
   'Top up a webcap watch with a 100-run pack, priced at the watch mode unit price x 100 (capture or extract)';
 export const X402_AUDIT_DESCRIPTION = 'Audit a URL for SEO basics + link/OG health in one call';
+export const X402_MAP_LITE_DESCRIPTION = 'Map a site to its URL list via sitemap/robots plus a 1-hop same-host crawl in one call';
 export const X402_MIME_TYPE = 'application/json';
 
 export const BAZAAR_SERVICE_NAME = 'Webcap';
@@ -105,7 +106,7 @@ const EXTRACT_INPUT_SCHEMA: Record<string, unknown> = {
     url: { type: 'string', description: 'A single page to extract' },
     urls: {
       type: 'array',
-      description: 'Batch of pages for one payment (at most 10)',
+      description: 'Batch of pages for one payment (at most 50)',
       items: { type: 'string' },
       maxItems: MAX_EXTRACT_BATCH,
     },
@@ -202,6 +203,40 @@ export function buildAuditBazaarExtension(): BodyDiscoveryExtension {
         input: { url: 'https://example.com' },
         inputSchema: AUDIT_INPUT_SCHEMA,
         output: { example: AUDIT_OUTPUT_EXAMPLE },
+      }),
+    ),
+  );
+}
+
+/** Bazaar input schema for POST /v1/x402/map-lite — mirrors parseMapLiteRequest (url + maxUrls, default 20, cap 50). */
+export const MAP_LITE_INPUT_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    url: { type: 'string', description: 'The seed page to map' },
+    maxUrls: {
+      type: 'integer',
+      minimum: 1,
+      maximum: 50,
+      default: 20,
+      description: 'Maximum URLs to return (default 20, at most 50)',
+    },
+  },
+  required: ['url'],
+};
+
+export const MAP_LITE_OUTPUT_EXAMPLE: Record<string, unknown> = {
+  urls: ['https://example.com/', 'https://example.com/about'],
+  payment: { payer: BAZAAR_EXAMPLE_PAYER, priceUsdcUnits: 2000 },
+};
+
+export function buildMapLiteBazaarExtension(): BodyDiscoveryExtension {
+  return withRoutedMethod(
+    bazaarFromDeclared(
+      declareDiscoveryExtension({
+        bodyType: 'json',
+        input: { url: 'https://example.com' },
+        inputSchema: MAP_LITE_INPUT_SCHEMA,
+        output: { example: MAP_LITE_OUTPUT_EXAMPLE },
       }),
     ),
   );
