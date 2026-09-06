@@ -1,4 +1,5 @@
 import type { Db } from './index.js';
+import { nowIso } from '../util/time.js';
 
 export interface AccountRow {
   readonly id: number;
@@ -20,10 +21,8 @@ export interface AccountsRepo {
    * no-double-charge guarantee: at most one caller ever sees changes() === 1.
    * Returns true when a credit was spent, false when the balance is 0.
    */
-  spendOne(accountId: number): boolean;
+   spendOne(accountId: number): boolean;
 }
-
-const now = (): string => new Date().toISOString();
 
 export function makeAccountsRepo(db: Db): AccountsRepo {
   const insertAccount = db.prepare<[string, string], unknown>(
@@ -49,14 +48,14 @@ export function makeAccountsRepo(db: Db): AccountsRepo {
   const spendTxn = db.transaction((accountId: number): boolean => {
     const info = spendCredit.run(accountId);
     if (info.changes === 1) {
-      insertCharge.run(accountId, 'capture_charged', now());
+      insertCharge.run(accountId, 'capture_charged', nowIso());
     }
     return info.changes === 1;
   });
 
   return {
     create(address: string = ''): number {
-      const info = insertAccount.run(address, now());
+      const info = insertAccount.run(address, nowIso());
       return Number(info.lastInsertRowid);
     },
     get(id: number): AccountRow | undefined {

@@ -1,4 +1,5 @@
 import type { Db } from './index.js';
+import { nowIso } from '../util/time.js';
 
 export interface InvoiceRow {
   readonly id: number;
@@ -38,8 +39,6 @@ export interface InvoicesRepo {
   /** First open invoice with the exact USDC amount (6-decimal units). */
   findOpenInvoiceByUsdcAmount(value: number): InvoiceRow | undefined;
 }
-
-const now = (): string => new Date().toISOString();
 
 export function makeInvoicesRepo(db: Db): InvoicesRepo {
   const insert = db.prepare<
@@ -82,7 +81,7 @@ export function makeInvoicesRepo(db: Db): InvoicesRepo {
         inv.amount_usd,
         inv.usdc_amount,
         inv.recipient,
-        now(),
+        nowIso(),
         inv.expires_at,
       );
       return Number(info.lastInsertRowid);

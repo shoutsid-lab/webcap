@@ -15,7 +15,7 @@ import { RateLimiter, rejectRateLimited } from '../util/ratelimit.js';
 import { validateCaptureUrl } from '../util/url.js';
 import { makeRevenueRepo } from '../db/revenue.js';
 import { makeWatchRepo, type WatchRepo, type WatchRow, type WatchRunRow, type WatchMode } from '../watch/store.js';
-import { WATCH_EVERIES, type WatchEvery } from '../watch/scheduler.js';
+import { WATCH_EVERIES, type WatchEvery } from '../watch/intervals.js';
 import { isRecord } from './capture-parse.js';
 import { x402Payer } from './x402.js';
 import type { AppDeps } from './server.js';

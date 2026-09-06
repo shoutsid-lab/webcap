@@ -1,5 +1,6 @@
 import type { Db } from './index.js';
 import { makeAccountsRepo, type AccountRow } from './accounts.js';
+import { nowIso } from '../util/time.js';
 
 export interface ApiKeyRow {
   readonly id: number;
@@ -22,8 +23,6 @@ export interface ApiKeysRepo {
   markUsed(id: number): void;
 }
 
-const now = (): string => new Date().toISOString();
-
 export function makeApiKeysRepo(db: Db): ApiKeysRepo {
   const accounts = makeAccountsRepo(db);
   const insert = db.prepare<[number, string, string, string], unknown>(
@@ -39,7 +38,7 @@ export function makeApiKeysRepo(db: Db): ApiKeysRepo {
 
   return {
     create(accountId: number, keyHash: string, name: string = 'default'): number {
-      const info = insert.run(accountId, keyHash, name, now());
+      const info = insert.run(accountId, keyHash, name, nowIso());
       return Number(info.lastInsertRowid);
     },
     findLiveByHash(keyHash: string): AuthResult | undefined {
@@ -50,7 +49,7 @@ export function makeApiKeysRepo(db: Db): ApiKeysRepo {
       return { account, key };
     },
     markUsed(id: number): void {
-      markUsedStmt.run(now(), id);
+      markUsedStmt.run(nowIso(), id);
     },
   };
 }

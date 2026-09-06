@@ -7,6 +7,7 @@ import { toResponse, type ErrorBody, HttpError } from '../util/errors.js';
 import type { CaptureRequest, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
 import type { OgResult } from '../capture/og.js';
 import { registerRoutes } from './routes.js';
+import { registerDiscoveryRoutes } from './discovery.js';
 import { registerWatchRoutes } from './watches.js';
 import { registerX402Middleware } from './x402.js';
 import { makeWebcapLogController } from './logging.js';
@@ -54,6 +55,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   // GET /v1/x402/* discovery paths, which register no GET route of their own.
   registerNotFoundEnvelope(app);
   registerRoutes(app, deps);
+  registerDiscoveryRoutes(app, deps);
   registerWatchRoutes(app, deps);
   return app;
 }

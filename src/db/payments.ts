@@ -1,4 +1,5 @@
 import type { Db } from './index.js';
+import { nowIso } from '../util/time.js';
 
 export interface PaymentInput {
   readonly invoiceId: number | null;
@@ -16,8 +17,6 @@ export interface PaymentsRepo {
   getPollState(chain: string): number;
   setPollState(chain: string, block: number): void;
 }
-
-const now = (): string => new Date().toISOString();
 
 export function makePaymentsRepo(db: Db): PaymentsRepo {
   const insert = db.prepare<
@@ -47,7 +46,7 @@ export function makePaymentsRepo(db: Db): PaymentsRepo {
         input.toAddr,
         input.value,
         input.block,
-        now(),
+        nowIso(),
       );
       return info.changes === 1;
     },

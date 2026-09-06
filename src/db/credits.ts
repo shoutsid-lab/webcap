@@ -1,5 +1,6 @@
 import type { Db } from './index.js';
 import { makeAccountsRepo } from './accounts.js';
+import { nowIso } from '../util/time.js';
 
 export interface LedgerRow {
   readonly id: number;
@@ -18,8 +19,6 @@ export interface CreditsRepo {
   getLedger(accountId: number): LedgerRow[];
 }
 
-const now = (): string => new Date().toISOString();
-
 export function makeCreditsRepo(db: Db): CreditsRepo {
   const accounts = makeAccountsRepo(db);
   const insertLedger = db.prepare<[number, number, string, string | null, string], unknown>(
@@ -34,7 +33,7 @@ export function makeCreditsRepo(db: Db): CreditsRepo {
 
   const grantTxn = db.transaction(
     (accountId: number, delta: number, reason: string, refId: string | null): void => {
-      insertLedger.run(accountId, delta, reason, refId, now());
+      insertLedger.run(accountId, delta, reason, refId, nowIso());
       updateBalance.run(delta, accountId);
     },
   );

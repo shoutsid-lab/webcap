@@ -1,4 +1,5 @@
 import type { Db } from './index.js';
+import { nowIso } from '../util/time.js';
 
 export interface RevenueRow {
   readonly id: number;
@@ -34,8 +35,6 @@ export interface RevenueRepo {
   recent(limit: number): RevenueRow[];
 }
 
-const now = (): string => new Date().toISOString();
-
 export function makeRevenueRepo(db: Db): RevenueRepo {
   const insertRow = db.prepare<[string, string, number, number, number, string], unknown>(
     'INSERT INTO revenue_ledger (endpoint, payer, revenue_usdc, cost_usdc, net_margin_usdc, created_at) VALUES (?, ?, ?, ?, ?, ?)',
@@ -55,7 +54,7 @@ export function makeRevenueRepo(db: Db): RevenueRepo {
         entry.revenueUsdcUnits,
         entry.costUsdcUnits,
         entry.revenueUsdcUnits - entry.costUsdcUnits,
-        now(),
+        nowIso(),
       );
     },
     summary(): RevenueSummary {

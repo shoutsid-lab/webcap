@@ -12,14 +12,11 @@
  * - Change detection: capture runs hash the artifact bytes (sha256); extract
  *   runs diff the extract JSON field-by-field. The first run stores the
  *   baseline (changed=false); later runs compare against it and replace it.
- * - A changed run with a webhook set fires a change alert (3 attempts, 5s
- *   timeout each); the delivery outcome is logged into the run record and a
- *   webhook failure never fails the run.
- * - The stored webhook_url is re-validated at fire time (checkWebhookUrl):
- *   the capture-target host policy (validateCaptureUrl) plus the https-only
- *   rule, so no request ever leaves the process to a private host even if a
- *   row predates the write-time guard. A blocked URL is recorded on the run
- *   as 'skipped: <reason>', logged, and counted in stats().webhooksSkipped.
+ * - A changed run with a webhook set fires a change alert (fire-time SSRF
+ *   guard + retrying delivery live in ./webhook.ts); the outcome is logged
+ *   into the run record and a webhook failure never fails the run. A blocked
+ *   URL is recorded on the run as 'skipped: <reason>', logged, and counted in
+ *   stats().webhooksSkipped.
  *
  * The clock and timers are injectable so unit tests drive ticks deterministically
  * (createWatchScheduler + manual tick()); production wires the real ones via
@@ -28,46 +25,20 @@
 import type { ArtifactRepo } from '../db/artifacts.js';
 import type { RevenueRepo } from '../db/revenue.js';
 import { DEFAULT_WEBHOOK_RETRIES, DEFAULT_WEBHOOK_TIMEOUT_MS, type WebcapConfig } from '../config.js';
-import type { CaptureFormat, CaptureRequest, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
-import { modelExtract } from '../extract/model.js';
+import type { CaptureRequest, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
+import { extractPage, storeArtifact } from '../extract/service.js';
 import { consoleServiceLogger, type ServiceLogger } from '../util/logger.js';
-import { validateCaptureUrl } from '../util/url.js';
 import { diffJson, sha256Hex, stableStringify } from './diff.js';
+import { everyMsOf } from './intervals.js';
+import { defaultClock, defaultTimers, type WatchClock, type WatchTimers } from './clock.js';
+import { checkWebhookUrl, fireWebhook } from './webhook.js';
 import type { WatchRepo, WatchRow } from './store.js';
 
-export type WatchEvery = '15m' | '1h' | '6h' | '24h';
-export const WATCH_EVERIES: readonly WatchEvery[] = ['15m', '1h', '6h', '24h'];
-const EVERY_MS: Record<WatchEvery, number> = {
-  '15m': 15 * 60_000,
-  '1h': 3_600_000,
-  '6h': 21_600_000,
-  '24h': 86_400_000,
-};
+// Re-exported unchanged: the watch-scheduler unit tests import these from this module.
+export type { WatchClock, WatchTimers } from './clock.js';
 
 /** Default tick interval in production (spec: 15–30s). */
 export const DEFAULT_TICK_INTERVAL_MS = 20_000;
-
-const MIME_BY_FORMAT: Record<CaptureFormat, string> = {
-  png: 'image/png',
-  jpeg: 'image/jpeg',
-  pdf: 'application/pdf',
-};
-
-export interface WatchClock {
-  /** Current time in epoch milliseconds. */
-  nowMs(): number;
-}
-
-export interface WatchTimers {
-  setInterval(callback: () => void, ms: number): NodeJS.Timeout;
-  clearInterval(handle: NodeJS.Timeout): void;
-}
-
-export const defaultClock: WatchClock = { nowMs: () => Date.now() };
-export const defaultTimers: WatchTimers = {
-  setInterval: (callback, ms) => setInterval(callback, ms),
-  clearInterval: (handle) => clearInterval(handle),
-};
 
 /** The capture/extract pipeline surface (the same functions the x402 routes call). */
 export interface WatchPipeline {
@@ -199,13 +170,23 @@ async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: 
   try {
     if (watch.mode === 'capture') {
       const result = await input.pipeline.capture({ url: watch.url });
-      artifactUrl = storeArtifact(input, watch.url, result);
+      artifactUrl = storeArtifact(input.artifacts, input.config, watch.url, result);
       const hash = sha256Hex(result.buffer);
       changed = watch.baseline_hash !== null && watch.baseline_hash !== hash;
       diffSummary = changed ? 'artifact' : null;
       input.repo.setBaseline(watch.id, hash, null);
     } else {
-      const data = await extractWatchData(input, watch);
+      const data = await extractPage({
+        url: watch.url,
+        captureStructured: input.pipeline.captureStructured,
+        schema: watch.schema_json,
+        model: {
+          baseUrl: input.config.modelApiBaseUrl,
+          apiKey: input.config.modelApiKey,
+          model: input.config.modelName,
+        },
+        logger: input.logger,
+      });
       extractJson = stableStringify(data);
       if (watch.baseline_json !== null) {
         const diff = diffJson(JSON.parse(watch.baseline_json), data);
@@ -276,107 +257,4 @@ async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: 
     createdAt: at,
   });
   return webhooksSkipped;
-}
-
-/** Mirror of the /v1/x402/extract handler for a single URL (minus payment). */
-async function extractWatchData(
-  input: WatchSchedulerInput,
-  watch: WatchRow,
-): Promise<Record<string, unknown>> {
-  const schema = watch.schema_json;
-  const config = input.config;
-  const wantsModel =
-    schema !== null && config.modelApiKey !== '' && config.modelApiBaseUrl !== '' && config.modelName !== '';
-  const captured = await input.pipeline.captureStructured({ url: watch.url, options: { includeHtml: wantsModel } });
-  let extracted: Record<string, unknown> | undefined;
-  if (schema !== null) {
-    extracted = await modelExtract(captured.html, schema, {
-      baseUrl: config.modelApiBaseUrl,
-      apiKey: config.modelApiKey,
-      model: config.modelName,
-    }, undefined, input.logger);
-  }
-  return extracted === undefined ? { ...captured.structure } : { ...captured.structure, extracted };
-}
-
-/** Mirror of the artifact store closure in src/server/routes.ts. */
-function storeArtifact(input: WatchSchedulerInput, sourceUrl: string, result: CaptureResult): string {
-  const id = crypto.randomUUID();
-  input.artifacts.store({
-    id,
-    sourceUrl,
-    format: result.format,
-    mime: MIME_BY_FORMAT[result.format],
-    bytes: result.buffer,
-  });
-  return `${input.config.publicBaseUrl}/v1/artifacts/${id}`;
-}
-
-/** Fire-time verdict for a stored webhook URL (see checkWebhookUrl). */
-type WebhookUrlCheck =
-  | { readonly ok: true; readonly url: string }
-  | { readonly ok: false; readonly reason: string };
-
-/**
- * Fire-time SSRF guard for a stored webhook URL. Write-time validation
- * (src/server/watches.ts) enforces the same rule, but the stored row is
- * re-checked before any request leaves the process: a row may predate the
- * write-time guard or have been written out-of-band. Composed rule: the
- * capture-target host policy (validateCaptureUrl — no private/loopback/
- * link-local hosts, http/https schemes only) AND the https:// requirement.
- * Purely parse-level (validateCaptureUrl does no DNS), so fire-time cost is
- * negligible for a rarely fired webhook.
- */
-function checkWebhookUrl(raw: string): WebhookUrlCheck {
-  let normalized: string;
-  try {
-    normalized = validateCaptureUrl(raw);
-  } catch (err) {
-    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
-  }
-  if (!normalized.startsWith('https://')) {
-    return { ok: false, reason: 'webhook must be https' };
-  }
-  return { ok: true, url: normalized };
-}
-
-/**
- * Deliver a change alert: POST the payload with up to `attempts` attempts
- * (one `timeoutMs` budget each). Never throws — the outcome ("ok: HTTP 200" or
- * "failed: …") is returned and stored on the run record. Callers must pass a
- * URL that passed checkWebhookUrl (fire-time SSRF guard).
- */
-async function fireWebhook(
-  url: string,
-  payload: Record<string, unknown>,
-  attempts: number,
-  timeoutMs: number,
-): Promise<string> {
-  const body = JSON.stringify(payload);
-  let lastFailure: string | undefined;
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    let failure: string | undefined;
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body,
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-      if (res.status >= 200 && res.status < 300) return `ok: HTTP ${res.status}`;
-      failure = `HTTP ${res.status}`;
-    } catch (err) {
-      failure = err instanceof Error ? err.message : String(err);
-    }
-    lastFailure = failure;
-  }
-  return `failed: ${lastFailure ?? 'unknown error'}`;
-}
-
-function everyMsOf(every: string): number {
-  if (every === '15m') return EVERY_MS['15m'];
-  if (every === '1h') return EVERY_MS['1h'];
-  if (every === '6h') return EVERY_MS['6h'];
-  if (every === '24h') return EVERY_MS['24h'];
-  throw new Error(`unknown watch interval: ${every}`);
 }
