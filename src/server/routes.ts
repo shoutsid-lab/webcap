@@ -25,6 +25,7 @@ import { pinoServiceLogger } from '../util/logger.js';
 import { parseExtractSchema, parseExtractUrls, type ExtractedContent, type ExtractResult } from './extract-parse.js';
 import { isRecord, parseFormat, parseOptions, validatedUrl } from './capture-parse.js';
 import { x402Payer } from './x402.js';
+import { computeAudit } from '../audit/checks.js';
 import type { AppDeps } from './server.js';
 
 // Fixed 60s window for the preview per-peer budget; the preview limit itself
@@ -116,6 +117,35 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     };
   });
 
+  app.post('/v1/x402/audit', async (req) => {
+    if (config.x402Network === undefined) {
+      throw new HttpError(503, 'x402_disabled', 'x402 payment requires WEBCAP_CHAIN=base-sepolia or base');
+    }
+    const body = req.body;
+    const rawUrl = isRecord(body) ? body.url : undefined;
+    if (typeof rawUrl !== 'string') throw unprocessable('url is required');
+    const url = validatedUrl(rawUrl, allowHosts);
+    let captured;
+    try {
+      captured = await deps.captureStructured({ url, options: { includeHtml: true } });
+    } catch (err) {
+      if (err instanceof CaptureError) throw new HttpError(502, 'audit_failed', err.message);
+      throw err;
+    }
+    const checks = computeAudit({ structure: captured.structure, html: captured.html, pageUrl: url });
+    const payer = x402Payer(req) ?? 'unknown';
+    revenue.record({
+      endpoint: 'audit',
+      payer,
+      revenueUsdcUnits: config.x402AuditPriceUsdcUnits,
+      costUsdcUnits: config.computeCostUsdcUnitsPerRequest,
+    });
+    return {
+      audit: { url, ...checks },
+      payment: { payer, priceUsdcUnits: config.x402AuditPriceUsdcUnits },
+    };
+  });
+
   app.get('/v1/extract/preview', async (req, reply) => {
     const rawUrl = isRecord(req.query) ? req.query.url : undefined;
     if (typeof rawUrl !== 'string') throw unprocessable('url query parameter is required');
@@ -193,6 +223,14 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           priceUsdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE,
           atomicUnits: String(config.x402ExtractPriceUsdcUnits),
           note: 'structured content (title, headings, paragraphs, links, images) as JSON; one payment covers a batch',
+        },
+        {
+          method: 'POST',
+          path: '/v1/x402/audit',
+          body: { url: 'string (required)' },
+          priceUsdc: config.x402AuditPriceUsdcUnits / USDC_SCALE,
+          atomicUnits: String(config.x402AuditPriceUsdcUnits),
+          note: 'SEO basics + link/OG health in one call',
         },
         {
           method: 'POST',
