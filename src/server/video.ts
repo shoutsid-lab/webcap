@@ -3,7 +3,7 @@ import { makeRevenueRepo } from '../db/revenue.js';
 import type { Db } from '../db/index.js';
 import type { WebcapConfig } from '../config.js';
 import { HttpError } from '../util/errors.js';
-import { CaptureError } from '../capture/errors.js';
+import { CaptureError, VideoBusyError } from '../capture/errors.js';
 import { captureVideo } from '../capture/video.js';
 import { parseVideoRequest } from './video-parse.js';
 import { x402Payer } from './x402.js';
@@ -40,6 +40,7 @@ export function registerVideoRoute(app: FastifyInstance, deps: VideoRouteDeps): 
         ...(parsed.viewport !== undefined ? { viewport: parsed.viewport } : {}),
       });
     } catch (err) {
+      if (err instanceof VideoBusyError) throw new HttpError(429, err.code, err.message);
       if (err instanceof CaptureError) throw new HttpError(502, 'video_failed', err.message);
       throw err;
     }

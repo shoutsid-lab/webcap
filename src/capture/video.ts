@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { BrowserContext, Page } from 'playwright-core';
 import { newContext as baseNewContext, type ContextViewportOptions } from './browser.js';
-import { CaptureError } from './errors.js';
+import { CaptureError, VideoBusyError } from './errors.js';
 import type { CaptureTimeouts } from './pipeline.js';
 import { DEFAULT_CAPTURE_TIMEOUT_CAP_MS, DEFAULT_CAPTURE_TIMEOUT_MS } from '../config.js';
 
@@ -48,6 +48,32 @@ export const VIDEO_SCROLL_STEP_MS = 250;
  * caps the loop when waits resolve instantly (fakes, wedged timers).
  */
 export const VIDEO_MAX_SCROLL_STEPS = 240;
+
+/** Default cap on concurrent captureVideo recordings (VIDEO_MAX_CONCURRENT). */
+export const VIDEO_MAX_CONCURRENT_DEFAULT = 2;
+
+/**
+ * Concurrent-recording cap: VIDEO_MAX_CONCURRENT when set to a positive int,
+ * otherwise VIDEO_MAX_CONCURRENT_DEFAULT (fail-open on empty/junk).
+ */
+export function resolveVideoMaxConcurrent(raw: string | undefined = process.env.VIDEO_MAX_CONCURRENT): number {
+  if (raw === undefined || raw.trim() === '') return VIDEO_MAX_CONCURRENT_DEFAULT;
+  const value = Number.parseInt(raw, 10);
+  if (!Number.isInteger(value) || value <= 0) return VIDEO_MAX_CONCURRENT_DEFAULT;
+  return value;
+}
+
+let videoActiveCount = 0;
+
+function tryAcquireVideoSlot(): boolean {
+  if (videoActiveCount >= resolveVideoMaxConcurrent()) return false;
+  videoActiveCount += 1;
+  return true;
+}
+
+function releaseVideoSlot(): void {
+  videoActiveCount = Math.max(0, videoActiveCount - 1);
+}
 
 const MIME_BY_VIDEO_FORMAT: Record<VideoFormat, VideoMime> = {
   mp4: 'video/mp4',
@@ -274,15 +300,31 @@ export async function captureVideo(
   deps?: VideoCaptureDeps,
   timeouts?: VideoTimeouts,
 ): Promise<VideoCaptureResult> {
-  const factory = deps?.newContext ?? defaultNewVideoContext;
-  const stagingDir = await mkdtemp(join(tmpdir(), 'webcap-video-'));
+  // Fail-fast global semaphore: at most resolveVideoMaxConcurrent()
+  // recordings at once; the overflow rejects with 429 video_busy instead of
+  // queueing (no head-of-line blocking, FIFO trivially holds with no
+  // waiters). The permit releases in `finally`, so success and failure paths
+  // alike cannot leak a slot. Acquired before mkdtemp so a rejection leaves
+  // no staging dir behind.
+  const maxConcurrent = resolveVideoMaxConcurrent();
+  if (!tryAcquireVideoSlot()) {
+    throw new VideoBusyError(
+      `video capture busy (${maxConcurrent} concurrent captures in use) for ${req.url}`,
+    );
+  }
   try {
-    return await recordToBuffer(req, factory, stagingDir, timeouts);
-  } catch (err) {
-    if (err instanceof CaptureError) throw err;
-    throw new CaptureError(`video capture failed for ${req.url}: ${errorMessage(err)}`, { cause: err });
+    const factory = deps?.newContext ?? defaultNewVideoContext;
+    const stagingDir = await mkdtemp(join(tmpdir(), 'webcap-video-'));
+    try {
+      return await recordToBuffer(req, factory, stagingDir, timeouts);
+    } catch (err) {
+      if (err instanceof CaptureError) throw err;
+      throw new CaptureError(`video capture failed for ${req.url}: ${errorMessage(err)}`, { cause: err });
+    } finally {
+      await rm(stagingDir, { recursive: true, force: true });
+    }
   } finally {
-    await rm(stagingDir, { recursive: true, force: true });
+    releaseVideoSlot();
   }
 }
 
