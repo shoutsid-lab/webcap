@@ -108,3 +108,18 @@ CREATE TABLE IF NOT EXISTS watch_runs (
   error TEXT,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS capture_jobs (
+  id TEXT PRIMARY KEY,
+  url TEXT NOT NULL,
+  format TEXT,
+  status TEXT NOT NULL,
+  artifact_url TEXT,
+  error TEXT,
+  payer TEXT,
+  price_usdc_units INTEGER,
+  credits_used INTEGER,
+  cost_usdc_units INTEGER,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);

@@ -27,6 +27,10 @@ export interface AppDeps {
   readonly captureAllowHosts?: readonly string[];
   /** x402 verify/settle client; required when config.x402Network is set. */
   readonly x402Facilitator?: FacilitatorClient;
+  /** Background runner for async capture jobs; T2-C routes invoke it after enqueue. */
+  readonly captureJobRunner?: (jobId: string) => Promise<void>;
+  /** Optional shared secret for async capture job callbacks. */
+  readonly jobSecret?: string;
   /** Pino options for the request logger (default: logging disabled). */
   readonly loggerOptions?: FastifyServerOptions['logger'];
 }
