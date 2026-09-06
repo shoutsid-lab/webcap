@@ -49,6 +49,7 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
           },
           422: ctx.unprocessable('Missing or invalid address'),
         },
+        security: [],
       },
     },
     '/v1/invoice': {
@@ -162,6 +163,7 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
           422: ctx.unprocessable('Missing or invalid url query parameter'),
           502: ctx.captureFailed,
         },
+        security: [],
       },
     },
     '/v1/account': {

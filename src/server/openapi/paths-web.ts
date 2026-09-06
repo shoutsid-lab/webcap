@@ -54,6 +54,7 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
           },
           503: jsonError('503', 'x402 disabled on this deployment (WEBCAP_CHAIN=local)'),
         },
+        security: [],
       },
     },
     '/v1/health': {
@@ -74,6 +75,7 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
             }),
           },
         },
+        security: [],
       },
     },
     '/robots.txt': {
@@ -86,6 +88,7 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
             content: { 'text/plain': { schema: { type: 'string' } } },
           },
         },
+        security: [],
       },
     },
     '/sitemap.xml': {
@@ -98,6 +101,7 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
             content: { 'application/xml': { schema: { type: 'string' } } },
           },
         },
+        security: [],
       },
     },
     '/.well-known/x402': {
@@ -152,6 +156,7 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
             }),
           },
         },
+        security: [],
       },
     },
     '/.well-known/agent-card.json': {
@@ -197,6 +202,7 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
             }),
           },
         },
+        security: [],
       },
     },
     '/llms.txt': {
@@ -213,6 +219,7 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
             content: { 'text/markdown': { schema: { type: 'string' } } },
           },
         },
+        security: [],
       },
     },
     '/skill.md': {
@@ -228,6 +235,7 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
             content: { 'text/markdown': { schema: { type: 'string' } } },
           },
         },
+        security: [],
       },
     },
   };

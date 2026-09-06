@@ -19,6 +19,9 @@ import {
 import { jsonContent, jsonError, x402Challenge, type PathContext } from './shared.js';
 import type { OpenapiPaths } from './types.js';
 
+/** 6-decimal USDC amount as the fixed-point string mppscan's x-payment-info expects (1000 -> '0.001000'). */
+const usdAmount = (units: number): string => (units / USDC_SCALE).toFixed(6);
+
 /** The x402 paid-route path docs (the first five paths of the table). */
 export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths {
   return {
@@ -41,6 +44,10 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
           502: ctx.captureFailed,
           503: jsonError('503', 'x402 disabled on this deployment (WEBCAP_CHAIN=local)'),
         },
+        'x-payment-info': {
+          price: { mode: 'fixed', currency: 'USD', amount: usdAmount(config.x402PriceUsdcUnits) },
+          protocols: [{ x402: {} }],
+        },
       },
     },
     '/v1/x402/extract': {
@@ -62,6 +69,10 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
           422: ctx.unprocessable('Invalid input: missing/invalid url(s) or schema'),
           502: jsonError('502', 'All URLs in the batch failed to extract (error envelope, code extract_failed)'),
           503: jsonError('503', 'x402 disabled on this deployment (WEBCAP_CHAIN=local)'),
+        },
+        'x-payment-info': {
+          price: { mode: 'fixed', currency: 'USD', amount: usdAmount(config.x402ExtractPriceUsdcUnits) },
+          protocols: [{ x402: {} }],
         },
       },
     },
@@ -88,6 +99,7 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
           }) },
           400: jsonError('400', 'Invalid watch spec: url, every, mode, schema or webhook (error envelope, code bad_request)'),
         },
+        security: [],
       },
     },
     '/v1/watches/{id}': {
@@ -101,6 +113,7 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
           200: { description: 'The watch state incl. credits, paused, next/last run and recent runs', content: jsonContent(watchStateResponse) },
           404: jsonError('404', 'Unknown watch id (error envelope, code not_found)'),
         },
+        security: [],
       },
       delete: {
         tags: ['monitoring'],
@@ -112,6 +125,7 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
           204: { description: 'Deleted; empty body' },
           404: jsonError('404', 'Unknown watch id (error envelope, code not_found)'),
         },
+        security: [],
       },
     },
     '/v1/x402/watches/topup': {
@@ -153,6 +167,15 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
           400: jsonError('400', 'Malformed JSON body, or missing/invalid watchId or runs (error envelope, code bad_request)'),
           404: jsonError('404', 'Unknown watchId (error envelope, code not_found)'),
           503: jsonError('503', 'x402 disabled on this deployment (WEBCAP_CHAIN=local)'),
+        },
+        'x-payment-info': {
+          price: {
+            mode: 'dynamic',
+            currency: 'USD',
+            min: usdAmount(watchTopUpPriceUsdcUnits('capture', config)),
+            max: usdAmount(watchTopUpPriceUsdcUnits('extract', config)),
+          },
+          protocols: [{ x402: {} }],
         },
       },
     },

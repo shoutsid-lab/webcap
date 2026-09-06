@@ -55,6 +55,8 @@ export interface FixtureOverrides {
   readonly og?: (req: { url: string }) => Promise<OgResult>;
   /** Pino options for the fixture app (default: logging disabled). */
   readonly loggerOptions?: FastifyServerOptions['logger'];
+  /** Optional owner contact email (surfaced as info.contact.email in the OpenAPI doc). */
+  readonly contactEmail?: string;
 }
 
 export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
@@ -82,6 +84,7 @@ export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
     x402FacilitatorUrl: 'https://x402.org/facilitator',
     publicBaseUrl: 'http://localhost:8080',
     cdpApiKey: undefined,
+    ...(overrides.contactEmail !== undefined ? { contactEmail: overrides.contactEmail } : {}),
   };
   const accounts = makeAccountsRepo(db);
   const keys = makeApiKeysRepo(db);

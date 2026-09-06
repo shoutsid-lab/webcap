@@ -1,15 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { watchTopUpPriceUsdcUnits } from '../../src/config.js';
+import { USDC_SCALE, watchTopUpPriceUsdcUnits } from '../../src/config.js';
 import { closeApiFixture, makeApiFixture } from './fixture.js';
 
 interface OpenapiOperationView {
   readonly responses: Record<string, unknown>;
+  readonly security?: readonly unknown[];
+  readonly 'x-payment-info'?: {
+    readonly price: { readonly mode: string; readonly currency: string; readonly amount?: string; readonly min?: string; readonly max?: string };
+    readonly protocols: Array<{ readonly x402?: Record<string, unknown> }>;
+  };
 }
 
 interface OpenapiDocView {
   readonly openapi: string;
-  readonly info: { title: string; version: string };
+  readonly info: {
+    readonly title: string;
+    readonly version: string;
+    readonly 'x-guidance'?: string;
+    readonly contact?: { readonly email: string };
+  };
   readonly servers: Array<{ url: string }>;
   readonly paths: Record<string, Record<string, OpenapiOperationView | undefined>>;
 }
@@ -233,6 +243,160 @@ describe('GET /openapi.json (machine-readable catalog)', () => {
         expect(String(failure?.description ?? '')).toMatch(/capture_failed|extract_failed/);
       }
       expect(doc.paths['/v1/extract/preview']?.get?.responses['429'], 'GET /v1/extract/preview must document 429').toBeDefined();
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+});
+
+describe('mppscan/x402gle discovery metadata', () => {
+  // The free/public ops: genuinely open (no payment, no auth) -> security: [].
+  const FREE_OPS: ReadonlyArray<readonly [method: string, path: string]> = [
+    ['post', '/v1/watches'],
+    ['get', '/v1/watches/{id}'],
+    ['delete', '/v1/watches/{id}'],
+    ['get', '/v1/extract/preview'],
+    ['get', '/v1/artifacts/{id}'],
+    ['get', '/v1/artifacts/{id}/page'],
+    ['get', '/'],
+    ['get', '/icon.png'],
+    ['get', '/openapi.json'],
+    ['get', '/v1/x402/service'],
+    ['get', '/v1/health'],
+    ['get', '/robots.txt'],
+    ['get', '/sitemap.xml'],
+    ['get', '/.well-known/x402'],
+    ['get', '/.well-known/agent-card.json'],
+    ['get', '/llms.txt'],
+    ['get', '/skill.md'],
+    ['post', '/v1/register'],
+    ['get', '/v1/og'],
+  ];
+
+  // The non-free ops: 3 paid x402 + 4 Bearer-auth account ops -> no security key at all.
+  const NON_FREE_OPS: ReadonlyArray<readonly [method: string, path: string]> = [
+    ['post', '/v1/x402/capture'],
+    ['post', '/v1/x402/extract'],
+    ['post', '/v1/x402/watches/topup'],
+    ['post', '/v1/invoice'],
+    ['post', '/v1/capture'],
+    ['get', '/v1/ledger'],
+    ['get', '/v1/account'],
+  ];
+
+  it('documents x-payment-info on POST /v1/x402/capture with the fixed config price', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      expect(doc.paths['/v1/x402/capture']?.post?.['x-payment-info']).toEqual({
+        price: { mode: 'fixed', currency: 'USD', amount: (fx.config.x402PriceUsdcUnits / USDC_SCALE).toFixed(6) },
+        protocols: [{ x402: {} }],
+      });
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('documents x-payment-info on POST /v1/x402/extract with the fixed extract price', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      expect(doc.paths['/v1/x402/extract']?.post?.['x-payment-info']).toEqual({
+        price: { mode: 'fixed', currency: 'USD', amount: (fx.config.x402ExtractPriceUsdcUnits / USDC_SCALE).toFixed(6) },
+        protocols: [{ x402: {} }],
+      });
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('documents x-payment-info on POST /v1/x402/watches/topup with the dynamic min/max pack prices', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      expect(doc.paths['/v1/x402/watches/topup']?.post?.['x-payment-info']).toEqual({
+        price: {
+          mode: 'dynamic',
+          currency: 'USD',
+          min: (watchTopUpPriceUsdcUnits('capture', fx.config) / USDC_SCALE).toFixed(6),
+          max: (watchTopUpPriceUsdcUnits('extract', fx.config) / USDC_SCALE).toFixed(6),
+        },
+        protocols: [{ x402: {} }],
+      });
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('documents info["x-guidance"] with the config-derived prices and the x402 payment flow', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      const guidance = doc.info['x-guidance'];
+      expect(typeof guidance).toBe('string');
+      expect((guidance ?? '').length > 0).toBe(true);
+      // Same trimmed-decimal format as the usd() helper in src/server/openapi.ts:
+      // (units / USDC_SCALE).toString() — 1000 -> '0.001', 10000 -> '0.01'.
+      expect(guidance).toContain('capture');
+      expect(guidance).toContain('extract');
+      expect(guidance).toContain((fx.config.x402PriceUsdcUnits / USDC_SCALE).toString());
+      expect(guidance).toContain((fx.config.x402ExtractPriceUsdcUnits / USDC_SCALE).toString());
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('omits info.contact entirely when no contact email is configured', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      expect(doc.info).not.toHaveProperty('contact');
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('documents info.contact.email when a contact email is configured', async () => {
+    const fx = makeApiFixture({ contactEmail: 'ops@webcap.dev' });
+    try {
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      expect(doc.info.contact).toEqual({ email: 'ops@webcap.dev' });
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('declares security: [] on every free/public op (the explicit 19-list)', async () => {
+    const fx = makeApiFixture();
+    try {
+      expect(FREE_OPS.length).toBe(19);
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      for (const [method, path] of FREE_OPS) {
+        expect(doc.paths[path]?.[method]?.security, `${method.toUpperCase()} ${path} must declare security: []`).toEqual([]);
+      }
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('declares no security key on the 3 paid x402 ops and the 4 Bearer-auth ops', async () => {
+    const fx = makeApiFixture();
+    try {
+      expect(NON_FREE_OPS.length).toBe(7);
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      for (const [method, path] of NON_FREE_OPS) {
+        const op = doc.paths[path]?.[method];
+        expect(op, `${method.toUpperCase()} ${path} must be documented`).toBeDefined();
+        expect(Object.keys(op ?? {}), `${method.toUpperCase()} ${path} must not declare security`).not.toContain('security');
+      }
     } finally {
       await closeApiFixture(fx);
     }

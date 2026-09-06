@@ -62,6 +62,7 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
           429: jsonError('429', 'Preview rate limit exceeded; use the paid extract endpoint (error envelope, code rate_limited)'),
           502: ctx.captureFailed,
         },
+        security: [],
       },
     },
     '/v1/artifacts/{id}': {
@@ -82,6 +83,7 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
           },
           404: jsonError('404', 'Artifact not found (error envelope, code not_found)'),
         },
+        security: [],
       },
     },
     '/v1/artifacts/{id}/page': {
@@ -98,6 +100,7 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
           200: { description: 'The artifact page (text/html; charset=utf-8)', content: { 'text/html': { schema: { type: 'string' } } } },
           404: jsonError('404', 'Artifact not found (error envelope, code not_found)'),
         },
+        security: [],
       },
     },
     '/': {
@@ -128,6 +131,7 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
             },
           },
         },
+        security: [],
       },
     },
     '/icon.png': {
@@ -138,6 +142,7 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
           200: { description: 'The webcap icon', content: { 'image/png': { schema: { type: 'string', format: 'binary' } } } },
           500: jsonError('500', 'Icon file missing on the server (error envelope, code internal)'),
         },
+        security: [],
       },
     },
     '/openapi.json': {
@@ -147,6 +152,7 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
         responses: {
           200: { description: 'The OpenAPI 3.1 document', content: jsonContent({ $ref: '#/components/schemas/OpenapiDocument' }) },
         },
+        security: [],
       },
     },
   };

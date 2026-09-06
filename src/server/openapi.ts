@@ -15,7 +15,12 @@
  * JSON is byte-identical to the pre-split document (locked by
  * tests/api/openapi.test.ts).
  */
-import { DEFAULT_PREVIEW_MARKDOWN_LIMIT, type WebcapConfig } from '../config.js';
+import {
+  DEFAULT_PREVIEW_MARKDOWN_LIMIT,
+  WATCH_TOPUP_RUNS,
+  watchTopUpPriceUsdcUnits,
+  type WebcapConfig,
+} from '../config.js';
 import { accountPaths } from './openapi/paths-accounts.js';
 import { freePaths } from './openapi/paths-free.js';
 import { webPaths } from './openapi/paths-web.js';
@@ -23,6 +28,9 @@ import { x402Paths } from './openapi/paths-x402.js';
 import { jsonError, type PathContext } from './openapi/shared.js';
 import { ownershipProof } from './openapi/ownership.js';
 import type { OpenapiDocument } from './openapi/types.js';
+
+/** Trimmed-decimal USDC amount for prose (6-decimal units -> '0.001', '0.01', '0.1', '1'). */
+const usd = (units: number): string => (units / 1_000_000).toString();
 
 /** Build the full OpenAPI 3.1 document for a deployment. */
 export async function openapiDocument(config: WebcapConfig): Promise<OpenapiDocument> {
@@ -35,6 +43,16 @@ export async function openapiDocument(config: WebcapConfig): Promise<OpenapiDocu
     unauthorized: jsonError('401', 'Missing or invalid Bearer API key (error envelope, code unauthorized)'),
     previewMarkdownLimit,
   };
+  // mppscan/x402gle discovery: high-level agent usage guidance with config-derived prices.
+  const guidance =
+    'Agent usage: paid x402 endpoints settle per call in USDC - POST /v1/x402/capture ' +
+    `(${usd(config.x402PriceUsdcUnits)} USDC), POST /v1/x402/extract (${usd(config.x402ExtractPriceUsdcUnits)} USDC, ` +
+    'batch up to 10 URLs for one payment), and POST /v1/x402/watches/topup (dynamic ' +
+    `${usd(watchTopUpPriceUsdcUnits('capture', config))}-${usd(watchTopUpPriceUsdcUnits('extract', config))} USDC ` +
+    `per ${WATCH_TOPUP_RUNS}-run watch pack). Payment (x402 v2 "exact"): on HTTP 402 read the base64 ` +
+    'PAYMENT-REQUIRED header, sign the gasless EIP-3009 USDC transferWithAuthorization, and retry with ' +
+    'the PAYMENT-SIGNATURE header. No API keys or accounts. Free entry point: GET /v1/extract/preview ' +
+    'samples the extract output without paying; full catalog at GET /openapi.json, agent skill at GET /skill.md.';
   return {
     openapi: '3.1.0',
     // x402scan verified-ownership discovery; omitted entirely when unsigned.
@@ -47,6 +65,8 @@ export async function openapiDocument(config: WebcapConfig): Promise<OpenapiDocu
         'or structured text/JSON via batch extract. Paid per call in USDC over x402 (HTTP 402, x402 v2 ' +
         '"exact" scheme, gasless EIP-3009 — the facilitator settles, no ETH or gas for the payer). ' +
         'No API keys, no accounts for x402 routes.',
+      'x-guidance': guidance,
+      ...(config.contactEmail !== undefined ? { contact: { email: config.contactEmail } } : {}),
     },
     servers: [
       { url: config.publicBaseUrl, description: 'public deployment' },
