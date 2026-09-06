@@ -46,7 +46,7 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
         },
         'x-payment-info': {
           price: { mode: 'fixed', currency: 'USD', amount: usdAmount(config.x402PriceUsdcUnits) },
-          protocols: [{ x402: {} }],
+          protocols: [{ x402: {} }, { mpp: { method: 'evm' } }],
         },
       },
     },
@@ -72,7 +72,7 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
         },
         'x-payment-info': {
           price: { mode: 'fixed', currency: 'USD', amount: usdAmount(config.x402ExtractPriceUsdcUnits) },
-          protocols: [{ x402: {} }],
+          protocols: [{ x402: {} }, { mpp: { method: 'evm' } }],
         },
       },
     },
@@ -175,7 +175,7 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
             min: usdAmount(watchTopUpPriceUsdcUnits('capture', config)),
             max: usdAmount(watchTopUpPriceUsdcUnits('extract', config)),
           },
-          protocols: [{ x402: {} }],
+          protocols: [{ x402: {} }, { mpp: { method: 'evm' } }],
         },
       },
     },

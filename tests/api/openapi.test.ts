@@ -12,7 +12,7 @@ interface OpenapiOperationView {
   };
   readonly 'x-payment-info'?: {
     readonly price: { readonly mode: string; readonly currency: string; readonly amount?: string; readonly min?: string; readonly max?: string };
-    readonly protocols: Array<{ readonly x402?: Record<string, unknown> }>;
+    readonly protocols: Array<{ readonly x402?: Record<string, unknown>; readonly mpp?: Record<string, unknown> }>;
   };
 }
 
@@ -296,7 +296,7 @@ describe('mppscan/x402gle discovery metadata', () => {
       const doc = res.json() as OpenapiDocView;
       expect(doc.paths['/v1/x402/capture']?.post?.['x-payment-info']).toEqual({
         price: { mode: 'fixed', currency: 'USD', amount: (fx.config.x402PriceUsdcUnits / USDC_SCALE).toFixed(6) },
-        protocols: [{ x402: {} }],
+        protocols: [{ x402: {} }, { mpp: { method: 'evm' } }],
       });
     } finally {
       await closeApiFixture(fx);
@@ -310,7 +310,7 @@ describe('mppscan/x402gle discovery metadata', () => {
       const doc = res.json() as OpenapiDocView;
       expect(doc.paths['/v1/x402/extract']?.post?.['x-payment-info']).toEqual({
         price: { mode: 'fixed', currency: 'USD', amount: (fx.config.x402ExtractPriceUsdcUnits / USDC_SCALE).toFixed(6) },
-        protocols: [{ x402: {} }],
+        protocols: [{ x402: {} }, { mpp: { method: 'evm' } }],
       });
     } finally {
       await closeApiFixture(fx);
@@ -329,7 +329,7 @@ describe('mppscan/x402gle discovery metadata', () => {
           min: (watchTopUpPriceUsdcUnits('capture', fx.config) / USDC_SCALE).toFixed(6),
           max: (watchTopUpPriceUsdcUnits('extract', fx.config) / USDC_SCALE).toFixed(6),
         },
-        protocols: [{ x402: {} }],
+        protocols: [{ x402: {} }, { mpp: { method: 'evm' } }],
       });
     } finally {
       await closeApiFixture(fx);

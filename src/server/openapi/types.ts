@@ -40,7 +40,7 @@ export interface OpenapiDynamicPrice {
 /** mppscan/x402gle discovery extension on a paid operation. */
 export interface OpenapiPaymentInfo {
   readonly price: OpenapiFixedPrice | OpenapiDynamicPrice;
-  readonly protocols: readonly ({ readonly x402: Record<string, never> })[];
+  readonly protocols: readonly ({ readonly x402: Record<string, never> } | { readonly mpp: { readonly method: 'evm' } })[];
 }
 
 export interface OpenapiOperation {

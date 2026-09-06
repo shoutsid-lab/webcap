@@ -113,10 +113,15 @@ function x402Challenge(config: WebcapConfig, spec: X402ChallengeSpec): OpenapiRe
       'Payment required (x402 v2). The challenge is sent as the base64-encoded JSON PAYMENT-REQUIRED ' +
       'response header AND as the equivalent JSON body shown below (curl/agent-friendly). ' +
       `${amountNote} Sign accepts[0] (scheme "exact", gasless EIP-3009 transferWithAuthorization, USDC) and retry ` +
-      'with the PAYMENT-SIGNATURE header; the facilitator verifies + settles on-chain.',
+      'with the PAYMENT-SIGNATURE header; the facilitator verifies + settles on-chain. ' +
+      'MPP clients charge the same accepts[0] terms through the mpp flow advertised in x-payment-info.',
     headers: {
       'PAYMENT-REQUIRED': {
         description: 'Base64-encoded JSON with the exact shape of the JSON body below (decode: base64 -d)',
+        schema: { type: 'string' },
+      },
+      'WWW-Authenticate': {
+        description: 'MPP Payment challenge (id, realm, method, intent, request) for the same price terms — see x-payment-info',
         schema: { type: 'string' },
       },
     },
