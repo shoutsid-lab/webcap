@@ -75,7 +75,7 @@ const TOPUP_FALLBACK_UNITS = WATCH_TOPUP_RUNS * CAPTURE_UNITS; // unknown watch 
 // src/server/x402/* (the directory) is untouched (zero-line diff), so no
 // reconciliation needed. (Sibling file src/server/x402.ts carries the +6-line
 // settle-hook registration — runtime 402 construction is unaffected.)
-const CAPTURE_POST_SHA = '1954d11ff143cd2a73f4aa725b244a4956752e1f5337006b995713b24c53cb40';
+const CAPTURE_POST_SHA = 'be97a7d1252077fcac5d8420594f6dd04fa17736a44245cb0b7a07b4dacb5e30';
 const EXTRACT_POST_SHA = 'c52d7f87d8d3bd52fb21a8c97adcf8fe65cbcb574e40e2808bdbf3a287156945';
 const TOPUP_POST_SHA = 'c9690b435aa6337fd3d2bf2091bf1499e90b19ad54356268b4a3af13c6f6dafb';
 
