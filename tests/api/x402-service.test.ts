@@ -160,6 +160,41 @@ describe('GET /v1/x402/service (canonical agent descriptor)', () => {
       await closeX402Fixture(fx);
     }
   });
+
+  it('advertises video + map-lite in paidEndpoints with config-derived prices (RED)', async () => {
+    const fx = makeX402Fixture('base');
+    try {
+      const res = await fx.app.inject({ method: 'GET', url: '/v1/x402/service' });
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as {
+        paidEndpoints: PaidEndpointEntry[];
+        howToPay: string;
+      };
+      expect(body.paidEndpoints.map((e) => e.path)).toEqual([
+        '/v1/x402/capture',
+        '/v1/x402/extract',
+        '/v1/x402/audit',
+        '/v1/x402/map-lite',
+        '/v1/x402/video',
+        '/v1/x402/watches/topup',
+      ]);
+      const video = body.paidEndpoints.find((e) => e.path === '/v1/x402/video');
+      const mapLite = body.paidEndpoints.find((e) => e.path === '/v1/x402/map-lite');
+      expect(video).toBeDefined();
+      expect(mapLite).toBeDefined();
+      if (video === undefined || mapLite === undefined) throw new Error('video/map-lite entries missing');
+      expect(video.method).toBe('POST');
+      expect(video.atomicUnits).toBe(String(fx.config.x402VideoPriceUsdcUnits));
+      expect(video.priceUsdc).toBe(fx.config.x402VideoPriceUsdcUnits / USDC_SCALE);
+      expect(mapLite.method).toBe('POST');
+      expect(mapLite.atomicUnits).toBe(String(fx.config.x402AuditPriceUsdcUnits));
+      expect(mapLite.priceUsdc).toBe(fx.config.x402AuditPriceUsdcUnits / USDC_SCALE);
+      expect(String(body.howToPay)).toContain('/v1/x402/video');
+      expect(String(body.howToPay)).toContain('/v1/x402/map-lite');
+    } finally {
+      await closeX402Fixture(fx);
+    }
+  });
 });
 
 describe('GET /v1/extract/preview 429 back-off', () => {
