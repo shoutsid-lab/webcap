@@ -483,7 +483,7 @@ Re-verified 2026-09-06: all paid routes return `valid: true` with
 
 ## CDP Bazaar listing
 
-All three paid routes carry the x402 Bazaar discovery extension (service name
+All paid routes carry the x402 Bazaar discovery extension (service name
 "Webcap", tags, icon at `/icon.png`, example input/output, full request schema)
 in their 402 challenges, so the CDP Bazaar catalog (surfaced to agents via CDP
 APIs, Bazaar MCP, Amazon Bedrock AgentCore, agentic.market) can discover webcap.

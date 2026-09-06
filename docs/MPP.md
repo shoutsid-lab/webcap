@@ -123,10 +123,12 @@ curl -fsS -X POST https://mppscan.com/api/register \
   -d "{\"url\":\"$BASE\"}"; echo
 ```
 
-Current result: `{"registered":0,"failed":3}` with "No MPP protocol support",
-because the live 402s do not emit `WWW-Authenticate` yet. Re-run step 2 once
-the header ships. The keepalive script probes the 3 paid 402s for the header
-(log-only, nonfatal) so the log shows exactly when registration is unblocked.
+Current result (superseded — see status line at top): the header has shipped
+(`WWW-Authenticate: Payment …method="evm"…` live on all paid 402s, verified
+2026-09-06) and registration reports `registered: 22, failed: 0`. The
+`{"registered":0,"failed":3}` output below is the historical pre-header state,
+kept for the record. The keepalive script probes the paid 402s for the header
+(log-only, nonfatal).
 
 Related directory note: the x402gle audition (`npx @dexterai/opendexter
 audition`) is a separate merchant test and is currently blocked on their
