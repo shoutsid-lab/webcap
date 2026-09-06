@@ -133,6 +133,16 @@ describe('agent-facing discovery surfaces (free, no payment, no auth)', () => {
     expect(frontmatter).toContain('description:');
   });
 
+  it('GET /llms.txt and /skill.md surface the viewport/mobile capture options', async () => {
+    const llms = await app.inject({ method: 'GET', url: '/llms.txt' });
+    expect(llms.statusCode).toBe(200);
+    expect(llms.body).toContain('viewport');
+    const skill = await app.inject({ method: 'GET', url: '/skill.md' });
+    expect(skill.statusCode).toBe(200);
+    expect(skill.body).toContain('viewport');
+    expect(skill.body).toContain('isMobile');
+  });
+
   it('GET /skill.md teaches the x402 payment flow, pricing, and the free-preview alternative', async () => {
     const res = await app.inject({ method: 'GET', url: '/skill.md' });
     expect(res.statusCode).toBe(200);

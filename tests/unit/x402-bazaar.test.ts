@@ -111,6 +111,23 @@ describe('x402 bazaar discovery (service metadata + route extensions)', () => {
     expect(props['format']).toMatchObject({ type: 'string', enum: ['png', 'jpeg', 'pdf'] });
   });
 
+  it('capture bazaar schema surfaces the viewport/mobile capture options', () => {
+    const route = routes[X402_CAPTURE_PATTERN];
+    expect(route).toBeDefined();
+    const body = bazaarOf(route ?? {}).schema.properties.input.properties.body;
+    const props = body['properties'] as Record<string, unknown>;
+    const options = props['options'] as { properties?: Record<string, unknown> } | undefined;
+    expect(options).toBeDefined();
+    const optionProps = options?.properties ?? {};
+    for (const key of ['timeoutMs', 'fullPage', 'viewport', 'deviceScaleFactor', 'isMobile', 'userAgent']) {
+      expect(optionProps, `capture bazaar options must describe ${key}`).toHaveProperty(key);
+    }
+    expect(optionProps['viewport']).toMatchObject({ type: 'object' });
+    expect(optionProps['deviceScaleFactor']).toMatchObject({ type: 'number' });
+    expect(optionProps['isMobile']).toMatchObject({ type: 'boolean' });
+    expect(optionProps['userAgent']).toMatchObject({ type: 'string' });
+  });
+
   it('extract bazaar schema describes url (string) and urls (string[] maxItems 10) per parseExtractUrls', () => {
     const route = routes[X402_EXTRACT_PATTERN];
     expect(route).toBeDefined();
