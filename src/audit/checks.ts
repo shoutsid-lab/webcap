@@ -48,7 +48,7 @@ export interface AuditLinks {
   readonly external: number;
   readonly emptyText: number;
   readonly duplicates: number;
-  readonly sample: readonly string[];
+  readonly sample: readonly { readonly href: string; readonly text: string }[];
 }
 
 export interface AuditResult {
@@ -120,7 +120,7 @@ export function computeAudit(args: ComputeAuditArgs): AuditResult {
     }
   }
 
-  const sample = links.slice(0, Math.max(0, linkSampleLimit)).map((l) => l.href);
+  const sample = links.slice(0, Math.max(0, linkSampleLimit)).map((l) => ({ href: l.href, text: l.text }));
 
   return {
     seo: {

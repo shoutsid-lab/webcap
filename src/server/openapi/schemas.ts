@@ -191,7 +191,7 @@ const auditResponse = (priceUsdcUnits: number): Json => ({
             external: { type: 'integer' },
             emptyText: { type: 'integer' },
             duplicates: { type: 'integer' },
-            sample: { type: 'array', items: { type: 'string' } },
+            sample: { type: 'array', items: { type: 'object', properties: { href: { type: 'string' }, text: { type: 'string' } } } },
           },
         },
       },
