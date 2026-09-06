@@ -1,10 +1,12 @@
+import { DEFAULT_MODEL_TIMEOUT_MS } from '../config.js';
+import { consoleServiceLogger, type ServiceLogger } from '../util/logger.js';
+
 export interface ModelConfig {
   readonly baseUrl: string;
   readonly apiKey: string;
   readonly model: string;
 }
 
-const DEFAULT_MODEL_TIMEOUT_MS = 30_000;
 const MAX_HTML_CHARS = 24_000;
 
 /**
@@ -18,6 +20,7 @@ export async function modelExtract(
   schema: string,
   config: ModelConfig,
   timeoutMs: number = DEFAULT_MODEL_TIMEOUT_MS,
+  logger: ServiceLogger = consoleServiceLogger(),
 ): Promise<Record<string, unknown> | undefined> {
   if (config.apiKey === '' || config.baseUrl === '' || config.model === '') return undefined;
   const url = `${config.baseUrl.replace(/\/+$/, '')}/chat/completions`;
@@ -39,34 +42,34 @@ export async function modelExtract(
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err) {
-    warn(err);
+    warn(logger, err);
     return undefined;
   }
   if (!response.ok) {
-    console.warn(`webcap model extraction failed: HTTP ${response.status}`);
+    logger.warn(`webcap model extraction failed: HTTP ${response.status}`);
     return undefined;
   }
   let data: unknown;
   try {
     data = await response.json();
   } catch (err) {
-    warn(err);
+    warn(logger, err);
     return undefined;
   }
   const content = messageContent(data);
   if (content === undefined) {
-    console.warn('webcap model extraction returned no message content');
+    logger.warn('webcap model extraction returned no message content');
     return undefined;
   }
   try {
     const parsed: unknown = JSON.parse(content);
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-      console.warn('webcap model extraction returned a non-object JSON value');
+      logger.warn('webcap model extraction returned a non-object JSON value');
       return undefined;
     }
     return parsed as Record<string, unknown>;
   } catch {
-    console.warn('webcap model extraction returned non-JSON content');
+    logger.warn('webcap model extraction returned non-JSON content');
     return undefined;
   }
 }
@@ -83,6 +86,6 @@ function messageContent(data: unknown): string | undefined {
   return typeof content === 'string' ? content : undefined;
 }
 
-function warn(err: unknown): void {
-  console.warn(`webcap model extraction unavailable: ${err instanceof Error ? err.message : String(err)}`);
+function warn(logger: ServiceLogger, err: unknown): void {
+  logger.warn(`webcap model extraction unavailable: ${err instanceof Error ? err.message : String(err)}`);
 }

@@ -1,5 +1,6 @@
 import { newContext } from './browser.js';
 import { CaptureError } from './errors.js';
+import { DEFAULT_CAPTURE_TIMEOUT_CAP_MS, DEFAULT_CAPTURE_TIMEOUT_MS } from '../config.js';
 
 export type CaptureFormat = 'png' | 'jpeg' | 'pdf';
 
@@ -38,14 +39,25 @@ export interface StructuredCapture {
   readonly structure: PageStructure;
 }
 
-export async function capture(req: CaptureRequest): Promise<CaptureResult> {
+/** Page-load timeout tuning; a client-specified timeoutMs is capped at capMs. */
+export interface CaptureTimeouts {
+  readonly defaultMs?: number;
+  readonly capMs?: number;
+}
+
+function resolveTimeout(req: CaptureRequest, timeouts?: CaptureTimeouts): number {
+  const requested = req.options?.timeoutMs ?? timeouts?.defaultMs ?? DEFAULT_CAPTURE_TIMEOUT_MS;
+  return Math.min(requested, timeouts?.capMs ?? DEFAULT_CAPTURE_TIMEOUT_CAP_MS);
+}
+
+export async function capture(req: CaptureRequest, timeouts?: CaptureTimeouts): Promise<CaptureResult> {
   const format: CaptureFormat = req.format ?? 'png';
   try {
     const context = await newContext();
     try {
       const page = await context.newPage();
       try {
-        await page.goto(req.url, { timeout: req.options?.timeoutMs ?? 30_000, waitUntil: 'load' });
+        await page.goto(req.url, { timeout: resolveTimeout(req, timeouts), waitUntil: 'load' });
         const buffer =
           format === 'pdf' ? await page.pdf({}) : await page.screenshot({ fullPage: req.options?.fullPage, type: format });
         return { buffer, format, bytes: buffer.length };
@@ -62,13 +74,13 @@ export async function capture(req: CaptureRequest): Promise<CaptureResult> {
 }
 
 /** Capture a URL and extract its rendered DOM structure + HTML (for the structured-output endpoint). */
-export async function captureStructured(req: CaptureRequest): Promise<StructuredCapture> {
+export async function captureStructured(req: CaptureRequest, timeouts?: CaptureTimeouts): Promise<StructuredCapture> {
   try {
     const context = await newContext();
     try {
       const page = await context.newPage();
       try {
-        await page.goto(req.url, { timeout: req.options?.timeoutMs ?? 30_000, waitUntil: 'load' });
+        await page.goto(req.url, { timeout: resolveTimeout(req, timeouts), waitUntil: 'load' });
         const structure = await page.evaluate(extractStructureFromDom);
         const html = req.options?.includeHtml === false ? '' : await page.content();
         return { html, structure };

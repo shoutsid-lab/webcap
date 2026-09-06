@@ -12,11 +12,8 @@
  * through esc() before interpolation.
  */
 import type { ChainName, WebcapConfig } from '../config.js';
-import { USDC_SCALE, WATCH_TOPUP_RUNS, watchTopUpPriceUsdcUnits } from '../config.js';
+import { DEFAULT_BAZAAR_CATALOG_URL, USDC_SCALE, WATCH_TOPUP_RUNS, watchTopUpPriceUsdcUnits } from '../config.js';
 import type { ArtifactRow } from '../db/artifacts.js';
-
-/** CDP Bazaar catalog where settled webcap payments get indexed. */
-const BAZAAR_CATALOG_URL = 'https://cdp.coinbase.com';
 
 /** Escape a value that is influenced by input (URLs, ids) before HTML embedding. */
 export function esc(value: string): string {
@@ -149,21 +146,21 @@ const ARTIFACT_CSS = `
 .get{color:var(--muted);font-size:14.5px;margin-bottom:var(--s5)}
 `;
 
-function topBar(): string {
+function topBar(bazaarCatalogUrl: string): string {
   return `<div class="top"><div class="wrap">
   <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>webcap</a>
   <nav>
     <a href="/openapi.json">openapi.json</a>
-    <a href="${BAZAAR_CATALOG_URL}" target="_blank" rel="noopener">CDP Bazaar</a>
+    <a href="${bazaarCatalogUrl}" target="_blank" rel="noopener">CDP Bazaar</a>
     <a href="/icon.png">icon.png</a>
   </nav>
 </div></div>`;
 }
 
-function footer(): string {
+function footer(bazaarCatalogUrl: string): string {
   return `<footer><div class="wrap"><div class="foot-row">
   <span>webcap — pay-per-call web capture. No keys, no accounts, USDC over x402.</span>
-  <span><a href="/">landing</a> · <a href="/openapi.json">OpenAPI</a> · <a href="${BAZAAR_CATALOG_URL}" target="_blank" rel="noopener">Bazaar</a> · <a href="/icon.png">icon</a></span>
+  <span><a href="/">landing</a> · <a href="/openapi.json">OpenAPI</a> · <a href="${bazaarCatalogUrl}" target="_blank" rel="noopener">Bazaar</a> · <a href="/icon.png">icon</a></span>
 </div></div></footer>`;
 }
 
@@ -206,6 +203,7 @@ const CHAIN_COPY: Record<
 
 export function landingHtml(config: WebcapConfig): string {
   const base = config.publicBaseUrl;
+  const bazaarCatalogUrl = config.bazaarCatalogUrl ?? DEFAULT_BAZAAR_CATALOG_URL;
   const copy = CHAIN_COPY[config.chain.name];
   // Network shown in the copy-paste examples; local has no x402 network, so
   // the samples demonstrate the sepolia testnet (matching the local note).
@@ -270,7 +268,7 @@ console.log(res.data.artifact.url); <span class="c">// 200 — paid, settled, sc
 <style>${BASE_CSS}${LANDING_CSS}</style>
 </head>
 <body>
-${topBar()}
+${topBar(bazaarCatalogUrl)}
 <main>
   <section class="hero wrap">
     <div>
@@ -410,14 +408,14 @@ ${topBar()}
   <section class="section wrap" id="links">
     <h2>Where to find webcap</h2>
     <div class="link-strip">
-      <a href="${BAZAAR_CATALOG_URL}" target="_blank" rel="noopener">CDP Bazaar listing ↗</a>
+      <a href="${bazaarCatalogUrl}" target="_blank" rel="noopener">CDP Bazaar listing ↗</a>
       <a href="/openapi.json">/openapi.json — OpenAPI 3.1 catalog</a>
       <a href="/icon.png">/icon.png — service icon</a>
       <a href="#pricing">Pricing</a>
     </div>
   </section>
 </main>
-${footer()}
+${footer(bazaarCatalogUrl)}
 </body>
 </html>`;
 }
@@ -428,6 +426,7 @@ ${footer()}
 
 export function artifactPageHtml(config: WebcapConfig, artifact: ArtifactRow): string {
   const sourceUrl = artifact.source_url;
+  const bazaarCatalogUrl = config.bazaarCatalogUrl ?? DEFAULT_BAZAAR_CATALOG_URL;
   // Artifacts store no public URL column; the canonical URL is the one
   // capture responses return (built from publicBaseUrl, cf. storeArtifact).
   const publicUrl = `${config.publicBaseUrl}/v1/artifacts/${artifact.id}`;
@@ -450,7 +449,7 @@ export function artifactPageHtml(config: WebcapConfig, artifact: ArtifactRow): s
 <style>${BASE_CSS}${ARTIFACT_CSS}</style>
 </head>
 <body>
-${topBar()}
+${topBar(bazaarCatalogUrl)}
 <main class="wrap artifact-main">
   <p class="crumb"><a href="/">webcap</a> / capture / <code>${esc(artifact.id)}</code></p>
   <h1>Capture of <a href="${esc(sourceUrl)}" target="_blank" rel="noopener">${esc(sourceUrl)}</a></h1>
@@ -465,7 +464,7 @@ ${topBar()}
   <p class="get"><a href="${esc(publicUrl)}">Download raw ${esc(artifact.format)}</a>
     &nbsp;·&nbsp; <a href="/">← back to webcap</a></p>
 </main>
-${footer()}
+${footer(bazaarCatalogUrl)}
 </body>
 </html>`;
 }

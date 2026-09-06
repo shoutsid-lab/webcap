@@ -1,5 +1,7 @@
 import { newContext } from './browser.js';
 import { CaptureError } from './errors.js';
+import { DEFAULT_CAPTURE_TIMEOUT_MS } from '../config.js';
+import type { CaptureTimeouts } from './pipeline.js';
 
 export interface OgResult {
   readonly url: string;
@@ -9,8 +11,8 @@ export interface OgResult {
   readonly icon?: string;
 }
 
-export async function ogMetadata(req: { readonly url: string }): Promise<OgResult> {
-  const html = await fetchHtml(req.url);
+export async function ogMetadata(req: { readonly url: string }, timeouts?: CaptureTimeouts): Promise<OgResult> {
+  const html = await fetchHtml(req.url, timeouts);
   return {
     url: req.url,
     title: metaContent(html, 'og:title') ?? tagContent(html, 'title'),
@@ -20,13 +22,13 @@ export async function ogMetadata(req: { readonly url: string }): Promise<OgResul
   };
 }
 
-async function fetchHtml(url: string): Promise<string> {
+async function fetchHtml(url: string, timeouts?: CaptureTimeouts): Promise<string> {
   try {
     const context = await newContext();
     try {
       const page = await context.newPage();
       try {
-        await page.goto(url, { timeout: 30_000, waitUntil: 'load' });
+        await page.goto(url, { timeout: timeouts?.defaultMs ?? DEFAULT_CAPTURE_TIMEOUT_MS, waitUntil: 'load' });
         return await page.content();
       } finally {
         await page.close();

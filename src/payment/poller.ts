@@ -5,6 +5,7 @@ import { makeInvoicesRepo } from '../db/invoices.js';
 import { makePaymentsRepo } from '../db/payments.js';
 import { TRANSFER_TOPIC, decodeTransferLog, encodeAddressTopic } from './erc20.js';
 import { settleInvoice } from './settle.js';
+import { consoleServiceLogger, type ServiceLogger } from '../util/logger.js';
 
 /** The narrow chain surface the poller needs (a real Provider satisfies it). */
 export interface LogReader {
@@ -78,6 +79,8 @@ export interface StartPollerInput {
   readonly usdc: Contract;
   readonly merchantAddress: string;
   readonly intervalMs?: number;
+  /** Failure logger (default: console, matching the historical output). */
+  readonly logger?: ServiceLogger;
 }
 
 export interface Poller {
@@ -87,6 +90,7 @@ export interface Poller {
 /** Run processPendingInvoices on an interval until stop() is called. */
 export function startPoller(input: StartPollerInput): Poller {
   const intervalMs = input.intervalMs ?? 5_000;
+  const log = input.logger ?? consoleServiceLogger();
   const base: PollInput = {
     db: input.db,
     provider: input.provider,
@@ -96,7 +100,7 @@ export function startPoller(input: StartPollerInput): Poller {
   };
   const timer = setInterval(() => {
     processPendingInvoices(base).catch((err: unknown) => {
-      console.error('webcap poller tick failed:', err);
+      log.error('webcap poller tick failed:', err);
     });
   }, intervalMs);
   return {

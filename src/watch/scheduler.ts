@@ -27,9 +27,10 @@
  */
 import type { ArtifactRepo } from '../db/artifacts.js';
 import type { RevenueRepo } from '../db/revenue.js';
-import type { WebcapConfig } from '../config.js';
+import { DEFAULT_WEBHOOK_RETRIES, DEFAULT_WEBHOOK_TIMEOUT_MS, type WebcapConfig } from '../config.js';
 import type { CaptureFormat, CaptureRequest, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
 import { modelExtract } from '../extract/model.js';
+import { consoleServiceLogger, type ServiceLogger } from '../util/logger.js';
 import { validateCaptureUrl } from '../util/url.js';
 import { diffJson, sha256Hex, stableStringify } from './diff.js';
 import type { WatchRepo, WatchRow } from './store.js';
@@ -46,8 +47,6 @@ const EVERY_MS: Record<WatchEvery, number> = {
 /** Default tick interval in production (spec: 15–30s). */
 export const DEFAULT_TICK_INTERVAL_MS = 20_000;
 
-const WEBHOOK_ATTEMPTS = 3;
-const WEBHOOK_TIMEOUT_MS = 5_000;
 const MIME_BY_FORMAT: Record<CaptureFormat, string> = {
   png: 'image/png',
   jpeg: 'image/jpeg',
@@ -88,6 +87,8 @@ export interface WatchSchedulerInput {
   readonly timers?: WatchTimers;
   /** Tick interval in milliseconds (default DEFAULT_TICK_INTERVAL_MS). */
   readonly intervalMs?: number;
+  /** Failure/skip logger (default: console, matching the historical output). */
+  readonly logger?: ServiceLogger;
 }
 
 /** Cumulative scheduler counters (read-only snapshot per call). */
@@ -112,6 +113,7 @@ export function createWatchScheduler(input: WatchSchedulerInput): WatchScheduler
   const clock = input.clock ?? defaultClock;
   const timers = input.timers ?? defaultTimers;
   const intervalMs = input.intervalMs ?? DEFAULT_TICK_INTERVAL_MS;
+  const log = input.logger ?? consoleServiceLogger();
   /** Per-watch single-flight: a watch that is mid-run never double-runs. */
   const running = new Set<string>();
   // Accumulator mutated by executeWatch's webhook guard; exposed via stats().
@@ -143,7 +145,7 @@ export function createWatchScheduler(input: WatchSchedulerInput): WatchScheduler
 
   const scheduleTick = (): void => {
     void tick().catch((err: unknown) => {
-      console.error('webcap watch scheduler tick failed:', err);
+      log.error('webcap watch scheduler tick failed:', err);
     });
   };
 
@@ -179,6 +181,7 @@ export function startWatchScheduler(input: WatchSchedulerInput): WatchScheduler 
  * URL guard skipped (0 or 1); the caller accumulates it into stats().
  */
 async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: number): Promise<number> {
+  const log = input.logger ?? consoleServiceLogger();
   const at = new Date(nowMs).toISOString();
   if (watch.credits <= 0) {
     // Nothing executes, nothing is consumed; the watch is paused until a top-up.
@@ -235,7 +238,7 @@ async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: 
     if (!check.ok) {
       // SSRF backstop: the stored URL is private/non-https; nothing is sent.
       webhooksSkipped = 1;
-      console.warn('webcap watch scheduler: webhook delivery skipped (fire-time URL guard)', {
+      log.warn('webcap watch scheduler: webhook delivery skipped (fire-time URL guard)', {
         watchId: watch.id,
         webhookUrl: watch.webhook_url,
         reason: check.reason,
@@ -252,7 +255,12 @@ async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: 
       };
       if (artifactUrl !== null) payload['artifactUrl'] = artifactUrl;
       if (extractJson !== null) payload['extract'] = JSON.parse(extractJson);
-      webhook = await fireWebhook(check.url, payload);
+      webhook = await fireWebhook(
+        check.url,
+        payload,
+        input.config.webhookRetries ?? DEFAULT_WEBHOOK_RETRIES,
+        input.config.webhookTimeoutMs ?? DEFAULT_WEBHOOK_TIMEOUT_MS,
+      );
     }
   }
 
@@ -286,7 +294,7 @@ async function extractWatchData(
       baseUrl: config.modelApiBaseUrl,
       apiKey: config.modelApiKey,
       model: config.modelName,
-    });
+    }, undefined, input.logger);
   }
   return extracted === undefined ? { ...captured.structure } : { ...captured.structure, extracted };
 }
@@ -333,22 +341,27 @@ function checkWebhookUrl(raw: string): WebhookUrlCheck {
 }
 
 /**
- * Deliver a change alert: POST the payload with up to WEBHOOK_ATTEMPTS attempts
- * (WEBHOOK_TIMEOUT_MS each). Never throws — the outcome ("ok: HTTP 200" or
+ * Deliver a change alert: POST the payload with up to `attempts` attempts
+ * (one `timeoutMs` budget each). Never throws — the outcome ("ok: HTTP 200" or
  * "failed: …") is returned and stored on the run record. Callers must pass a
  * URL that passed checkWebhookUrl (fire-time SSRF guard).
  */
-async function fireWebhook(url: string, payload: Record<string, unknown>): Promise<string> {
+async function fireWebhook(
+  url: string,
+  payload: Record<string, unknown>,
+  attempts: number,
+  timeoutMs: number,
+): Promise<string> {
   const body = JSON.stringify(payload);
   let lastFailure: string | undefined;
-  for (let attempt = 1; attempt <= WEBHOOK_ATTEMPTS; attempt += 1) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
     let failure: string | undefined;
     try {
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body,
-        signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
+        signal: AbortSignal.timeout(timeoutMs),
       });
       if (res.status >= 200 && res.status < 300) return `ok: HTTP ${res.status}`;
       failure = `HTTP ${res.status}`;

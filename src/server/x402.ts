@@ -15,7 +15,14 @@ import {
 } from '@x402/core/server';
 import type { PaymentRequired, PaymentRequirements } from '@x402/core/types';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
-import { PACKS, WATCH_TOPUP_RUNS, watchTopUpPriceUsdcUnits, type WebcapConfig, type X402Network } from '../config.js';
+import {
+  DEFAULT_X402_MAX_TIMEOUT_MS,
+  EIP712_DOMAINS,
+  PACKS,
+  WATCH_TOPUP_RUNS,
+  watchTopUpPriceUsdcUnits,
+  type WebcapConfig,
+} from '../config.js';
 import type { Db } from '../db/index.js';
 import { makeWatchRepo, type WatchRepo } from '../watch/store.js';
 import { MAX_EXTRACT_BATCH } from './extract-parse.js';
@@ -28,7 +35,6 @@ export const X402_TOPUP_PATTERN = 'POST /v1/x402/watches/topup';
 export const X402_TOPUP_PATH = '/v1/x402/watches/topup';
 
 const X402_VERSION = 2;
-const X402_MAX_TIMEOUT_SECONDS = 300;
 const X402_CAPTURE_DESCRIPTION = 'Capture a URL as PNG/JPEG/PDF + free OG metadata';
 const X402_EXTRACT_DESCRIPTION = 'Capture a URL and return its structured content (title, headings, text, links, images) as JSON';
 const X402_TOPUP_DESCRIPTION =
@@ -41,13 +47,6 @@ const BAZAAR_HTTP_METHOD = 'POST';
 // Placeholder payer for the output examples (never a real merchant address);
 // also imported by the OpenAPI catalog so every doc example uses one literal.
 export const BAZAAR_EXAMPLE_PAYER = '0x000000000000000000000000000000000000dEaD';
-
-// EIP-712 domain of each chain's USDC deploy; a mismatch makes every
-// payment signature unrecoverable (sepolia "USDC" vs mainnet "USD Coin").
-const EIP712_DOMAINS: Record<X402Network, { readonly name: string; readonly version: string }> = {
-  'eip155:84532': { name: 'USDC', version: '2' },
-  'eip155:8453': { name: 'USD Coin', version: '2' },
-};
 
 /** Bazaar input schema for POST /v1/x402/capture — mirrors url + parseFormat/parseOptions. */
 const CAPTURE_INPUT_SCHEMA: Record<string, unknown> = {
@@ -301,7 +300,7 @@ export function buildX402Requirement(config: WebcapConfig, priceUsdcUnits: numbe
     asset: config.x402Asset,
     amount: String(priceUsdcUnits),
     payTo: config.x402PayTo,
-    maxTimeoutSeconds: X402_MAX_TIMEOUT_SECONDS,
+    maxTimeoutSeconds: Math.round((config.x402MaxTimeoutMs ?? DEFAULT_X402_MAX_TIMEOUT_MS) / 1000),
     extra: EIP712_DOMAINS[network],
   };
 }

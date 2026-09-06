@@ -1,14 +1,15 @@
-import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest, type FastifyServerOptions } from 'fastify';
 import type { FacilitatorClient } from '@x402/core/server';
 import type { Db } from '../db/index.js';
 import type { ArtifactRepo } from '../db/artifacts.js';
-import type { WebcapConfig } from '../config.js';
+import { DEFAULT_BODY_LIMIT_BYTES, DEFAULT_REQUEST_TIMEOUT_MS, type WebcapConfig } from '../config.js';
 import { toResponse, type ErrorBody, HttpError } from '../util/errors.js';
 import type { CaptureRequest, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
 import type { OgResult } from '../capture/og.js';
 import { registerRoutes } from './routes.js';
 import { registerWatchRoutes } from './watches.js';
 import { registerX402Middleware } from './x402.js';
+import { makeWebcapLogController } from './logging.js';
 
 export interface AppDeps {
   readonly db: Db;
@@ -21,11 +22,18 @@ export interface AppDeps {
   readonly captureAllowHosts?: readonly string[];
   /** x402 verify/settle client; required when config.x402Network is set. */
   readonly x402Facilitator?: FacilitatorClient;
+  /** Pino options for the request logger (default: logging disabled). */
+  readonly loggerOptions?: FastifyServerOptions['logger'];
 }
 
 /** Build the webcap Fastify app with routes and the central error mapping. */
 export function buildApp(deps: AppDeps): FastifyInstance {
-  const app = Fastify({ logger: false });
+  const app = Fastify({
+    logger: deps.loggerOptions ?? false,
+    logController: makeWebcapLogController(),
+    requestTimeout: deps.config.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
+    bodyLimit: deps.config.bodyLimitBytes ?? DEFAULT_BODY_LIMIT_BYTES,
+  });
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof HttpError) {
       const response = toResponse(err);

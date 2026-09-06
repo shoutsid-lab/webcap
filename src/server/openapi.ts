@@ -15,6 +15,7 @@ import type { WebcapConfig } from '../config.js';
 import {
   CAPTURE_COST_CREDITS,
   CREDITS_PER_USDC,
+  DEFAULT_PREVIEW_MARKDOWN_LIMIT,
   PRICE_PER_CREDIT,
   USDC_SCALE,
   WATCH_TOPUP_RUNS,
@@ -22,9 +23,6 @@ import {
   watchTopUpPriceUsdcUnits,
 } from '../config.js';
 import { BAZAAR_EXAMPLE_PAYER } from './x402.js';
-
-/** The preview endpoint truncates markdown to this many characters (mirrors the route handler). */
-const PREVIEW_MARKDOWN_LIMIT = 1500;
 
 /** JSON value (OpenAPI schema payloads are plain JSON). */
 export type Json = string | number | boolean | null | Json[] | { readonly [key: string]: Json };
@@ -345,6 +343,7 @@ function x402Challenge(config: WebcapConfig, spec: X402ChallengeSpec): OpenapiRe
 
 /** Build the full OpenAPI 3.1 document for a deployment. */
 export function openapiDocument(config: WebcapConfig): OpenapiDocument {
+  const previewMarkdownLimit = config.previewMarkdownLimit ?? DEFAULT_PREVIEW_MARKDOWN_LIMIT;
   const badInput = jsonError('400', 'Malformed JSON request body (error envelope, code bad_request)');
   const unprocessable = (message: string) => jsonError('422', `${message} (error envelope, code unprocessable)`);
   const captureFailed = jsonError('502', 'Upstream page capture failed (error envelope, code capture_failed)');
@@ -511,7 +510,7 @@ export function openapiDocument(config: WebcapConfig): OpenapiDocument {
         get: {
           tags: ['extract'],
           summary: 'Free bounded structured preview (no payment, rate-limited)',
-          description: `Sample the extract output without paying: a truncated preview (headings, links, first ${PREVIEW_MARKDOWN_LIMIT} chars of markdown). Rate-limited per client.`,
+            description: `Sample the extract output without paying: a truncated preview (headings, links, first ${previewMarkdownLimit} chars of markdown). Rate-limited per client.`,
           parameters: [
             { name: 'url', in: 'query', required: true, schema: { type: 'string' }, description: 'The page to preview' },
           ],
@@ -530,7 +529,7 @@ export function openapiDocument(config: WebcapConfig): OpenapiDocument {
                       headings: { type: 'array', items: { type: 'object', properties: { level: { type: 'integer' }, text: { type: 'string' } } } },
                       links: { type: 'array', items: { type: 'object', properties: { href: { type: 'string' }, text: { type: 'string' } } } },
                       wordCount: { type: 'integer' },
-                      markdown: { type: 'string', description: `First ${PREVIEW_MARKDOWN_LIMIT} characters of the document-order markdown` },
+                      markdown: { type: 'string', description: `First ${previewMarkdownLimit} characters of the document-order markdown` },
                     },
                   },
                   truncated: { type: 'boolean', example: true },

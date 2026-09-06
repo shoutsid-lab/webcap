@@ -8,6 +8,12 @@ import { makeInvoicesRepo, type InvoiceRow } from '../db/invoices.js';
 import {
   CAPTURE_COST_CREDITS,
   CREDITS_PER_USDC,
+  DEFAULT_CREDITS,
+  DEFAULT_INVOICE_TTL_MS,
+  DEFAULT_MODEL_TIMEOUT_MS,
+  DEFAULT_PREVIEW_HEADINGS_LIMIT,
+  DEFAULT_PREVIEW_LINKS_LIMIT,
+  DEFAULT_PREVIEW_MARKDOWN_LIMIT,
   DEFAULT_PREVIEW_RATE_LIMIT,
   PACKS,
   PRICE_PER_CREDIT,
@@ -29,6 +35,7 @@ import { authenticate } from './auth.js';
 import { makeRevenueRepo } from '../db/revenue.js';
 import { RateLimiter, rejectRateLimited } from '../util/ratelimit.js';
 import { modelExtract } from '../extract/model.js';
+import { pinoServiceLogger } from '../util/logger.js';
 import type { CaptureFormat, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
 import { parseExtractSchema, parseExtractUrls, type ExtractedContent, type ExtractResult } from './extract-parse.js';
 import type { AppDeps } from './server.js';
@@ -150,7 +157,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
 
   app.post('/v1/invoice', async (req, reply) => {
     const { account } = authenticate(req, db);
-    const creditsAmount = parseCredits(req.body);
+    const creditsAmount = parseCredits(req.body, config.defaultCredits ?? DEFAULT_CREDITS);
     const invoice = createInvoice(invoices, config, merchantAddress, account.id, creditsAmount);
     return reply.status(201).send({
       invoiceId: String(invoice.id),
@@ -275,11 +282,17 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       }
       let extracted: Record<string, unknown> | undefined;
       if (schema !== undefined) {
-        extracted = await modelExtract(captured.html, schema, {
-          baseUrl: config.modelApiBaseUrl,
-          apiKey: config.modelApiKey,
-          model: config.modelName,
-        });
+        extracted = await modelExtract(
+          captured.html,
+          schema,
+          {
+            baseUrl: config.modelApiBaseUrl,
+            apiKey: config.modelApiKey,
+            model: config.modelName,
+          },
+          config.modelTimeoutMs ?? DEFAULT_MODEL_TIMEOUT_MS,
+          pinoServiceLogger(req.log),
+        );
       }
       const data: ExtractedContent =
         extracted === undefined ? { ...captured.structure } : { ...captured.structure, extracted };
@@ -322,10 +335,10 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       preview: {
         title: structure.title,
         description: structure.description,
-        headings: structure.headings.slice(0, 5),
-        links: structure.links.slice(0, 10),
+        headings: structure.headings.slice(0, config.previewHeadingsLimit ?? DEFAULT_PREVIEW_HEADINGS_LIMIT),
+        links: structure.links.slice(0, config.previewLinksLimit ?? DEFAULT_PREVIEW_LINKS_LIMIT),
         wordCount: structure.wordCount,
-        markdown: structure.markdown.slice(0, 1500),
+        markdown: structure.markdown.slice(0, config.previewMarkdownLimit ?? DEFAULT_PREVIEW_MARKDOWN_LIMIT),
       },
       truncated: true,
       upgrade: {
@@ -652,7 +665,7 @@ function createInvoice(
     amount_usd: usdcForCredits(creditsAmount),
     usdc_amount: usdcUnitsForCredits(creditsAmount),
     recipient: merchantAddress,
-    expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+    expires_at: new Date(Date.now() + (config.invoiceTtlMs ?? DEFAULT_INVOICE_TTL_MS)).toISOString(),
   });
   const row = invoices.get(id);
   if (row === undefined) throw new Error(`invoice ${id} vanished after insert`);
@@ -666,9 +679,9 @@ function packForCredits(creditsAmount: number): string {
   return 'custom';
 }
 
-function parseCredits(body: unknown): number {
+function parseCredits(body: unknown, defaultCredits: number): number {
   const raw = isRecord(body) ? body.credits : undefined;
-  if (raw === undefined) return 100;
+  if (raw === undefined) return defaultCredits;
   if (typeof raw !== 'number' || !Number.isInteger(raw) || raw <= 0) {
     throw unprocessable('credits must be a positive integer');
   }

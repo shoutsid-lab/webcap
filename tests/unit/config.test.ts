@@ -1,10 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ARTIFACT_SWEEP_INTERVAL_MS,
+  DEFAULT_ARTIFACT_RETENTION_DAYS,
+  DEFAULT_BAZAAR_CATALOG_URL,
+  DEFAULT_BODY_LIMIT_BYTES,
+  DEFAULT_CAPTURE_TIMEOUT_CAP_MS,
+  DEFAULT_CAPTURE_TIMEOUT_MS,
+  DEFAULT_CREDITS,
   DEFAULT_COMPUTE_COST_USDC_UNITS_PER_REQUEST,
+  DEFAULT_INVOICE_TTL_MS,
+  DEFAULT_MODEL_TIMEOUT_MS,
+  DEFAULT_PREVIEW_HEADINGS_LIMIT,
+  DEFAULT_PREVIEW_LINKS_LIMIT,
+  DEFAULT_PREVIEW_MARKDOWN_LIMIT,
   DEFAULT_PREVIEW_RATE_LIMIT,
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  DEFAULT_WEBHOOK_RETRIES,
+  DEFAULT_WEBHOOK_TIMEOUT_MS,
   DEFAULT_X402_EXTRACT_PRICE_USDC_UNITS,
   DEFAULT_X402_FACILITATOR_URL,
+  DEFAULT_X402_MAX_TIMEOUT_MS,
   DEFAULT_X402_PRICE_USDC_UNITS,
+  EIP712_DOMAINS,
   loadConfig,
   PACKS,
   getPack,
@@ -296,5 +313,160 @@ describe('config: extract pricing + compute cost + model', () => {
     expect(overridden.modelApiBaseUrl).toBe('https://api.example.com/v1');
     expect(overridden.modelApiKey).toBe('sk-test');
     expect(overridden.modelName).toBe('gpt-4o-mini');
+  });
+});
+
+// Optional tunables: defaults equal the previous hardcoded behavior (no .env change).
+const SEP = { WEBCAP_CHAIN: 'base-sepolia', WEBCAP_PUBLIC_BASE_URL: PUBLIC_URL } as const;
+
+describe('config: centralized tunables', () => {
+  it('defaults Fastify requestTimeout to 120s and bodyLimit to 2MB', () => {
+    expect(DEFAULT_REQUEST_TIMEOUT_MS).toBe(120_000);
+    expect(DEFAULT_BODY_LIMIT_BYTES).toBe(2_000_000);
+    const cfg = loadConfig({ ...SEP });
+    expect(cfg.requestTimeoutMs).toBe(DEFAULT_REQUEST_TIMEOUT_MS);
+    expect(cfg.bodyLimitBytes).toBe(DEFAULT_BODY_LIMIT_BYTES);
+  });
+
+  it('honors WEBCAP_REQUEST_TIMEOUT_MS and WEBCAP_BODY_LIMIT_BYTES overrides', () => {
+    const cfg = loadConfig({ ...SEP, WEBCAP_REQUEST_TIMEOUT_MS: '45000', WEBCAP_BODY_LIMIT_BYTES: '1000000' });
+    expect(cfg.requestTimeoutMs).toBe(45_000);
+    expect(cfg.bodyLimitBytes).toBe(1_000_000);
+  });
+
+  it('rejects invalid requestTimeout/bodyLimit values', () => {
+    for (const bad of ['0', '-5', 'abc']) {
+      expect(() => loadConfig({ ...SEP, WEBCAP_REQUEST_TIMEOUT_MS: bad })).toThrow(/invalid numeric env value/);
+      expect(() => loadConfig({ ...SEP, WEBCAP_BODY_LIMIT_BYTES: bad })).toThrow(/invalid numeric env value/);
+    }
+  });
+
+  it('defaults capture timeouts: 30s page-load default, 60s client cap', () => {
+    expect(DEFAULT_CAPTURE_TIMEOUT_MS).toBe(30_000);
+    expect(DEFAULT_CAPTURE_TIMEOUT_CAP_MS).toBe(60_000);
+    const cfg = loadConfig({ ...SEP });
+    expect(cfg.captureTimeoutMs).toBe(DEFAULT_CAPTURE_TIMEOUT_MS);
+    expect(cfg.captureTimeoutCapMs).toBe(DEFAULT_CAPTURE_TIMEOUT_CAP_MS);
+  });
+
+  it('honors WEBCAP_CAPTURE_TIMEOUT_MS and WEBCAP_CAPTURE_TIMEOUT_CAP_MS overrides', () => {
+    const cfg = loadConfig({ ...SEP, WEBCAP_CAPTURE_TIMEOUT_MS: '40000', WEBCAP_CAPTURE_TIMEOUT_CAP_MS: '90000' });
+    expect(cfg.captureTimeoutMs).toBe(40_000);
+    expect(cfg.captureTimeoutCapMs).toBe(90_000);
+  });
+
+  it('rejects invalid capture timeout values', () => {
+    for (const bad of ['0', '-1', 'abc']) {
+      expect(() => loadConfig({ ...SEP, WEBCAP_CAPTURE_TIMEOUT_MS: bad })).toThrow(/invalid numeric env value/);
+      expect(() => loadConfig({ ...SEP, WEBCAP_CAPTURE_TIMEOUT_CAP_MS: bad })).toThrow(/invalid numeric env value/);
+    }
+  });
+
+  it('defaults the model timeout to 30s and honors WEBCAP_MODEL_TIMEOUT_MS', () => {
+    expect(DEFAULT_MODEL_TIMEOUT_MS).toBe(30_000);
+    expect(loadConfig({ ...SEP }).modelTimeoutMs).toBe(DEFAULT_MODEL_TIMEOUT_MS);
+    expect(loadConfig({ ...SEP, WEBCAP_MODEL_TIMEOUT_MS: '45000' }).modelTimeoutMs).toBe(45_000);
+    expect(() => loadConfig({ ...SEP, WEBCAP_MODEL_TIMEOUT_MS: '0' })).toThrow(/invalid numeric env value/);
+    expect(() => loadConfig({ ...SEP, WEBCAP_MODEL_TIMEOUT_MS: 'abc' })).toThrow(/invalid numeric env value/);
+  });
+
+  it('defaults the x402 maxTimeout to 300s (in ms) and honors WEBCAP_X402_MAX_TIMEOUT_MS', () => {
+    // The wire field is maxTimeoutSeconds; the env is ms so 300_000 -> 300.
+    expect(DEFAULT_X402_MAX_TIMEOUT_MS).toBe(300_000);
+    expect(loadConfig({ ...SEP }).x402MaxTimeoutMs).toBe(DEFAULT_X402_MAX_TIMEOUT_MS);
+    expect(loadConfig({ ...SEP, WEBCAP_X402_MAX_TIMEOUT_MS: '450000' }).x402MaxTimeoutMs).toBe(450_000);
+    expect(() => loadConfig({ ...SEP, WEBCAP_X402_MAX_TIMEOUT_MS: '0' })).toThrow(/invalid numeric env value/);
+    expect(() => loadConfig({ ...SEP, WEBCAP_X402_MAX_TIMEOUT_MS: 'abc' })).toThrow(/invalid numeric env value/);
+  });
+
+  it('defaults watch webhook delivery to 3 attempts x 5s and honors overrides', () => {
+    expect(DEFAULT_WEBHOOK_RETRIES).toBe(3);
+    expect(DEFAULT_WEBHOOK_TIMEOUT_MS).toBe(5_000);
+    const cfg = loadConfig({ ...SEP });
+    expect(cfg.webhookRetries).toBe(DEFAULT_WEBHOOK_RETRIES);
+    expect(cfg.webhookTimeoutMs).toBe(DEFAULT_WEBHOOK_TIMEOUT_MS);
+    const overridden = loadConfig({ ...SEP, WEBCAP_WEBHOOK_RETRIES: '5', WEBCAP_WEBHOOK_TIMEOUT_MS: '7500' });
+    expect(overridden.webhookRetries).toBe(5);
+    expect(overridden.webhookTimeoutMs).toBe(7_500);
+    expect(() => loadConfig({ ...SEP, WEBCAP_WEBHOOK_RETRIES: '0' })).toThrow(/invalid numeric env value/);
+    expect(() => loadConfig({ ...SEP, WEBCAP_WEBHOOK_TIMEOUT_MS: '-1' })).toThrow(/invalid numeric env value/);
+    expect(() => loadConfig({ ...SEP, WEBCAP_WEBHOOK_RETRIES: 'abc' })).toThrow(/invalid numeric env value/);
+  });
+
+  it('defaults the invoice TTL to 1h and honors WEBCAP_INVOICE_TTL_MS', () => {
+    expect(DEFAULT_INVOICE_TTL_MS).toBe(3_600_000);
+    expect(loadConfig({ ...SEP }).invoiceTtlMs).toBe(DEFAULT_INVOICE_TTL_MS);
+    expect(loadConfig({ ...SEP, WEBCAP_INVOICE_TTL_MS: '1800000' }).invoiceTtlMs).toBe(1_800_000);
+    expect(() => loadConfig({ ...SEP, WEBCAP_INVOICE_TTL_MS: '0' })).toThrow(/invalid numeric env value/);
+    expect(() => loadConfig({ ...SEP, WEBCAP_INVOICE_TTL_MS: 'abc' })).toThrow(/invalid numeric env value/);
+  });
+
+  it('defaults invoice credits to 100 and honors WEBCAP_DEFAULT_CREDITS', () => {
+    expect(DEFAULT_CREDITS).toBe(100);
+    expect(loadConfig({ ...SEP }).defaultCredits).toBe(DEFAULT_CREDITS);
+    expect(loadConfig({ ...SEP, WEBCAP_DEFAULT_CREDITS: '500' }).defaultCredits).toBe(500);
+    expect(() => loadConfig({ ...SEP, WEBCAP_DEFAULT_CREDITS: '0' })).toThrow(/invalid numeric env value/);
+    expect(() => loadConfig({ ...SEP, WEBCAP_DEFAULT_CREDITS: 'abc' })).toThrow(/invalid numeric env value/);
+  });
+
+  it('defaults the free preview slices to 5 headings / 10 links / 1500 markdown chars', () => {
+    expect(DEFAULT_PREVIEW_HEADINGS_LIMIT).toBe(5);
+    expect(DEFAULT_PREVIEW_LINKS_LIMIT).toBe(10);
+    expect(DEFAULT_PREVIEW_MARKDOWN_LIMIT).toBe(1_500);
+    const cfg = loadConfig({ ...SEP });
+    expect(cfg.previewHeadingsLimit).toBe(DEFAULT_PREVIEW_HEADINGS_LIMIT);
+    expect(cfg.previewLinksLimit).toBe(DEFAULT_PREVIEW_LINKS_LIMIT);
+    expect(cfg.previewMarkdownLimit).toBe(DEFAULT_PREVIEW_MARKDOWN_LIMIT);
+  });
+
+  it('honors the preview slice overrides and rejects invalid values', () => {
+    const cfg = loadConfig({
+      ...SEP,
+      WEBCAP_PREVIEW_HEADINGS_LIMIT: '7',
+      WEBCAP_PREVIEW_LINKS_LIMIT: '25',
+      WEBCAP_PREVIEW_MARKDOWN_LIMIT: '2000',
+    });
+    expect(cfg.previewHeadingsLimit).toBe(7);
+    expect(cfg.previewLinksLimit).toBe(25);
+    expect(cfg.previewMarkdownLimit).toBe(2_000);
+    for (const bad of ['0', '-3', 'abc']) {
+      expect(() => loadConfig({ ...SEP, WEBCAP_PREVIEW_HEADINGS_LIMIT: bad })).toThrow(/invalid numeric env value/);
+      expect(() => loadConfig({ ...SEP, WEBCAP_PREVIEW_LINKS_LIMIT: bad })).toThrow(/invalid numeric env value/);
+      expect(() => loadConfig({ ...SEP, WEBCAP_PREVIEW_MARKDOWN_LIMIT: bad })).toThrow(/invalid numeric env value/);
+    }
+  });
+
+  it('defaults the bazaar catalog URL and honors WEBCAP_BAZAAR_CATALOG_URL', () => {
+    expect(DEFAULT_BAZAAR_CATALOG_URL).toBe('https://cdp.coinbase.com');
+    expect(loadConfig({ ...SEP }).bazaarCatalogUrl).toBe(DEFAULT_BAZAAR_CATALOG_URL);
+    expect(loadConfig({ ...SEP, WEBCAP_BAZAAR_CATALOG_URL: 'https://bazaar.example.com' }).bazaarCatalogUrl).toBe(
+      'https://bazaar.example.com',
+    );
+  });
+
+  it('defaults artifact retention to disabled (0 days) and parses non-negative days', () => {
+    expect(DEFAULT_ARTIFACT_RETENTION_DAYS).toBe(0);
+    expect(loadConfig({ ...SEP }).artifactRetentionDays).toBe(DEFAULT_ARTIFACT_RETENTION_DAYS);
+    // 0 is explicitly valid (disabled); positive values enable the sweep.
+    expect(loadConfig({ ...SEP, WEBCAP_ARTIFACT_RETENTION_DAYS: '0' }).artifactRetentionDays).toBe(0);
+    expect(loadConfig({ ...SEP, WEBCAP_ARTIFACT_RETENTION_DAYS: '30' }).artifactRetentionDays).toBe(30);
+    expect(() => loadConfig({ ...SEP, WEBCAP_ARTIFACT_RETENTION_DAYS: '-1' })).toThrow(/invalid non-negative integer/);
+    expect(() => loadConfig({ ...SEP, WEBCAP_ARTIFACT_RETENTION_DAYS: 'abc' })).toThrow(/invalid non-negative integer/);
+  });
+
+  it('sweeps artifacts on a 6h interval constant', () => {
+    expect(ARTIFACT_SWEEP_INTERVAL_MS).toBe(6 * 3_600_000);
+  });
+});
+
+describe('config: EIP-712 domains (single source: the CHAINS table)', () => {
+  it('derives the x402 USDC signing domains byte-identically per network', () => {
+    expect(EIP712_DOMAINS['eip155:84532']).toEqual({ name: 'USDC', version: '2' });
+    expect(EIP712_DOMAINS['eip155:8453']).toEqual({ name: 'USD Coin', version: '2' });
+    // Lock the exact literals (a mismatch makes every payment signature unrecoverable).
+    expect(EIP712_DOMAINS['eip155:84532']?.name).toBe('USDC');
+    expect(EIP712_DOMAINS['eip155:84532']?.version).toBe('2');
+    expect(EIP712_DOMAINS['eip155:8453']?.name).toBe('USD Coin');
+    expect(EIP712_DOMAINS['eip155:8453']?.version).toBe('2');
   });
 });

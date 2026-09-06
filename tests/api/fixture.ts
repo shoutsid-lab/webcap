@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyServerOptions } from 'fastify';
 import { openDb, type Db } from '../../src/db/index.js';
 import { makeAccountsRepo, type AccountsRepo } from '../../src/db/accounts.js';
 import { makeApiKeysRepo, type ApiKeysRepo } from '../../src/db/api_keys.js';
@@ -53,6 +53,8 @@ export interface FixtureOverrides {
   readonly capture?: (req: CaptureRequest) => Promise<CaptureResult>;
   readonly captureStructured?: (req: CaptureRequest) => Promise<StructuredCapture>;
   readonly og?: (req: { url: string }) => Promise<OgResult>;
+  /** Pino options for the fixture app (default: logging disabled). */
+  readonly loggerOptions?: FastifyServerOptions['logger'];
 }
 
 export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
@@ -96,7 +98,7 @@ export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
   const captureStructured =
     overrides.captureStructured ?? (async (): Promise<StructuredCapture> => ({ html: FAKE_HTML, structure: FAKE_STRUCTURE }));
   const og = overrides.og ?? (async (req: { url: string }): Promise<OgResult> => ({ url: req.url, title: 'Stub Title' }));
-  const app = buildApp({ db, config, capture, captureStructured, og, artifacts: makeArtifactRepo(db) });
+  const app = buildApp({ db, config, capture, captureStructured, og, artifacts: makeArtifactRepo(db), loggerOptions: overrides.loggerOptions });
   return {
     app,
     db,
