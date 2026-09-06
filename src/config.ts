@@ -41,6 +41,8 @@ export interface WebcapConfig {
   readonly x402FacilitatorUrl: string;
   /** x402 per-extract price in atomic 6-decimal USDC units (the "meaning" price, above capture). */
   readonly x402ExtractPriceUsdcUnits: number;
+  /** x402 per-audit price in atomic 6-decimal USDC units. */
+  readonly x402AuditPriceUsdcUnits: number;
   /** Optional CDP API key pair (CDP_API_KEY_ID/CDP_API_KEY_SECRET) for CDP facilitator auth. */
   readonly cdpApiKey: { readonly id: string; readonly secret: string } | undefined;
   /** Amortized compute cost per paid request, in atomic 6-decimal USDC units (for the P&L ledger). */
@@ -98,6 +100,7 @@ export interface WebcapConfig {
 export const DEFAULT_X402_FACILITATOR_URL = 'https://x402.org/facilitator';
 export const DEFAULT_X402_PRICE_USDC_UNITS = 1_000; // $0.001 in 6-decimal atomic units
 export const DEFAULT_X402_EXTRACT_PRICE_USDC_UNITS = 10_000; // $0.01 — a "meaning" price, above raw capture
+export const DEFAULT_X402_AUDIT_PRICE_USDC_UNITS = 2000; // $0.002 — audit price
 export const DEFAULT_COMPUTE_COST_USDC_UNITS_PER_REQUEST = 200; // $0.0002 amortized compute cost/page-load (override with your real infra/TPU cost)
 export const DEFAULT_PREVIEW_RATE_LIMIT = 10; // free preview requests/min/peer (override with WEBCAP_PREVIEW_RATE_LIMIT)
 
@@ -233,6 +236,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WebcapConfig {
       env.WEBCAP_X402_EXTRACT_PRICE_USDC,
       DEFAULT_X402_EXTRACT_PRICE_USDC_UNITS,
       'WEBCAP_X402_EXTRACT_PRICE_USDC',
+    ),
+    x402AuditPriceUsdcUnits: parseX402PriceUsdc(
+      env.WEBCAP_X402_AUDIT_PRICE_USDC,
+      DEFAULT_X402_AUDIT_PRICE_USDC_UNITS,
+      'WEBCAP_X402_AUDIT_PRICE_USDC',
     ),
     computeCostUsdcUnitsPerRequest: parseComputeCostUsdcUnits(
       env.WEBCAP_COMPUTE_COST_USDC_PER_REQUEST,
