@@ -160,4 +160,81 @@ describe('GET /og-debugger (free OG meta debugger tool page)', () => {
       await closeApiFixture(fx);
     }
   });
+
+  it('renders a score band with the preview score for a valid url', async () => {
+    const fx = makeApiFixture({
+      og: async (req: { url: string }) => ({
+        url: req.url,
+        title: 'Example Title',
+        description: 'An example description',
+        image: 'https://example.com/og.png',
+      }),
+    });
+    try {
+      const res = await fx.app.inject({ method: 'GET', url: '/og-debugger?url=https://example.com/' });
+      expect(res.statusCode).toBe(200);
+      const html = res.payload;
+      expect(html).toContain('Preview score');
+      expect(html).toMatch(/\/100/);
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('renders chat-app hints (WhatsApp, Discord, Slack) for a valid url', async () => {
+    const fx = makeApiFixture({
+      og: async (req: { url: string }) => ({
+        url: req.url,
+        title: 'Example Title',
+        description: 'An example description',
+        image: 'https://example.com/og.png',
+      }),
+    });
+    try {
+      const res = await fx.app.inject({ method: 'GET', url: '/og-debugger?url=https://example.com/' });
+      expect(res.statusCode).toBe(200);
+      const html = res.payload;
+      expect(html).toContain('WhatsApp');
+      expect(html).toContain('Discord');
+      expect(html).toContain('Slack');
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('gates the paid CTA by score: low score pushes audit/extract, high score stays soft', async () => {
+    const lowFx = makeApiFixture({
+      og: async (req: { url: string }) => ({ url: req.url }),
+    });
+    try {
+      const res = await lowFx.app.inject({ method: 'GET', url: '/og-debugger?url=https://example.com/' });
+      expect(res.statusCode).toBe(200);
+      expect(res.payload).toContain('Fix this preview');
+    } finally {
+      await closeApiFixture(lowFx);
+    }
+    const highFx = makeApiFixture({
+      og: async (req: { url: string }) => ({
+        url: req.url,
+        title: 'A tidy title well under sixty chars',
+        description: 'A tidy description well under one hundred and sixty characters for link previews.',
+        image: 'https://example.com/og.png',
+        twitterCard: 'summary_large_image',
+        twitterSite: '@webcap',
+        twitterCreator: '@author',
+        twitterTitle: 'A tidy title',
+        twitterDescription: 'A tidy description',
+        twitterImage: 'https://example.com/og.png',
+        icon: 'https://example.com/icon.png',
+      }),
+    });
+    try {
+      const res = await highFx.app.inject({ method: 'GET', url: '/og-debugger?url=https://example.com/' });
+      expect(res.statusCode).toBe(200);
+      expect(res.payload).not.toContain('Fix this preview');
+      expect(res.payload).toContain('Need this at scale?');
+    } finally {
+      await closeApiFixture(highFx);
+    }
+  });
 });
