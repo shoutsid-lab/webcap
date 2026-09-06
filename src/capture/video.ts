@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { BrowserContext, Page } from 'playwright-core';
@@ -17,6 +17,22 @@ export type ScrollEasing = 'linear' | 'ease-in-out';
 export const VIDEO_MAX_DURATION_MS = 30_000;
 
 export const VIDEO_DEFAULT_DURATION_MS = 5_000;
+
+/** Prefix for per-capture video staging dirs under the OS tmp root. */
+export const VIDEO_STAGING_PREFIX = 'webcap-video-';
+
+/**
+ * Pre-write ceiling for a staged recording (tmp-fill mitigation): a capture
+ * whose staged file exceeds this rejects with CaptureError instead of
+ * returning a giant buffer.
+ */
+export const VIDEO_STAGING_MAX_BYTES = 100_000_000;
+
+/**
+ * Orphan age cap for the startup sweep: staging dirs with mtime older than
+ * this are treated as crash leftovers and reaped.
+ */
+export const VIDEO_STAGING_MAX_AGE_MS = 6 * 60 * 60 * 1_000;
 
 /** Pixels scrolled per choreography step when the client sends no scrollSpeed. */
 export const VIDEO_DEFAULT_SCROLL_SPEED = 800;
@@ -172,6 +188,40 @@ async function findStagedVideo(dir: string): Promise<string | undefined> {
   return first === undefined ? undefined : join(dir, first);
 }
 
+/**
+ * Best-effort startup sweep for orphaned video staging dirs. Removes
+ * `webcap-video-*` entries under `root` whose mtime exceeds `maxAgeMs`,
+ * keeps fresh and non-matching entries, and returns the reaped count.
+ * Never throws: unreadable roots or per-entry failures resolve to a skip,
+ * so boot stays up even with a hostile tmp.
+ */
+export async function reapStaleVideoStaging(
+  root: string = tmpdir(),
+  maxAgeMs: number = VIDEO_STAGING_MAX_AGE_MS,
+): Promise<number> {
+  let entries: string[];
+  try {
+    entries = await readdir(root);
+  } catch {
+    return 0;
+  }
+  const cutoff = Date.now() - maxAgeMs;
+  let reaped = 0;
+  for (const entry of entries) {
+    if (!entry.startsWith(VIDEO_STAGING_PREFIX)) continue;
+    const full = join(root, entry);
+    try {
+      const st = await stat(full);
+      if (!st.isDirectory() || st.mtimeMs > cutoff) continue;
+      await rm(full, { recursive: true, force: true });
+      reaped += 1;
+    } catch {
+      continue;
+    }
+  }
+  return reaped;
+}
+
 async function recordToBuffer(
   req: VideoCaptureRequest,
   factory: (opts: VideoContextOptions) => Promise<VideoContext>,
@@ -179,10 +229,7 @@ async function recordToBuffer(
   timeouts?: VideoTimeouts,
 ): Promise<VideoCaptureResult> {
   const viewportOpts: ContextViewportOptions = req.viewport !== undefined ? { viewport: req.viewport } : {};
-  // TODO(video-wire): browser.newContext does not forward recordVideo yet;
-  // Object.assign carries the dir to the seam (fakes assert it) until the
-  // forwarding lands with the T8 wiring.
-  const context = await factory(Object.assign(viewportOpts, { recordVideo: { dir: stagingDir } }));
+  const context = await factory({ ...viewportOpts, recordVideo: { dir: stagingDir } });
   let videoPath: string | undefined;
   try {
     const page = await context.newPage();
@@ -201,15 +248,26 @@ async function recordToBuffer(
   videoPath ??= await findStagedVideo(stagingDir);
   if (videoPath === undefined) throw new CaptureError(`video capture produced no recording for ${req.url}`);
   const buffer = await readFile(videoPath);
+  if (buffer.length > VIDEO_STAGING_MAX_BYTES) {
+    throw new CaptureError(
+      `video staging oversize (${buffer.length} bytes exceeds ${VIDEO_STAGING_MAX_BYTES} cap) for ${req.url}`,
+    );
+  }
   return { buffer, mime: MIME_BY_VIDEO_FORMAT[req.format], bytes: buffer.length };
 }
 
 /**
  * Scroll-capture a URL to an in-memory video: fresh staging dir under the OS
  * tmp root, Playwright recordVideo context, deadline-bounded scroll
- * choreography, then close (finalizes the file) -> read -> Buffer.
+ * choreography, then close (finalizes the file) -> guard -> read -> Buffer.
  * Persistence stays with the route wiring (existing storeArtifact); this
  * returns the artifact-ready result. recordVideo only — no transcoding pipeline.
+ *
+ * Orphan mitigation: the happy path removes the staging dir in `finally`,
+ * but a SIGKILL/crash between mkdtemp and cleanup leaves `webcap-video-*`
+ * dirs behind — call reapStaleVideoStaging() once at boot to sweep them.
+ * The VIDEO_STAGING_MAX_BYTES guard bounds each capture so a runaway
+ * recording fails fast instead of filling tmp.
  */
 export async function captureVideo(
   req: VideoCaptureRequest,
