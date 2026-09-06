@@ -14,15 +14,20 @@ import { ExactEvmScheme } from '@x402/evm';
 import { x402Client, wrapAxiosWithPayment } from '@x402/axios';
 import { MERCHANT_ADDRESS } from './fixture.js';
 
-// The route calls the real Playwright pipeline; stub it at the module seam so
-// the paid-surface tests prove gating + ledger without launching Chromium.
-vi.mock('../../src/capture/video.js', () => ({
-  captureVideo: vi.fn(async () => ({
-    buffer: Buffer.from([0x00, 0x01, 0x02, 0x03]),
-    mime: 'video/mp4',
-    bytes: 4,
-  })),
-}));
+// The route calls the real Playwright pipeline; stub captureVideo at the
+// module seam (keeping the real duration/speed constants video-parse.ts
+// imports) so the paid-surface tests prove gating + ledger without Chromium.
+vi.mock('../../src/capture/video.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/capture/video.js')>();
+  return {
+    ...actual,
+    captureVideo: vi.fn(async () => ({
+      buffer: Buffer.from([0x00, 0x01, 0x02, 0x03]),
+      mime: 'video/mp4',
+      bytes: 4,
+    })),
+  };
+});
 
 const SEPOLIA_USDC = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
 const PAYER_KEY_A = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b786900';

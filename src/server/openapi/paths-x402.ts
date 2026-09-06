@@ -15,6 +15,8 @@ import {
   extractResponse,
   mapLiteRequestBody,
   mapLiteResponse,
+  videoRequestBody,
+  videoResponse,
   watchCreateBody,
   watchStateResponse,
   watchTopUpBody,
@@ -134,6 +136,31 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
         },
         'x-payment-info': {
           price: { mode: 'fixed', currency: 'USD', amount: usdAmount(config.x402AuditPriceUsdcUnits) },
+          protocols: [{ x402: {} }, { mpp: { method: 'evm' } }],
+        },
+      },
+    },
+    '/v1/x402/video': {
+      post: {
+        tags: ['capture'],
+        summary: 'Scroll-capture a URL as an MP4/WebM video (paid, x402)',
+        description:
+          'Record a deadline-bounded scroll choreography of the page to an in-memory MP4/WebM video. ' +
+          'Unpaid requests receive the x402 402 challenge; paying clients retry with PAYMENT-SIGNATURE. One payment per URL.',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: videoRequestBody } },
+        },
+        responses: {
+          200: { description: 'Paid + settled; the video artifact (base64)', content: jsonContent(videoResponse(config.x402VideoPriceUsdcUnits)) },
+          402: x402Challenge(config, { priceUsdcUnits: config.x402VideoPriceUsdcUnits, resourcePath: '/v1/x402/video' }),
+          400: ctx.badInput,
+          422: ctx.unprocessable('Invalid input: missing/invalid url, format, durationMs, scrollSpeed or scrollEasing. SSRF-blocked hosts 422 with detail {reason, dnsRebindingCaveat: true}'),
+          502: jsonError('502', 'Video capture failed for the URL (error envelope, code video_failed)'),
+          503: jsonError('503', 'x402 disabled on this deployment (WEBCAP_CHAIN=local)'),
+        },
+        'x-payment-info': {
+          price: { mode: 'fixed', currency: 'USD', amount: usdAmount(config.x402VideoPriceUsdcUnits) },
           protocols: [{ x402: {} }, { mpp: { method: 'evm' } }],
         },
       },

@@ -219,6 +219,56 @@ const mapLiteResponse = (priceUsdcUnits: number): Json => ({
   },
 });
 
+const videoRequestBody = {
+  type: 'object',
+  required: ['url'],
+  properties: {
+    url: { type: 'string', format: 'uri', description: 'The page to scroll-capture', example: 'https://example.com/' },
+    format: { type: 'string', enum: ['mp4', 'webm'], description: 'Video format (default mp4)' },
+    durationMs: { type: 'integer', description: 'Recording duration in milliseconds (default 5000, at most 30000)' },
+    scrollSpeed: { type: 'integer', description: 'Pixels scrolled per choreography step (default 800, at most 5000)' },
+    scrollEasing: { type: 'string', enum: ['linear', 'ease-in-out'], description: 'Scroll easing (default linear)' },
+    options: {
+      type: 'object',
+      additionalProperties: false,
+      description: 'Capture options (viewport forwarded to the recording context)',
+      properties: {
+        viewport: {
+          type: 'object',
+          description: 'Recording viewport in CSS pixels (clamped to 320-3840 wide, 320-2160 tall)',
+          properties: {
+            width: { type: 'integer', description: 'Viewport width in CSS pixels' },
+            height: { type: 'integer', description: 'Viewport height in CSS pixels' },
+          },
+        },
+      },
+    },
+  },
+};
+
+const videoResponse = (priceUsdcUnits: number): Json => ({
+  type: 'object',
+  properties: {
+    artifact: {
+      type: 'object',
+      properties: {
+        mime: { type: 'string', enum: ['video/mp4', 'video/webm'] },
+        bytes: { type: 'integer', example: 1_048_576 },
+        data: { type: 'string', description: 'Base64-encoded video bytes' },
+      },
+    },
+    payment: {
+      type: 'object',
+      properties: {
+        payer: { type: 'string', example: BAZAAR_EXAMPLE_PAYER },
+        creditsUsed: { type: 'integer', description: 'Credits charged (credits rail and async jobs; omitted on x402-settled calls)' },
+        costUsdcUnits: { type: 'integer', description: 'Amortized compute cost in atomic 6-decimal USDC units' },
+        priceUsdcUnits: { type: 'integer', example: priceUsdcUnits },
+      },
+    },
+  },
+});
+
 const auditResponse = (priceUsdcUnits: number): Json => ({
   type: 'object',
   properties: {
@@ -398,6 +448,8 @@ export {
   extractResponse,
   mapLiteRequestBody,
   mapLiteResponse,
+  videoRequestBody,
+  videoResponse,
   watchCreateBody,
   watchStateResponse,
   watchTopUpBody,

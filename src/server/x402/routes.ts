@@ -18,6 +18,7 @@ import {
   X402_AUDIT_DESCRIPTION,
   X402_EXTRACT_DESCRIPTION,
   X402_MAP_LITE_DESCRIPTION,
+  X402_VIDEO_DESCRIPTION,
   X402_MIME_TYPE,
   X402_TOPUP_DESCRIPTION,
   buildCaptureBazaarExtension,
@@ -26,6 +27,7 @@ import {
   buildMapLiteBazaarExtension,
   buildTopUpBazaarExtension,
   buildUnpaidBody,
+  buildVideoBazaarExtension,
   type UnpaidBazaarMetadata,
 } from './challenges.js';
 
@@ -37,6 +39,8 @@ export const X402_AUDIT_PATTERN = 'POST /v1/x402/audit';
 export const X402_AUDIT_PATH = '/v1/x402/audit';
 export const X402_MAP_LITE_PATTERN = 'POST /v1/x402/map-lite';
 export const X402_MAP_LITE_PATH = '/v1/x402/map-lite';
+export const X402_VIDEO_PATTERN = 'POST /v1/x402/video';
+export const X402_VIDEO_PATH = '/v1/x402/video';
 export const X402_TOPUP_PATTERN = 'POST /v1/x402/watches/topup';
 export const X402_TOPUP_PATH = '/v1/x402/watches/topup';
 export const X402_JOBS_PATTERN = 'POST /v1/capture/jobs';
@@ -177,6 +181,7 @@ export function buildX402Routes(config: WebcapConfig): Record<string, RouteConfi
   const extractReq = buildX402Requirement(config, config.x402ExtractPriceUsdcUnits);
   const auditReq = buildX402Requirement(config, config.x402AuditPriceUsdcUnits);
   const mapLiteReq = buildX402Requirement(config, config.x402AuditPriceUsdcUnits);
+  const videoReq = buildX402Requirement(config, config.x402VideoPriceUsdcUnits);
   const iconUrl = `${config.publicBaseUrl}/icon.png`;
   // Register both POST and GET for each route. POST is the real payment method;
   // GET returns an identical 402 challenge so GET-based crawlers (402index, search
@@ -218,6 +223,15 @@ export function buildX402Routes(config: WebcapConfig): Record<string, RouteConfi
     iconUrl,
     bazaar: buildMapLiteBazaarExtension(),
   });
+  const videoRoute = x402RouteConfig({
+    requirement: videoReq,
+    resourceUrl: `${config.publicBaseUrl}${X402_VIDEO_PATH}`,
+    description: X402_VIDEO_DESCRIPTION,
+    serviceName: BAZAAR_SERVICE_NAME,
+    tags: BAZAAR_TAGS,
+    iconUrl,
+    bazaar: buildVideoBazaarExtension(),
+  });
   const routes: RoutesConfig = {
     [X402_CAPTURE_PATTERN]: captureRoute,
     [`GET ${X402_CAPTURE_PATH}`]: captureRoute,
@@ -227,6 +241,8 @@ export function buildX402Routes(config: WebcapConfig): Record<string, RouteConfi
     [`GET ${X402_AUDIT_PATH}`]: auditRoute,
     [X402_MAP_LITE_PATTERN]: mapLiteRoute,
     [`GET ${X402_MAP_LITE_PATH}`]: mapLiteRoute,
+    [X402_VIDEO_PATTERN]: videoRoute,
+    [`GET ${X402_VIDEO_PATH}`]: videoRoute,
     // Async capture submit: same price auth as sync capture (one charge at
     // submit, polling is free). POST-only: GET /v1/capture/jobs/:id is free.
     [X402_JOBS_PATTERN]: x402RouteConfig({

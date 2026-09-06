@@ -9,6 +9,7 @@ import type { OgResult } from '../capture/og.js';
 import { registerBillingRoutes } from './billing.js';
 import { registerAdminHitsRoutes } from './admin-hits.js';
 import { registerMapLiteRoute } from './map-lite.js';
+import { registerVideoRoute } from './video.js';
 import { registerJobRoutes } from './jobs.js';
 import { registerRoutes } from './routes.js';
 import { registerDiscoveryRoutes } from './discovery.js';
@@ -75,6 +76,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   registerRoutes(app, deps);
   registerJobRoutes(app, deps);
   registerMapLiteRoute(app, { db: deps.db, config: deps.config, captureAllowHosts: deps.captureAllowHosts });
+  registerVideoRoute(app, { db: deps.db, config: deps.config, captureAllowHosts: deps.captureAllowHosts });
   registerDiscoveryRoutes(app, deps);
   registerAgentSurfaces(app, deps.config);
   registerWatchRoutes(app, deps);
