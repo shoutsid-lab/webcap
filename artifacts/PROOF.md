@@ -272,7 +272,7 @@ in `/.well-known/x402`. Cryptographic recovery on the host yields
 `checkDiscovery` reports `ownershipProofs: 1` — their verifier awards the
 `ownership_verified` tier from exactly this proof.
 
-**Distribution (11 channels, statuses verified 2026-09-06).**
+**Distribution (12 channels, statuses verified 2026-09-06).**
 
 | Channel | Status |
 |---|---|
@@ -287,6 +287,7 @@ in `/.well-known/x402`. Cryptographic recovery on the host yields
 | mppscan.com | **LISTED 2026-09-06** (`registered: 22, failed: 0`): dual-protocol 402s ship MPP `WWW-Authenticate` (Tempo/mpp.dev, IETF draft-ryan-httpauth-payment; `method="evm"`, bare-host realm — scheme-qualified realms are rejected as `REALM_MISMATCH`) alongside byte-identical x402 `PAYMENT-REQUIRED`; MPP EIP-3009 credentials settle through the same facilitator; `x-payment-info` now advertises `protocols: [x402, mpp]` on all 3 paid ops |
 | x402gle.com | auditioned 2026-09-06: our two doc defects fixed (single public `servers` entry; unambiguous extract body schema — `oneOf` url\|urls, `format: uri`, stringly `schema`); the remaining failure is on their infra — `Catalog flush could not persist 1 resource write` (persistent across origin- and endpoint-scoped retries over 10 min) → surfaced (email to support@dexter.cash drafted) |
 | stablecoin.com/402/ | manual email listing (dan@quellhorst.com) — draft ready, send is a user action |
+| kkj x402 Trust Index | **INDEXED 2026-09-06** (auto-crawled `kkj-x402-trust-index/0.1`): capture id 46929 + extract id 46928, `observed_trust_score: 85.5, grade: A, verified_live: true`; badges + trust pages embedded on our landing (their labels are observed signals, not guarantees) |
 
 Agent-facing surfaces: `/llms.txt`, `/skill.md` (text/markdown,
 config-derived), `/openapi.json`, `/.well-known/x402`, `/v1/x402/service`.
@@ -324,9 +325,9 @@ funded wallet flips the listings within 3 days, worst case) — and then keeps
 the listing alive for the 30-day window indefinitely.
 
 **Status (honest).** The service is **live on Base mainnet** with real
-discovery across 11 channels (7 actively listed/indexed; agentic.market
-waits for the mainnet flip; mppscan and x402gle blocked on a protocol
-decision and their infra error respectively — see the table) and the
+discovery across 12 channels (8 actively listed/indexed; agentic.market
+waits for the mainnet flip; x402gle blocked on their infra error — see the
+table) and the
 verified-ownership proof served. The
 **first mainnet settlement is pending**: the test wallet holds **$0.00 USDC
 on Base mainnet** (proven via Basescan; the CDP self-pay correctly reverts on
