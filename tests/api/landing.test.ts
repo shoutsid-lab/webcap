@@ -66,6 +66,22 @@ describe('GET / (content negotiation: landing page + JSON front door)', () => {
     }
   });
 
+  // Independent observed-trust badges (kkj x402 Trust Index): the crawler
+  // verifies our GET-402s live, so the landing surfaces their badges.
+  it('embeds the independent x402 trust badges (capture + extract) linking to their trust pages', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await fx.app.inject({ method: 'GET', url: '/' });
+      const html = res.payload;
+      expect(html).toContain('https://5.75.142.199.sslip.io/badge/x402/46929.svg');
+      expect(html).toContain('https://5.75.142.199.sslip.io/badge/x402/46928.svg');
+      expect(html).toContain('https://5.75.142.199.sslip.io/x402/trust/46929');
+      expect(html).toContain('https://5.75.142.199.sslip.io/x402/trust/46928');
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
   it('returns the pre-existing JSON front-door payload, deep-equal, for Accept: application/json', async () => {
     const fx = makeApiFixture();
     try {

@@ -85,6 +85,8 @@ export const LANDING_CSS = `
 .link-strip{display:flex;gap:var(--s3);flex-wrap:wrap;margin-top:var(--s5)}
 .link-strip a{font-family:var(--mono);font-size:13px;border:1px solid var(--line);border-radius:var(--r-m);padding:10px 14px;color:var(--text);display:inline-flex;gap:8px;align-items:center}
 .link-strip a:hover{border-color:var(--accent);text-decoration:none}
+.trust-strip{display:flex;gap:var(--s4);flex-wrap:wrap;margin-top:var(--s3);align-items:center}
+.trust-strip img{display:block;height:22px}
 `;
 
 // Artifact-page primitives

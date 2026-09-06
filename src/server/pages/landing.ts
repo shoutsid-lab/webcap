@@ -230,6 +230,11 @@ ${topBar(bazaarCatalogUrl)}
       <a href="/icon.png">/icon.png — service icon</a>
       <a href="#pricing">Pricing</a>
     </div>
+    <p class="hint">Independently observed trust (third-party index, live-probed — not a guarantee):</p>
+    <div class="trust-strip">
+      <a href="https://5.75.142.199.sslip.io/x402/trust/46929" target="_blank" rel="noopener"><img src="https://5.75.142.199.sslip.io/badge/x402/46929.svg" alt="x402 trust badge: capture route" loading="lazy"></a>
+      <a href="https://5.75.142.199.sslip.io/x402/trust/46928" target="_blank" rel="noopener"><img src="https://5.75.142.199.sslip.io/badge/x402/46928.svg" alt="x402 trust badge: extract route" loading="lazy"></a>
+    </div>
   </section>
 </main>
 ${footer(bazaarCatalogUrl)}
