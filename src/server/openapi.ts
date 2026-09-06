@@ -50,6 +50,9 @@ export async function openapiDocument(config: WebcapConfig): Promise<OpenapiDocu
     `(${usd(config.x402PriceUsdcUnits)} USDC), POST /v1/x402/extract (${usd(config.x402ExtractPriceUsdcUnits)} USDC, ` +
     'batch up to 50 URLs for one payment), POST /v1/x402/audit (' +
     `${usd(config.x402AuditPriceUsdcUnits)} USDC, SEO basics + link/OG health in one call), ` +
+    'POST /v1/x402/map-lite (' +
+    `${usd(config.x402AuditPriceUsdcUnits)} USDC, sitemap/robots + 1-hop crawl URL list), POST /v1/x402/video (` +
+    `${usd(config.x402VideoPriceUsdcUnits)} USDC, scroll-capture MP4/WebM), ` +
     'and POST /v1/x402/watches/topup (dynamic ' +
     `${usd(watchTopUpPriceUsdcUnits('capture', config))}-${usd(watchTopUpPriceUsdcUnits('extract', config))} USDC ` +
     `per ${WATCH_TOPUP_RUNS}-run watch pack). Payment (x402 v2 "exact"): on HTTP 402 read the base64 ` +
@@ -77,6 +80,8 @@ export async function openapiDocument(config: WebcapConfig): Promise<OpenapiDocu
     tags: [
       { name: 'capture', description: 'URL → PNG/JPEG/PDF screenshot (+ free OG metadata)' },
       { name: 'extract', description: 'URL(s) → structured text/JSON' },
+      { name: 'audit', description: 'URL → SEO basics + link/OG health report' },
+      { name: 'map-lite', description: 'Seed URL → same-host URL list (sitemap/robots + 1-hop crawl)' },
       { name: 'monitoring', description: 'Scheduled watches: create, state, delete, x402 credit top-up' },
       { name: 'artifacts', description: 'Stored capture artifacts' },
       { name: 'accounts', description: 'API-key accounts, credit packs, and the credit-metered capture (non-x402 front door)' },
