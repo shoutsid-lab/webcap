@@ -22,7 +22,7 @@ import { HttpError, unprocessable } from '../util/errors.js';
 import { RateLimiter, rejectRateLimited } from '../util/ratelimit.js';
 import { extractPage, storeArtifact } from '../extract/service.js';
 import { pinoServiceLogger } from '../util/logger.js';
-import { parseExtractSchema, parseExtractUrls, type ExtractedContent, type ExtractResult } from './extract-parse.js';
+import { parseExtractSchema, parseExtractUrls, assertSupportedSchema, assertTypedExtractValid, filterExtractedBySchema, parseExtractSpans, parseTypedSchema, type ExtractedContent, type ExtractResult } from './extract-parse.js';
 import { isRecord, parseFormat, parseOptions, validatedUrl } from './capture-parse.js';
 import { x402Payer } from './x402.js';
 import { computeAudit } from '../audit/checks.js';
@@ -81,6 +81,44 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       throw new HttpError(503, 'x402_disabled', 'x402 payment requires WEBCAP_CHAIN=base-sepolia or base');
     }
     const urls = parseExtractUrls(req.body, allowHosts);
+    const typedSchema = parseTypedSchema(req.body);
+    if (typedSchema !== undefined) {
+      assertSupportedSchema(typedSchema);
+      const spans = parseExtractSpans(req.body);
+      const captureOptions = parseOptions(req.body);
+      const results: ExtractResult[] = [];
+      let failures = 0;
+      for (const url of urls) {
+        let captured;
+        try {
+          captured = await deps.captureStructured({
+            url,
+            options: { ...captureOptions, includeHtml: false },
+          });
+        } catch (err) {
+          failures += 1;
+          results.push({ url, status: 'error', error: err instanceof CaptureError ? err.message : 'capture failed' });
+          continue;
+        }
+        const extracted = filterExtractedBySchema(captured.structure, typedSchema);
+        assertTypedExtractValid(extracted, typedSchema, spans, [captured.structure.markdown]);
+        results.push({ url, status: 'ok', data: { ...captured.structure, extracted } });
+      }
+      if (failures === urls.length) {
+        throw new HttpError(502, 'extract_failed', 'all urls failed to extract');
+      }
+      const payer = x402Payer(req) ?? 'unknown';
+      revenue.record({
+        endpoint: 'extract',
+        payer,
+        revenueUsdcUnits: config.x402ExtractPriceUsdcUnits,
+        costUsdcUnits: config.computeCostUsdcUnitsPerRequest * urls.length,
+      });
+      return {
+        results,
+        payment: { payer, priceUsdcUnits: config.x402ExtractPriceUsdcUnits },
+      };
+    }
     const schema = parseExtractSchema(req.body);
     const captureOptions = parseOptions(req.body);
     const model = {
