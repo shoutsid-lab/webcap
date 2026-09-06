@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateAgainstSchema, verifySpans } from '../src/extract/schema-validator';
+import { validateAgainstSchema, verifySpans } from '../../src/extract/schema-validator.js';
 import { HttpError } from '../../src/util/errors.js';
 
 function expectUnsupportedKeyword(schema: unknown): void {
