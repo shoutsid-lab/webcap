@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { describe, expect, it } from 'vitest';
-import { fireWebhook } from '../../src/watch/webhook.js';
+import { fireSignedWebhook, fireWebhook } from '../../src/watch/webhook.js';
 import { closeApiFixture, FAKE_PNG, makeApiFixture } from './fixture.js';
 
 /**
@@ -196,14 +196,14 @@ describe('C-S2: webhook HMAC delivery (sha256=<hex> over the raw body)', () => {
     expect(verifyWebhookSignature(secret, rawBody, 'not-a-signature')).toBe(false);
   });
 
-  it('fireWebhook signs delivery: the receiver observes x-hub-signature-256: sha256=<hex> verifying over the raw body', async () => {
+  it('fireSignedWebhook signs delivery: the receiver observes x-hub-signature-256: sha256=<hex> verifying over the raw body', async () => {
     const receiver = await startReceiver({ status: 200 });
     try {
-      const outcome = await fireWebhook(receiver.url, { watchId: 'w1', changed: true }, 3, 5_000);
+      const outcome = await fireSignedWebhook(receiver.url, { watchId: 'w1', changed: true }, 'test-secret', 3, 5_000);
       expect(outcome).toBe('ok: HTTP 200');
       expect(receiver.deliveries.count).toBe(1);
       const signature = receiver.deliveries.signature;
-      expect(signature, 'fireWebhook must send x-hub-signature-256: sha256=<hex>').toMatch(/^sha256=[0-9a-f]{64}$/);
+      expect(signature, 'fireSignedWebhook must send x-hub-signature-256: sha256=<hex>').toMatch(/^sha256=[0-9a-f]{64}$/);
       // The signature must be over the exact raw bytes the receiver got.
       expect(signature?.startsWith('sha256=')).toBe(true);
       expect(receiver.deliveries.rawBody.length).toBeGreaterThan(0);
