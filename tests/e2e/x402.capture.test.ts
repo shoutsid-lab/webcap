@@ -200,6 +200,8 @@ describe('x402 capture (v2 wire, mock facilitator, no chain)', () => {
       expect.objectContaining({ method: 'POST', path: '/v1/x402/capture', priceUsdc: 0.001, atomicUnits: '1000' }),
       expect.objectContaining({ method: 'POST', path: '/v1/x402/extract', priceUsdc: 0.01, atomicUnits: '10000' }),
       expect.objectContaining({ method: 'POST', path: '/v1/x402/audit', priceUsdc: 0.002, atomicUnits: '2000' }),
+      expect.objectContaining({ method: 'POST', path: '/v1/x402/map-lite', priceUsdc: 0.002, atomicUnits: '2000' }),
+      expect.objectContaining({ method: 'POST', path: '/v1/x402/video', priceUsdc: 0.005, atomicUnits: '5000' }),
       // Watch top-up pack: WATCH_TOPUP_RUNS × capture unit price (config-derived in routes.ts).
       expect.objectContaining({
         method: 'POST',

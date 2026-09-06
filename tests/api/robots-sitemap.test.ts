@@ -139,7 +139,7 @@ describe('GET /robots.txt + GET /sitemap.xml (SEO surface)', () => {
 });
 
 describe('GET /.well-known/x402 + GET /.well-known/agent-card.json (machine discovery)', () => {
-  it('x402 catalog: 200 JSON naming the service, the payment rails, and all three paid endpoints', async () => {
+  it('x402 catalog: 200 JSON naming the service, the payment rails, and all five paid endpoints', async () => {
     const fx = makeApiFixture();
     try {
       const res = await fx.app.inject({ method: 'GET', url: '/.well-known/x402' });
@@ -162,11 +162,15 @@ describe('GET /.well-known/x402 + GET /.well-known/agent-card.json (machine disc
         'POST /v1/x402/capture',
         'POST /v1/x402/extract',
         'POST /v1/x402/audit',
+        'POST /v1/x402/map-lite',
+        'POST /v1/x402/video',
         'POST /v1/x402/watches/topup',
       ]);
       expect(body.endpoints[0]?.usdc).toBe(fx.config.x402PriceUsdcUnits / 1_000_000);
       expect(body.endpoints[1]?.usdc).toBe(fx.config.x402ExtractPriceUsdcUnits / 1_000_000);
       expect(body.endpoints[2]?.usdc).toBe(fx.config.x402AuditPriceUsdcUnits / 1_000_000);
+      expect(body.endpoints[3]?.usdc).toBe(fx.config.x402AuditPriceUsdcUnits / 1_000_000);
+      expect(body.endpoints[4]?.usdc).toBe(fx.config.x402VideoPriceUsdcUnits / 1_000_000);
       expect(body.openapi).toContain('/openapi.json');
     } finally {
       await closeApiFixture(fx);
@@ -196,7 +200,7 @@ describe('GET /.well-known/x402 + GET /.well-known/agent-card.json (machine disc
       expect(card.payments.payTo).toBe(
         fx.config.x402Network === undefined ? null : fx.config.x402PayTo,
       );
-      expect(card.skills.map((s) => s.id)).toEqual(['capture', 'extract', 'audit', 'watch']);
+      expect(card.skills.map((s) => s.id)).toEqual(['capture', 'extract', 'audit', 'map-lite', 'video', 'watch']);
     } finally {
       await closeApiFixture(fx);
     }
