@@ -9,18 +9,28 @@
 import type { Db } from '../db/index.js';
 import type { WatchChannel } from './conditions.js';
 
-export type WatchMode = 'capture' | 'extract';
+export type WatchMode = 'capture' | 'extract' | 'json';
 export type WatchRunStatus = 'ok' | 'error' | 'no-credit';
+
+/**
+ * Modes the HTTP API and top-up pricing accept. Routes and pricing stay
+ * capture/extract-only (parseMode + watchTopUpPriceUsdcUnits untouched);
+ * 'json' watches persist via the repo directly and execute in the scheduler.
+ */
+export type ApiWatchMode = 'capture' | 'extract';
 
 export interface WatchRow {
   readonly id: string;
   readonly url: string;
   readonly every: string;
-  readonly mode: WatchMode;
+  readonly mode: ApiWatchMode;
   readonly schema_json: string | null;
   readonly webhook_url: string | null;
   readonly conditions_json: string | null;
   readonly channel: string;
+  readonly headers_json: string | null;
+  readonly cookies_json: string | null;
+  readonly steps_json: string | null;
   readonly credits: number;
   readonly baseline_hash: string | null;
   readonly baseline_json: string | null;
@@ -53,6 +63,9 @@ export interface NewWatch {
   readonly webhookUrl: string | null;
   readonly conditionsJson: string | null;
   readonly channel: WatchChannel;
+  readonly headersJson?: string | null;
+  readonly cookiesJson?: string | null;
+  readonly stepsJson?: string | null;
   readonly credits: number;
   readonly nextRunAt: string | null;
   readonly createdAt: string;
@@ -103,16 +116,31 @@ export interface WatchRepo {
 }
 
 const selectRow =
-  'SELECT id, url, every, mode, schema_json, webhook_url, conditions_json, channel, credits, baseline_hash, baseline_json, ' +
-  'next_run_at, paused, created_at, last_run_at FROM watches';
+  'SELECT id, url, every, mode, schema_json, webhook_url, conditions_json, channel, headers_json, cookies_json, steps_json, ' +
+  'credits, baseline_hash, baseline_json, next_run_at, paused, created_at, last_run_at FROM watches';
 
 export function makeWatchRepo(db: Db): WatchRepo {
   const insertWatch = db.prepare<
-    [string, string, string, string, string | null, string | null, string | null, string, number, string | null, string],
+    [
+      string,
+      string,
+      string,
+      string,
+      string | null,
+      string | null,
+      string | null,
+      string,
+      string | null,
+      string | null,
+      string | null,
+      number,
+      string | null,
+      string,
+    ],
     unknown
   >(
-    'INSERT INTO watches (id, url, every, mode, schema_json, webhook_url, conditions_json, channel, credits, next_run_at, created_at) ' +
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO watches (id, url, every, mode, schema_json, webhook_url, conditions_json, channel, headers_json, cookies_json, ' +
+      'steps_json, credits, next_run_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
   );
   const fetchWatch = db.prepare<[string], WatchRow>(`${selectRow} WHERE id = ?`);
   const deleteRuns = db.prepare<[string], unknown>('DELETE FROM watch_runs WHERE watch_id = ?');
@@ -154,6 +182,9 @@ export function makeWatchRepo(db: Db): WatchRepo {
         watch.webhookUrl,
         watch.conditionsJson,
         watch.channel,
+        watch.headersJson ?? null,
+        watch.cookiesJson ?? null,
+        watch.stepsJson ?? null,
         watch.credits,
         watch.nextRunAt,
         watch.createdAt,

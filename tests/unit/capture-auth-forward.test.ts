@@ -24,7 +24,7 @@ vi.mock('../../src/capture/browser.js', async (importOriginal) => {
     newContext: vi.fn(async (opts?: ContextViewportOptions) => {
       const ctx: FakeContext = { opts, page: { gotoCalls: [], clicked: [], filled: [], waitedMs: [] }, addedCookies: [] };
       contexts.push(ctx);
-      return {
+      const context = {
         newPage: async () => ({
           goto: async (url: string) => {
             ctx.page.gotoCalls.push(url);
@@ -48,6 +48,11 @@ vi.mock('../../src/capture/browser.js', async (importOriginal) => {
         addInitScript: async () => undefined,
         close: async () => undefined,
       };
+      // Mirror the real newContext contract: cookies apply via addCookies.
+      if (opts?.cookies !== undefined && opts.cookies.length > 0) {
+        await context.addCookies(opts.cookies.map((cookie) => ({ ...cookie })));
+      }
+      return context;
     }),
   };
 });

@@ -18,6 +18,7 @@ export function openDb(path: string): Db {
   db.pragma('foreign_keys = ON');
   db.exec(readFileSync(schemaPath, 'utf8'));
   migrateWatchChatOps(db);
+  migrateWatchJsonAuth(db);
   migrateCaptureJobs(db);
   migrateEndpointHits(db);
   return db;
@@ -34,6 +35,21 @@ function migrateWatchChatOps(db: Db): void {
   );
   if (!existing.has('conditions_json')) db.exec('ALTER TABLE watches ADD COLUMN conditions_json TEXT');
   if (!existing.has('channel')) db.exec("ALTER TABLE watches ADD COLUMN channel TEXT NOT NULL DEFAULT 'generic'");
+}
+
+/**
+ * Additive, nullable-tolerant migration for the watch JSON-mode + macro-auth
+ * columns (headers/cookies/steps): existing rows stay valid (all three NULL,
+ * i.e. legacy capture/extract behavior); fresh databases already carry the
+ * columns via schema.sql.
+ */
+function migrateWatchJsonAuth(db: Db): void {
+  const existing = new Set(
+    (db.prepare('PRAGMA table_info(watches)').all() as Array<{ name: string }>).map((col) => col.name),
+  );
+  if (!existing.has('headers_json')) db.exec('ALTER TABLE watches ADD COLUMN headers_json TEXT');
+  if (!existing.has('cookies_json')) db.exec('ALTER TABLE watches ADD COLUMN cookies_json TEXT');
+  if (!existing.has('steps_json')) db.exec('ALTER TABLE watches ADD COLUMN steps_json TEXT');
 }
 
 /**

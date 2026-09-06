@@ -1,5 +1,5 @@
 import type { Page } from 'playwright-core';
-import { newContext, resolveProxyServer, type ContextViewportOptions } from './browser.js';
+import { newContext, resolveProxyServer, type ContextCookie, type ContextViewportOptions } from './browser.js';
 import { CaptureError } from './errors.js';
 import { DEFAULT_CAPTURE_TIMEOUT_CAP_MS, DEFAULT_CAPTURE_TIMEOUT_MS } from '../config.js';
 
@@ -15,7 +15,8 @@ export interface CaptureWaitFor {
 export type CaptureAction =
   | { readonly type: 'click'; readonly selector: string }
   | { readonly type: 'type'; readonly selector: string; readonly text: string }
-  | { readonly type: 'wait'; readonly timeoutMs: number };
+  | { readonly type: 'wait'; readonly timeoutMs: number }
+  | { readonly type: 'goto'; readonly url: string };
 
 export interface CaptureOptions {
   readonly timeoutMs?: number;
@@ -28,6 +29,10 @@ export interface CaptureOptions {
   readonly proxy?: CaptureProxy;
   readonly waitFor?: CaptureWaitFor;
   readonly actions?: readonly CaptureAction[];
+  /** Per-watch auth headers forwarded to the browser context (watch macro-auth threading). */
+  readonly extraHTTPHeaders?: Record<string, string>;
+  /** Per-watch auth cookies applied to the browser context via addCookies. */
+  readonly cookies?: readonly ContextCookie[];
 }
 
 export interface CaptureRequest {
@@ -76,6 +81,8 @@ function contextViewport(req: CaptureRequest): ContextViewportOptions {
     ...(o.proxy !== undefined
       ? { proxyServer: resolveProxyServer(o.proxy), ...(o.proxy === 'stealth' ? { stealth: true as const } : {}) }
       : {}),
+    ...(o.extraHTTPHeaders !== undefined ? { extraHTTPHeaders: o.extraHTTPHeaders } : {}),
+    ...(o.cookies !== undefined ? { cookies: o.cookies } : {}),
   };
 }
 
@@ -91,7 +98,7 @@ function resolveTimeout(req: CaptureRequest, timeouts?: CaptureTimeouts): number
  */
 export const MAX_STEALTH_ACTIONS = 5;
 
-async function settlePage(page: Page, req: CaptureRequest): Promise<void> {
+async function settlePage(page: Page, req: CaptureRequest, timeouts?: CaptureTimeouts): Promise<void> {
   const waitFor = req.options?.waitFor;
   if (waitFor !== undefined) {
     await page.waitForSelector(waitFor.selector, { timeout: waitFor.timeoutMs });
@@ -107,6 +114,9 @@ async function settlePage(page: Page, req: CaptureRequest): Promise<void> {
         break;
       case 'wait':
         await page.waitForTimeout(action.timeoutMs);
+        break;
+      case 'goto':
+        await page.goto(action.url, { timeout: resolveTimeout(req, timeouts), waitUntil: 'load' });
         break;
       default: {
         const exhaustive: never = action;
@@ -124,7 +134,7 @@ export async function capture(req: CaptureRequest, timeouts?: CaptureTimeouts): 
       const page = await context.newPage();
       try {
         await page.goto(req.url, { timeout: resolveTimeout(req, timeouts), waitUntil: 'load' });
-        await settlePage(page, req);
+        await settlePage(page, req, timeouts);
         const buffer =
           format === 'pdf' ? await page.pdf({}) : await page.screenshot({ fullPage: req.options?.fullPage, type: format });
         return { buffer, format, bytes: buffer.length };
@@ -148,7 +158,7 @@ export async function captureStructured(req: CaptureRequest, timeouts?: CaptureT
       const page = await context.newPage();
       try {
         await page.goto(req.url, { timeout: resolveTimeout(req, timeouts), waitUntil: 'load' });
-        await settlePage(page, req);
+        await settlePage(page, req, timeouts);
         const structure = await page.evaluate(extractStructureFromDom);
         const html = req.options?.includeHtml === false ? '' : await page.content();
         return { html, structure };

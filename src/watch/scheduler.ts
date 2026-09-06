@@ -26,14 +26,16 @@ import type { ArtifactRepo } from '../db/artifacts.js';
 import type { RevenueRepo } from '../db/revenue.js';
 import { DEFAULT_MODEL_TIMEOUT_MS, DEFAULT_WEBHOOK_RETRIES, DEFAULT_WEBHOOK_TIMEOUT_MS, type WebcapConfig } from '../config.js';
 import type { CaptureRequest, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
+import { captureOptionsOf } from './capture-context.js';
 import { extractPage, storeArtifact } from '../extract/service.js';
 import { consoleServiceLogger, type ServiceLogger } from '../util/logger.js';
 import { diffJson, sha256Hex, stableStringify } from './diff.js';
 import { everyMsOf } from './intervals.js';
+import { fetchJsonWatch, executeJsonWatch } from './json-fetch.js';
 import { defaultClock, defaultTimers, type WatchClock, type WatchTimers } from './clock.js';
 import { checkWebhookUrl, fireWebhook, formatAlertPayload, type WatchAlert, type WatchChannel } from './webhook.js';
 import { conditionsMatch, parseConditionsField, type ConditionContext } from './conditions.js';
-import type { WatchRepo, WatchRow } from './store.js';
+import type { WatchMode, WatchRepo, WatchRow } from './store.js';
 
 // Re-exported unchanged: the watch-scheduler unit tests import these from this module.
 export type { WatchClock, WatchTimers } from './clock.js';
@@ -169,14 +171,31 @@ async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: 
   let diffSummary: string | null = null;
 
   try {
-    if (watch.mode === 'capture') {
-      const result = await input.pipeline.capture({ url: watch.url });
+    const mode = storedModeOf(watch);
+    if (mode === 'json') {
+      const outcome = await executeJsonWatch({
+        baselineJson: watch.baseline_json,
+        conditionsJson: watch.conditions_json,
+        fetch: () => fetchJsonWatch(watch.url),
+      });
+      if (outcome.status === 'error') throw new Error(outcome.error ?? 'json watch failed');
+      extractJson = outcome.extractJson;
+      changed = outcome.changed;
+      diffSummary = outcome.diffSummary;
+      input.repo.setBaseline(watch.id, null, extractJson);
+    } else if (mode === 'capture') {
+      const options = captureOptionsOf(watch);
+      const result = await input.pipeline.capture({
+        url: watch.url,
+        ...(options !== undefined ? { options } : {}),
+      });
       artifactUrl = storeArtifact(input.artifacts, input.config, watch.url, result);
       const hash = sha256Hex(result.buffer);
       changed = watch.baseline_hash !== null && watch.baseline_hash !== hash;
       diffSummary = changed ? 'artifact' : null;
       input.repo.setBaseline(watch.id, hash, null);
     } else {
+      const options = captureOptionsOf(watch);
       const data = await extractPage({
         url: watch.url,
         captureStructured: input.pipeline.captureStructured,
@@ -188,6 +207,7 @@ async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: 
         },
         modelTimeoutMs: input.config.modelTimeoutMs ?? DEFAULT_MODEL_TIMEOUT_MS,
         logger: input.logger,
+        ...(options !== undefined ? { captureOptions: options } : {}),
       });
       extractJson = stableStringify(data);
       if (watch.baseline_json !== null) {
@@ -273,6 +293,16 @@ async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: 
 
 function normalizeChannel(raw: string): WatchChannel {
   return raw === 'slack' || raw === 'discord' ? raw : 'generic';
+}
+
+/**
+ * The mode the scheduler executes. watches.mode may hold 'json'
+ * (scheduler-persisted rows); the typed row surface stays API-narrow so
+ * routes/pricing compile unchanged, and this boundary recovers the stored
+ * value without a cast (a function return is never CFA-narrowed).
+ */
+function storedModeOf(watch: WatchRow): WatchMode {
+  return watch.mode;
 }
 
 function conditionContextOf(extractJson: string | null): ConditionContext {
