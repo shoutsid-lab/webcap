@@ -115,8 +115,98 @@ const extractRequestBody = {
   },
 };
 
-const watchCreateBody = {
+const auditRequestBody = {
   type: 'object',
+  required: ['url'],
+  properties: {
+    url: { type: 'string', format: 'uri', example: 'https://example.com/' },
+  },
+};
+
+const auditResponse = (priceUsdcUnits: number): Json => ({
+  type: 'object',
+  properties: {
+    audit: {
+      type: 'object',
+      properties: {
+        url: { type: 'string' },
+        seo: {
+          type: 'object',
+          properties: {
+            title: {
+              type: 'object',
+              properties: {
+                present: { type: 'boolean' },
+                length: { type: 'integer' },
+                ok: { type: 'boolean' },
+              },
+            },
+            description: {
+              type: 'object',
+              properties: {
+                present: { type: 'boolean' },
+                length: { type: 'integer' },
+                ok: { type: 'boolean' },
+              },
+            },
+            h1Count: { type: 'integer' },
+            h1Ok: { type: 'boolean' },
+            canonical: {
+              type: 'object',
+              properties: {
+                present: { type: 'boolean' },
+                value: { type: 'string' },
+              },
+            },
+            robotsMeta: {
+              type: 'object',
+              properties: {
+                present: { type: 'boolean' },
+                value: { type: 'string' },
+              },
+            },
+          },
+        },
+        og: {
+          type: 'object',
+          properties: {
+            title: { type: 'string' },
+            description: { type: 'string' },
+            image: { type: 'string' },
+            present: {
+              type: 'object',
+              properties: {
+                title: { type: 'boolean' },
+                description: { type: 'boolean' },
+                image: { type: 'boolean' },
+              },
+            },
+          },
+        },
+        links: {
+          type: 'object',
+          properties: {
+            total: { type: 'integer' },
+            internal: { type: 'integer' },
+            external: { type: 'integer' },
+            emptyText: { type: 'integer' },
+            duplicates: { type: 'integer' },
+            sample: { type: 'array', items: { type: 'string' } },
+          },
+        },
+      },
+    },
+    payment: {
+      type: 'object',
+      properties: {
+        payer: { type: 'string', example: BAZAAR_EXAMPLE_PAYER },
+        priceUsdcUnits: { type: 'integer', example: priceUsdcUnits },
+      },
+    },
+  },
+});
+
+const watchCreateBody = {  type: 'object',
   required: ['url', 'every', 'mode'],
   properties: {
     url: { type: 'string', description: 'The https URL to watch', example: 'https://example.com/' },
@@ -181,6 +271,8 @@ const watchTopUpResponse = {
 };
 
 export {
+  auditRequestBody,
+  auditResponse,
   captureCreditResponse,
   captureRequestBody,
   captureResponse,

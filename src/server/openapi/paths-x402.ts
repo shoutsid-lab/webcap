@@ -7,6 +7,8 @@
  */
 import { USDC_SCALE, WATCH_TOPUP_RUNS, watchTopUpPriceUsdcUnits, type WebcapConfig } from '../../config.js';
 import {
+  auditRequestBody,
+  auditResponse,
   captureRequestBody,
   captureResponse,
   extractRequestBody,
@@ -72,6 +74,31 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
         },
         'x-payment-info': {
           price: { mode: 'fixed', currency: 'USD', amount: usdAmount(config.x402ExtractPriceUsdcUnits) },
+          protocols: [{ x402: {} }, { mpp: { method: 'evm' } }],
+        },
+      },
+    },
+    '/v1/x402/audit': {
+      post: {
+        tags: ['audit'],
+        summary: 'Audit a URL for SEO, OG tags, and link health (paid, x402)',
+        description:
+          'Audit one URL for SEO signals, Open Graph presence, and link health via a single captureStructured call. ' +
+          'Unpaid requests receive the x402 402 challenge; paying clients retry with PAYMENT-SIGNATURE. One payment per URL.',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: auditRequestBody } },
+        },
+        responses: {
+          200: { description: 'Paid + settled; the audit report', content: jsonContent(auditResponse(config.x402AuditPriceUsdcUnits)) },
+          402: x402Challenge(config, { priceUsdcUnits: config.x402AuditPriceUsdcUnits, resourcePath: '/v1/x402/audit' }),
+          400: ctx.badInput,
+          422: ctx.unprocessable('Invalid input: missing/invalid url'),
+          502: jsonError('502', 'Audit failed for the URL (error envelope, code audit_failed)'),
+          503: jsonError('503', 'x402 disabled on this deployment (WEBCAP_CHAIN=local)'),
+        },
+        'x-payment-info': {
+          price: { mode: 'fixed', currency: 'USD', amount: usdAmount(config.x402AuditPriceUsdcUnits) },
           protocols: [{ x402: {} }, { mpp: { method: 'evm' } }],
         },
       },
