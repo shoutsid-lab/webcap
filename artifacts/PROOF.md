@@ -196,7 +196,7 @@ Live excerpt (2026-09-06, Base mainnet; `body`/`note`/`howToPay` values abridged
     "facilitator":"https://api.cdp.coinbase.com/platform/v2/x402",
     "howToPay":"…", "freeEndpoints":[ "…", "…", "…" ] }
 This makes the revenue path agent-DISCOVERABLE: an agent GETs the catalog, learns the price
-+ how to pay, then POSTs a paid route and pays per request (x402 v2). 331/331 tests.
++ how to pay, then POSTs a paid route and pays per request (x402 v2). 357/357 tests.
 
 ---
 
@@ -247,8 +247,71 @@ body. The CDP validator was re-run against all three paid routes: each returned
 `valid: true`, `simulation: {"outcome":"accepted"}`, with 25 preflight checks
 and **0 failed**.
 
-**Status (honest).** The service is **live on Base mainnet**; the **first on-chain
-mainnet settlement is pending the first real customer payment**. The sepolia settlements
-(#1–#7) already proved the settlement path end-to-end through the **same CDP
-facilitator**, so mainnet settlement is that same flow on `eip155:8453` — the rail is
-valid, simulated and indexed; only the first real payment is outstanding.
+**Second re-verification (2026-09-06, deployed commit `c235a90`, 357 tests).**
+The live payment wire was re-locked after the funnel + discovery changes:
+
+| Lock | Result |
+|---|---|
+| `POST /v1/x402/capture` 402 body sha256 | `4bbecbfb8583…f9d94` — byte-identical to the 2026-09-05 baseline |
+| `POST /v1/x402/extract` 402 body sha256 | `3b301be2cf3e…c622c4` — identical |
+| `POST /v1/x402/watches/topup` 402 body sha256 | `1562370fef12…919a1bf` — identical |
+| 402 header/body parity (POST ×3, GET ×2) | JSON-equal; bazaar `input.method` matches the request method (GET challenges say GET, POST say POST) |
+| CDP validator ×3 (`eip155:8453`) | `valid: true` · `simulation: accepted` · 0 failed preflight checks |
+
+**Free-tier → paid funnel.** `GET /v1/extract/preview` 200 now carries a
+machine-readable `paidUpgrade` block (`endpoint`, `priceUsdc` 0.01,
+`priceUsdcUnits` 10000, the x402 v2 `howToPay` flow, `guide` =
+`/skill.md`) so free-tier agents can find the paid route; the preview 422
+envelopes are byte-pinned (`42065384…` / `f9cd05a7…`).
+
+**Verified ownership (x402scan).** `/openapi.json` now serves
+`"x-discovery": { "ownershipProofs": [sig] }` — an EIP-191 `personal_sign` of
+the service origin, signed with the merchant key; the same signature is served
+in `/.well-known/x402`. Cryptographic recovery on the host yields
+`0xB25572D7317eb98EBb39c45Da40eAAEA2A56c25e` (the payTo), and x402scan's own
+`checkDiscovery` reports `ownershipProofs: 1` — their verifier awards the
+`ownership_verified` tier from exactly this proof.
+
+**Distribution (5 channels, all live 2026-09-06).**
+
+| Channel | Status |
+|---|---|
+| CDP Bazaar | capture + extract indexed (`discovery/merchant` total 2; topup indexes on its first settlement); listing terms from the 2026-09-05 sepolia settlement — see funding flip; 30-day no-settlement delisting (docs.cdp.coinbase.com/x402/seller/get-discovered) mitigated by the keepalive |
+| 402index.io | all 3 routes directly registered (idempotent upsert on url+protocol; the bazaar-derived capture row was updated to our POST metadata) |
+| x402scan.com | origin SIWX-registered (merchant wallet, auth-only); 26 resources discovered; ownership proof served |
+| x402.arena | registered, `verified: true, active` (health probe) |
+| agent-tools.cloud | auto-crawled, health ok |
+
+Agent-facing surfaces: `/llms.txt`, `/skill.md` (text/markdown,
+config-derived), `/openapi.json`, `/.well-known/x402`, `/v1/x402/service`.
+
+**Keepalive (`bin/webcap-keepalive.sh`, weekly cron, Mondays 03:30).** Checks
+Bazaar presence (CDP validate ×3 + `discovery/merchant`), attempts the $0.001
+self-settlement (25-day success cooldown; funds loop back to the merchant
+wallet; a logged no-op while the payer wallet
+`0xBAc4987c4Bc949f0B2833b6BC7C5B9F7b5B9757B` holds no USDC — the attempt
+doubles as the balance probe), re-asserts the 402index registrations, and
+re-registers x402scan (SIWX) only if the origin drops off there. Verified
+live: dry-run and real run exit 0, ledger unchanged (7 rows), state + receipts
+in `state/webcap-keepalive.state` + `state/webcap-keepalive/`.
+
+**Funding flip (the one outstanding user action).** One **mainnet**
+settlement flips the Bazaar listings to `eip155:8453` in ~10–15 min and
+downstream directories follow within hours. Fund
+`0xBAc4987c4Bc949f0B2833b6BC7C5B9F7b5B9757B` with ≥ $0.001 USDC on Base, then:
+```
+X402_CUSTOMER_PRIVATE_KEY=0x… npx tsx scripts/x402-pay.ts https://example.com https://nickname-trident-driveway.ngrok-free.dev
+```
+Once the wallet is funded, the weekly keepalive performs this automatically —
+and then keeps the listing alive for the 30-day window indefinitely.
+
+**Status (honest).** The service is **live on Base mainnet** with real
+discovery across 5 channels and the verified-ownership proof served. The
+**first mainnet settlement is pending**: the test wallet holds **$0.00 USDC
+on Base mainnet** (proven via Basescan; the CDP self-pay correctly reverts on
+balance), and all 7 ledger rows are test-wallet verify-stage records. The
+2026-09-05 CDP-facilitated sepolia settlement (which created the sepolia
+Bazaar entry) proved the settlement path end-to-end through the **same CDP
+facilitator**, so mainnet settlement is that same flow on `eip155:8453` — the
+rail is valid, simulated and indexed; only the funded first settlement (or a
+real customer) is outstanding.

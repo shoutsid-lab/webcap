@@ -326,6 +326,7 @@ log-silent (it is a probe). Host-side logs live under `logs/`
 */5 * * * *      bin/webcap-health.sh
 */5 * * * *      bin/webcap-revenue-alert.sh
 */30 * * * *     bin/webcap-backup.sh
+30 3 * * 1       bin/webcap-keepalive.sh     (Mondays)
 ```
 
 - `bin/webcap-health.sh` (5 min): requires `GET /v1/x402/service` → 200 **and**
@@ -340,6 +341,16 @@ log-silent (it is a probe). Host-side logs live under `logs/`
   (`better-sqlite3` `db.backup()` against the live WAL, no downtime) →
   `docker cp` to `backups/webcap-<timestamp>.sqlite` → `PRAGMA integrity_check`
   on the host copy → retain the **7 newest**, `chmod 600`.
+- `bin/webcap-keepalive.sh` (weekly, Mondays 03:30): keeps the x402 discovery
+  presence alive against CDP Bazaar's 30-day no-settlement delisting. Checks
+  Bazaar listing presence (CDP validate ×3 + `discovery/merchant`), attempts
+  the $0.001 self-settlement via `scripts/x402-pay.ts` (funds loop back to the
+  merchant wallet; 25-day success cooldown; non-fatal while the payer wallet
+  `X402_CUSTOMER_PRIVATE_KEY` is unfunded — the attempt doubles as the balance
+  probe), re-asserts the 402index registration (idempotent upsert on
+  url+protocol), and re-registers on x402scan (SIWX, merchant key) only if the
+  origin dropped off there. State + receipts: `state/webcap-keepalive.state` +
+  `state/webcap-keepalive/`. Dry run: `WEBKEEPALIVE_DRY_RUN=1`.
 - `bin/ngrok-watchdog.sh` + `bin/tunnel-watchdog.sh` (1 min): keep the public
   tunnels alive. The ngrok one (stable `*.ngrok-free.dev` subdomain) probes the
   **public URL** `/v1/health`; process alive but URL dead for **3 consecutive
@@ -435,6 +446,47 @@ APIs, Bazaar MCP, Amazon Bedrock AgentCore, agentic.market) can discover webcap.
 3. Restart, then make one paid call (e.g. `scripts/x402-pay.ts`): a settlement
    through the CDP facilitator triggers Bazaar indexing.
 
+**Funding flip (testnet → mainnet terms).** A single **mainnet** settlement
+flips the Bazaar listings to `eip155:8453` in ~10–15 min, and downstream
+directories (402index polls hourly, agent-tools.cloud ~6h) follow within
+hours. Procedure: fund the payer wallet
+`0xBAc4987c4Bc949f0B2833b6BC7C5B9F7b5B9757B` with ≥ $0.001 USDC on Base, then
+run `X402_CUSTOMER_PRIVATE_KEY=… npx tsx scripts/x402-pay.ts
+https://example.com <public base URL>`. A real customer payment also triggers
+the flip.
+
+**30-day delisting.** Resources with no settlement for 30 days are removed
+from the Bazaar catalog and search results
+(docs.cdp.coinbase.com/x402/seller/get-discovered). `bin/webcap-keepalive.sh`
+(weekly) keeps the listing alive via the gated self-settlement; the 402index
+and x402scan registrations are re-asserted by the same script.
+
+## Distribution channels
+
+| Channel | Listing mechanism | Re-asserted by |
+|---|---|---|
+| CDP Bazaar (catalog, Bazaar MCP, Amazon Bedrock AgentCore, agentic.market) | Settlement through the CDP facilitator indexes the route | `bin/webcap-keepalive.sh` (weekly self-settlement) |
+| 402index.io | Direct registration (idempotent upsert on url+protocol) + hourly Bazaar poll | `bin/webcap-keepalive.sh` |
+| x402scan.com | SIWX origin registration (merchant wallet signs, auth-only) + OpenAPI crawl; the `x-discovery.ownershipProofs` EIP-191 origin signature served in `/openapi.json` earns the verified-ownership mark | `bin/webcap-keepalive.sh` (only if the listing drops) |
+| x402.arena | Health-probe registration (verified) | manual |
+| agent-tools.cloud | Auto-crawl of the public URL | n/a |
+
+Agent-facing discovery surfaces: `/llms.txt`, `/skill.md`, `/openapi.json`,
+`/.well-known/x402`, `/v1/x402/service`.
+
+## Unit economics
+
+- `capture` $0.001 — priced at the market cluster floor (a volume/discovery
+  play); margin ≈ $0.0008/call after the $0.0002 amortized compute cost.
+- `extract` $0.01 — margin ≈ $0.0098/call (98%) on deterministic extraction.
+  Model-based extraction cost (LLM) is unknown until `MODEL_API_*` is set;
+  until then extract is structure-only and the service logs a one-time boot
+  warning naming the missing config.
+- `watch top-up` $0.10–$1.00 — prepaid recurring rail (100-run packs,
+  per-watch challenge pricing).
+- Per-request P&L (revenue, amortized cost, net margin) is recorded in the
+  ledger: `GET /v1/ledger` with Bearer `WEBCAP_LEDGER_API_KEY` from `.env`.
+
 ## Development (local Anvil)
 
 ```bash
@@ -461,7 +513,7 @@ npm start
 ## Tests
 
 ```bash
-npm test           # 331 tests (43 files): unit + API + e2e; anvil + local http fixtures only, no internet
+npm test           # 357 tests (46 files): unit + API + e2e; anvil + local http fixtures only, no internet
 npm run typecheck
 ```
 
