@@ -24,11 +24,25 @@ export function parseExtractUrls(body: unknown, allowHosts: readonly string[] | 
   });
 }
 
-/** Optional model-extraction schema: a natural-language description of the JSON object to return. */
+/** Optional model-extraction schema: a natural-language prompt string, or a plain JSON-schema object coerced via JSON.stringify. */
 export function parseExtractSchema(body: unknown): string | undefined {
   if (!isRecord(body)) return undefined;
   const raw = body['schema'];
   if (raw === undefined) return undefined;
-  if (typeof raw !== 'string' || raw.trim() === '') throw unprocessable('schema must be a non-empty string');
-  return raw.trim();
+  if (typeof raw === 'string') {
+    if (raw.trim() === '') throw unprocessable('schema must be a non-empty string');
+    return raw.trim();
+  }
+  if (isRecord(raw)) {
+    if (Object.keys(raw).length === 0) throw unprocessable('schema must be a non-empty string');
+    let coerced: string;
+    try {
+      coerced = JSON.stringify(raw);
+    } catch {
+      throw unprocessable('schema must be a non-empty string');
+    }
+    if (coerced.trim() === '') throw unprocessable('schema must be a non-empty string');
+    return coerced.trim();
+  }
+  throw unprocessable('schema must be a non-empty string');
 }
