@@ -56,7 +56,10 @@ export function artifactPageHtml(config: WebcapConfig, artifact: ArtifactRow): s
 ${topBar(bazaarCatalogUrl)}
 <main class="wrap artifact-main">
   <p class="crumb"><a href="/">webcap</a> / capture / <code>${esc(artifact.id)}</code></p>
+  <div class="artifact-head">
   <h1>Capture of <a href="${esc(sourceUrl)}" target="_blank" rel="noopener">${esc(sourceUrl)}</a></h1>
+  <div class="artifact-actions"><a class="primary" href="${esc(publicUrl)}">Download raw ${esc(artifact.format)}</a><a href="/">← back to webcap</a></div>
+  </div>
   <figure class="frame">
     <img src="${esc(publicUrl)}" alt="Screenshot of ${esc(sourceUrl)}" width="1200">
   </figure>

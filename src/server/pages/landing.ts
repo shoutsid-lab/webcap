@@ -16,7 +16,7 @@ function usd(atomicUnits: number): string {
 }
 
 const termBar = (label: string): string =>
-  `<div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span style="margin-left:var(--s2)">${esc(label)}</span></div>`;
+  `<div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">${esc(label)}</span></div>`;
 
 export function landingHtml(config: WebcapConfig): string {
   const base = config.publicBaseUrl;
@@ -91,7 +91,7 @@ ${topBar(bazaarCatalogUrl)}
   <section class="hero wrap">
     <div>
       <p class="kicker"><span class="rec">●</span> ${copy.kicker}</p>
-      <h1>Screenshot any URL.<br>Pay per call, on-chain.</h1>
+      <h1>Screenshot any URL. <span class="hl">Pay per call, on-chain.</span></h1>
       <p class="lede">${copy.lede} The full suite in one service:
         <strong>one-time capture</strong> (PNG / JPEG / PDF screenshot; Open Graph
         metadata via <code>GET /v1/og</code>), <strong>structured extraction</strong> (title, headings, paragraphs,
@@ -102,6 +102,7 @@ ${topBar(bazaarCatalogUrl)}
         <a class="btn ghost" href="/openapi.json">OpenAPI spec</a>
       </div>
       <p class="micro">Free preview, no payment: <a href="/v1/extract/preview?url=https://example.com/">Try it — <code>GET /v1/extract/preview?url=…</code></a> (rate-limited)</p>
+      <div class="hero-badges" aria-label="capabilities"><span>PNG · JPEG · PDF</span><span>GET /v1/og</span><span>x402 USDC</span></div>
     </div>
     <div class="term" aria-label="curl example of the x402 payment flow">
       ${termBar('402 → PAYMENT-REQUIRED → sign → retry')}
@@ -110,6 +111,7 @@ ${topBar(bazaarCatalogUrl)}
   </section>
 
   <section class="section wrap" id="pricing">
+    <p class="eyebrow">Pricing</p>
     <h2>Pricing</h2>
     <p class="hint">Flat per-call prices. Compute costs are covered by us — you pay only
       for the capture, ${copy.settlement}.</p>
@@ -122,7 +124,8 @@ ${topBar(bazaarCatalogUrl)}
           served at <code>/v1/artifacts/&lt;id&gt;</code> with a shareable page.</p>
         <span class="tag">POST /v1/x402/capture</span>
       </div>
-      <div class="price">
+      <div class="price featured">
+        <span class="flag">Most popular</span>
         <h3>Extract</h3>
         <div class="amount">${esc(extractPrice)} <small>/ URL batch</small></div>
         <p>Structured text/JSON — title, description, headings, paragraphs, links,
@@ -143,6 +146,7 @@ ${topBar(bazaarCatalogUrl)}
   </section>
 
   <section class="section wrap" id="pay">
+    <p class="eyebrow">Payment flow</p>
     <h2>How to pay — x402 in four moves</h2>
     <p class="hint">x402 v2, <code>exact</code> scheme, USDC as the asset. Any x402 HTTP
       client can pay; the flow below is what every client does under the hood.</p>
@@ -175,6 +179,7 @@ ${topBar(bazaarCatalogUrl)}
   </section>
 
   <section class="section wrap" id="monitoring">
+    <p class="eyebrow">Monitoring</p>
     <h2>Monitoring — scheduled watches</h2>
     <p class="hint">Point webcap at a URL on a schedule and it re-runs the capture or extract pipeline for
       you: every run is compared against the previous one (screenshot bytes sha256-fingerprinted, or field-by-field
@@ -225,12 +230,13 @@ ${topBar(bazaarCatalogUrl)}
   </section>
 
   <section class="section wrap" id="links">
+    <p class="eyebrow">Resources</p>
     <h2>Where to find webcap</h2>
     <div class="link-strip">
-      <a href="${bazaarCatalogUrl}" target="_blank" rel="noopener">CDP Bazaar listing ↗</a>
-      <a href="/openapi.json">/openapi.json — OpenAPI 3.1 catalog</a>
-      <a href="/icon.png">/icon.png — service icon</a>
-      <a href="#pricing">Pricing</a>
+      <a href="${bazaarCatalogUrl}" target="_blank" rel="noopener">CDP Bazaar listing <span class="arr">↗</span></a>
+      <a href="/openapi.json">/openapi.json — OpenAPI 3.1 catalog <span class="arr">→</span></a>
+      <a href="/icon.png">/icon.png — service icon <span class="arr">→</span></a>
+      <a href="#pricing">Pricing <span class="arr">→</span></a>
     </div>
     <p class="hint">Independently observed trust (third-party index, live-probed — not a guarantee):</p>
     <div class="trust-strip">

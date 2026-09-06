@@ -8,9 +8,12 @@ function topBar(bazaarCatalogUrl: string): string {
   return `<div class="top"><div class="wrap">
   <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>webcap</a>
   <nav>
-    <a href="/openapi.json">openapi.json</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#pay">How to pay</a>
+    <a href="/openapi.json" class="keep">openapi.json</a>
     <a href="${bazaarCatalogUrl}" target="_blank" rel="noopener">CDP Bazaar</a>
     <a href="/icon.png">icon.png</a>
+    <a href="/v1/extract/preview?url=https://example.com/" class="nav-cta">Try it</a>
   </nav>
 </div></div>`;
 }
