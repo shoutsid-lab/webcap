@@ -59,6 +59,8 @@ describe('GET / (content negotiation: landing page + JSON front door)', () => {
       expect(html).toContain('x402');
       expect(html).toContain('<link rel="icon" href="/icon.png">');
       expect(html).toContain('GET /v1/extract/preview');
+      expect(html).toContain('href="/v1/extract/preview?url=https://example.com/"');
+      expect(html).toContain('Try it');
       expect(html).toContain('PAYMENT-REQUIRED');
       expect(html).toContain('eip155:84532');
     } finally {
