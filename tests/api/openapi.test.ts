@@ -492,6 +492,21 @@ describe('mppscan/x402gle discovery metadata', () => {
     }
   });
 
+  it('documents info["x-guidance"] with the video + map-lite prices (all five paid routes)', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      const guidance = doc.info['x-guidance'] ?? '';
+      expect(guidance).toContain('/v1/x402/video');
+      expect(guidance).toContain((fx.config.x402VideoPriceUsdcUnits / USDC_SCALE).toString());
+      expect(guidance).toContain('/v1/x402/map-lite');
+      expect(guidance).toContain((fx.config.x402AuditPriceUsdcUnits / USDC_SCALE).toString());
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
   it('omits info.contact entirely when no contact email is configured', async () => {
     const fx = makeApiFixture();
     try {
