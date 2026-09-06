@@ -181,16 +181,22 @@ X402_CUSTOMER_PRIVATE_KEY=0x… npx tsx scripts/x402-pay.ts https://example.com 
 
 GET /v1/x402/service is a FREE, machine-readable descriptor (no payment) so AI agents can
 discover the service + its payment terms before paying. Live + public (in Docker, through
-the tunnel) — returns:
+the ngrok tunnel). The descriptor carries a `paidEndpoints` ARRAY (3 entries, incl. the
+watch top-up), the shared price block, the exact `howToPay` flow, and `freeEndpoints`.
+Live excerpt (2026-09-06, Base mainnet; `body`/`note`/`howToPay` values abridged):
   { "service":"webcap", "paymentProtocol":"x402", "x402Version":2,
-    "paidEndpoint":{ "method":"POST", "path":"/v1/x402/capture" },
-    "price":{ "usdc":0.001, "atomicUnits":"1000",
-              "asset":"0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-              "network":"eip155:84532", "payTo":"0xB25572D7317eb98EBb39c45Da40eAAEA2A56c25e",
-              "scheme":"exact" },
-    "facilitator":"https://x402.org/facilitator", ... }
+    "paidEndpoints":[
+      { "method":"POST", "path":"/v1/x402/capture", "priceUsdc":0.001, "atomicUnits":"1000", "…":"…" },
+      { "method":"POST", "path":"/v1/x402/extract", "priceUsdc":0.01, "atomicUnits":"10000", "…":"…" },
+      { "method":"POST", "path":"/v1/x402/watches/topup", "priceUsdc":0.1, "atomicUnits":"100000",
+        "usdcMax":1, "…":"…" } ],
+    "price":{ "asset":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+               "network":"eip155:8453", "payTo":"0xB25572D7317eb98EBb39c45Da40eAAEA2A56c25e",
+               "scheme":"exact" },
+    "facilitator":"https://api.cdp.coinbase.com/platform/v2/x402",
+    "howToPay":"…", "freeEndpoints":[ "…", "…", "…" ] }
 This makes the revenue path agent-DISCOVERABLE: an agent GETs the catalog, learns the price
-+ how to pay, then POSTs /v1/x402/capture and pays per request (x402 v2). 109/109 tests.
++ how to pay, then POSTs a paid route and pays per request (x402 v2). 331/331 tests.
 
 ---
 
@@ -226,6 +232,20 @@ validator against `eip155:8453`; each returned `valid: true` + `simulation: acce
 **Merchant wallet is recipient-only.** With gasless EIP-3009 settlement the merchant EOA
 never signs or broadcasts a tx — it holds no gas and needed **no seed funding**; it only
 receives the settled USDC.
+
+**Re-verified (2026-09-06).** The live public service
+(`https://nickname-trident-driveway.ngrok-free.dev`) is still on mainnet:
+`GET /v1/health` → `{"ok":true,"chainId":8453,"creditsPerUsdc":100,"pricePerCredit":0.01}`;
+`GET /v1/x402/service` returns the 3-entry `paidEndpoints` array (capture `1000`
+units, extract `10000` units, watch top-up `100000` units + `usdcMax` `1.0` human
+USDC) with `price.network: eip155:8453`, mainnet USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`,
+`payTo 0xB25572D7317eb98EBb39c45Da40eAAEA2A56c25e`, facilitator
+`https://api.cdp.coinbase.com/platform/v2/x402`; the unpaid GET challenges
+(`GET /v1/x402/capture` etc.) carry the identical `eip155:8453` offer plus the
+bazaar extension in both the `PAYMENT-REQUIRED` header and the mirrored JSON
+body. The CDP validator was re-run against all three paid routes: each returned
+`valid: true`, `simulation: {"outcome":"accepted"}`, with 25 preflight checks
+and **0 failed**.
 
 **Status (honest).** The service is **live on Base mainnet**; the **first on-chain
 mainnet settlement is pending the first real customer payment**. The sepolia settlements
