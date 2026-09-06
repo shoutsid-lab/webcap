@@ -100,7 +100,7 @@ ${topBar(bazaarCatalogUrl)}
         <a class="btn" href="#pay">How to pay</a>
         <a class="btn ghost" href="/openapi.json">OpenAPI spec</a>
       </div>
-      <p class="micro">Free preview, no payment: <code>GET /v1/extract/preview?url=…</code> (rate-limited)</p>
+      <p class="micro">Free preview, no payment: <a href="/v1/extract/preview?url=https://example.com/">Try it — <code>GET /v1/extract/preview?url=…</code></a> (rate-limited)</p>
     </div>
     <div class="term" aria-label="curl example of the x402 payment flow">
       ${termBar('402 → PAYMENT-REQUIRED → sign → retry')}
