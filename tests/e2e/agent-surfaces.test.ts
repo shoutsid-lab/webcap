@@ -157,4 +157,17 @@ describe('agent-facing discovery surfaces (free, no payment, no auth)', () => {
     expect(body).toContain('detail.paidUpgrade');
     expect(body).toContain('POST /v1/x402/extract');
   });
+
+  it('GET /llms.txt and /skill.md cover the video + map-lite endpoints with prices', async () => {
+    const llms = await app.inject({ method: 'GET', url: '/llms.txt' });
+    expect(llms.statusCode).toBe(200);
+    expect(llms.body).toContain('/v1/x402/video');
+    expect(llms.body).toContain('/v1/x402/map-lite');
+    expect(llms.body).toContain('$0.005');
+    const skill = await app.inject({ method: 'GET', url: '/skill.md' });
+    expect(skill.statusCode).toBe(200);
+    expect(skill.body).toContain('/v1/x402/video');
+    expect(skill.body).toContain('/v1/x402/map-lite');
+    expect(skill.body).toContain('$0.005');
+  });
 });
