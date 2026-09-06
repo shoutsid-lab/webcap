@@ -482,6 +482,18 @@ describe('config: centralized tunables', () => {
     );
   });
 
+  it('contactEmail is undefined when WEBCAP_CONTACT_EMAIL is absent', () => {
+    expect(loadConfig({ ...SEP }).contactEmail).toBeUndefined();
+  });
+
+  it('trims WEBCAP_CONTACT_EMAIL and defaults to undefined', () => {
+    expect(loadConfig({ ...SEP, WEBCAP_CONTACT_EMAIL: ' a@b.co ' }).contactEmail).toBe('a@b.co');
+  });
+
+  it('contactEmail is undefined when WEBCAP_CONTACT_EMAIL is whitespace-only', () => {
+    expect(loadConfig({ ...SEP, WEBCAP_CONTACT_EMAIL: '   ' }).contactEmail).toBeUndefined();
+  });
+
   it('defaults artifact retention to disabled (0 days) and parses non-negative days', () => {
     expect(DEFAULT_ARTIFACT_RETENTION_DAYS).toBe(0);
     expect(loadConfig({ ...SEP }).artifactRetentionDays).toBe(DEFAULT_ARTIFACT_RETENTION_DAYS);

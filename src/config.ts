@@ -45,6 +45,8 @@ export interface WebcapConfig {
   readonly cdpApiKey: { readonly id: string; readonly secret: string } | undefined;
   /** Amortized compute cost per paid request, in atomic 6-decimal USDC units (for the P&L ledger). */
   readonly computeCostUsdcUnitsPerRequest: number;
+  /** Optional owner contact email, surfaced as info.contact.email in the OpenAPI document (directory ownership verification). */
+  readonly contactEmail?: string;
   /** Optional LLM endpoint for model-based extraction (OpenAI-compatible); empty = deterministic only. */
   readonly modelApiBaseUrl: string;
   readonly modelApiKey: string;
@@ -236,6 +238,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WebcapConfig {
       env.WEBCAP_COMPUTE_COST_USDC_PER_REQUEST,
       DEFAULT_COMPUTE_COST_USDC_UNITS_PER_REQUEST,
     ),
+    contactEmail: (env.WEBCAP_CONTACT_EMAIL ?? '').trim() || undefined,
     modelApiBaseUrl: (env.MODEL_API_BASE_URL ?? '').trim(),
     modelApiKey: (env.MODEL_API_KEY ?? '').trim(),
     modelName: (env.MODEL_NAME ?? '').trim(),
