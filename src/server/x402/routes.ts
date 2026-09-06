@@ -94,13 +94,14 @@ export function buildX402TopUpRoute(config: WebcapConfig, watchRepo: WatchRepo):
     iconUrl: metadata.iconUrl,
     extensions: { bazaar: metadata.bazaar },
     // Static mirror of the enriched PAYMENT-REQUIRED header (same per-request
-    // price resolution, so the JSON body equals the header challenge).
+    // price resolution and method, so the JSON body equals the header challenge).
     unpaidResponseBody: (context: HTTPRequestContext) => ({
       contentType: X402_MIME_TYPE,
       body: buildUnpaidBody(
         buildX402Requirement(config, topUpPriceUsdcUnitsForContext(context, watchRepo, config)),
         X402_TOPUP_DESCRIPTION,
         metadata,
+        context.method,
       ),
     }),
   };
@@ -152,9 +153,11 @@ function x402RouteConfig(spec: X402RouteSpec): RouteConfig {
     tags: [...tags],
     iconUrl,
     extensions: { bazaar },
-    unpaidResponseBody: () => ({
+    // The route config serves both the POST and GET patterns; mirror the
+    // request's actual method so GET 402 bodies match their enriched header.
+    unpaidResponseBody: (context: HTTPRequestContext) => ({
       contentType: X402_MIME_TYPE,
-      body: buildUnpaidBody(requirement, description, metadata),
+      body: buildUnpaidBody(requirement, description, metadata, context.method),
     }),
   };
 }

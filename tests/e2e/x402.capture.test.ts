@@ -342,3 +342,31 @@ describe('x402 GET-route discoverability (402 challenge on GET, identical to POS
     expect(getBody.accepts[0]?.amount).toBe(postBody.accepts[0]?.amount);
   });
 });
+
+describe('x402 GET 402 method parity: the body bazaar matches the enriched PAYMENT-REQUIRED header', () => {
+  interface BazaarShape {
+    info: { input: { type: string; method: string } };
+    schema: { properties: { input: { properties: Record<string, { enum?: readonly string[] }> } } };
+  }
+
+  const methodEnumOf = (bazaar: BazaarShape): readonly string[] | undefined =>
+    bazaar.schema.properties.input.properties['method']?.enum;
+
+  for (const path of ['/v1/x402/capture', '/v1/x402/extract', '/v1/x402/watches/topup'] as const) {
+    it(`GET ${path}: the 402 body extensions deep-equal the header's, both pinning the actual method (GET)`, async () => {
+      const res = await app.inject({ method: 'GET', url: path });
+      expect(res.statusCode).toBe(402);
+      const header = challengeFromHeaders(res);
+      const body = res.json() as PaymentRequired;
+      const headerBazaar = header.extensions?.['bazaar'] as BazaarShape | undefined;
+      const bodyBazaar = body.extensions?.['bazaar'] as BazaarShape | undefined;
+      if (headerBazaar === undefined || bodyBazaar === undefined) throw new Error('bazaar extension missing from 402');
+      // the middleware enriches the header with the actual request method; the
+      // static JSON body mirror must carry the same method, not a pinned POST
+      expect(headerBazaar.info.input.method).toBe('GET');
+      expect(body.extensions).toEqual(header.extensions);
+      expect(methodEnumOf(headerBazaar)).toEqual(['GET']);
+      expect(methodEnumOf(bodyBazaar)).toEqual(['GET']);
+    });
+  }
+});

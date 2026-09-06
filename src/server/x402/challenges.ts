@@ -11,6 +11,7 @@ import {
   type BodyDiscoveryExtension,
   type DiscoveryExtension,
 } from '@x402/extensions/bazaar';
+import type { BodyMethods } from '@x402/core/http';
 import type { PaymentRequired, PaymentRequirements } from '@x402/core/types';
 import { PACKS, WATCH_TOPUP_RUNS, watchTopUpPriceUsdcUnits, type WebcapConfig } from '../../config.js';
 import { MAX_EXTRACT_BATCH } from '../extract-parse.js';
@@ -171,25 +172,31 @@ export interface UnpaidBazaarMetadata {
 }
 
 /**
- * Static mirror of bazaarResourceServerExtension.enrichDeclaration for a POST route:
- * pins info.input.method and narrows the schema method enum to the route's verb, so
- * the 402 JSON body equals the enriched PAYMENT-REQUIRED header challenge.
+ * Mirror of bazaarResourceServerExtension.enrichDeclaration: pins
+ * info.input.method and narrows the schema method enum to the given verb
+ * (default POST, the static route advertisement), so the 402 JSON body
+ * equals the enriched PAYMENT-REQUIRED header challenge for that request.
  */
-function withRoutedMethod(extension: BodyDiscoveryExtension): BodyDiscoveryExtension {
+function withRoutedMethod(extension: BodyDiscoveryExtension, method: string = BAZAAR_HTTP_METHOD): BodyDiscoveryExtension {
   const inputSchema = extension.schema.properties.input;
+  // The bazaar types these fields as BodyMethods (POST|PUT|PATCH), but its own
+  // resource-server middleware writes the request's actual method at runtime
+  // (GET included — these routes serve GET 402 challenges). Mirror that runtime
+  // behavior; the value comes from the matched x402 route pattern, not user input.
+  const routedMethod = method as BodyMethods;
   const required: ('type' | 'method' | 'bodyType' | 'body')[] = inputSchema.required.includes('method')
     ? inputSchema.required
     : [...inputSchema.required, 'method'];
   return {
     ...extension,
-    info: { ...extension.info, input: { ...extension.info.input, method: BAZAAR_HTTP_METHOD } },
+    info: { ...extension.info, input: { ...extension.info.input, method: routedMethod } },
     schema: {
       ...extension.schema,
       properties: {
         ...extension.schema.properties,
         input: {
           ...inputSchema,
-          properties: { ...inputSchema.properties, method: { type: 'string', enum: [BAZAAR_HTTP_METHOD] } },
+          properties: { ...inputSchema.properties, method: { type: 'string', enum: [routedMethod] } },
           required,
         },
       },
@@ -197,11 +204,16 @@ function withRoutedMethod(extension: BodyDiscoveryExtension): BodyDiscoveryExten
   };
 }
 
-/** 402 body mirror of the PAYMENT-REQUIRED header (curl/agent-friendly). */
+/**
+ * 402 body mirror of the PAYMENT-REQUIRED header (curl/agent-friendly).
+ * `method` defaults to POST (the real payment verb); GET 402s on the same
+ * routes pass 'GET' so the body matches the middleware-enriched header.
+ */
 export function buildUnpaidBody(
   requirement: PaymentRequirements,
   description: string,
   metadata: UnpaidBazaarMetadata,
+  method: string = BAZAAR_HTTP_METHOD,
 ): PaymentRequired {
   return {
     x402Version: X402_VERSION,
@@ -215,6 +227,6 @@ export function buildUnpaidBody(
       iconUrl: metadata.iconUrl,
     },
     accepts: [requirement],
-    extensions: { bazaar: withRoutedMethod(metadata.bazaar) },
+    extensions: { bazaar: withRoutedMethod(metadata.bazaar, method) },
   };
 }

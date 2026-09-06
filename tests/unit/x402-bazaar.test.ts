@@ -173,4 +173,40 @@ describe('x402 bazaar discovery (service metadata + route extensions)', () => {
       expect(bodyBazaar?.info.input.bodyType).toBe('json');
     }
   });
+
+  it('buildUnpaidBody pins the bazaar method to the passed request method', () => {
+    const route = routes[X402_CAPTURE_PATTERN];
+    expect(route).toBeDefined();
+    const metadata: UnpaidBazaarMetadata = {
+      resourceUrl: route?.resource ?? '',
+      serviceName: route?.serviceName ?? '',
+      tags: route?.tags ?? [],
+      iconUrl: route?.iconUrl ?? '',
+      bazaar: bazaarOf(route ?? {}),
+    };
+    const body = buildUnpaidBody(buildX402Requirement(config, config.x402PriceUsdcUnits), 'desc', metadata, 'GET');
+    const bodyBazaar = body.extensions?.['bazaar'] as BodyDiscoveryExtension | undefined;
+    expect(bodyBazaar).toBeDefined();
+    expect(bodyBazaar?.info.input.method).toBe('GET');
+    const methodProp = bodyBazaar?.schema.properties.input.properties.method as { enum?: readonly string[] } | undefined;
+    expect(methodProp?.enum).toEqual(['GET']);
+  });
+
+  it('buildUnpaidBody defaults the bazaar method to POST when no method is passed (backward compat)', () => {
+    const route = routes[X402_CAPTURE_PATTERN];
+    expect(route).toBeDefined();
+    const metadata: UnpaidBazaarMetadata = {
+      resourceUrl: route?.resource ?? '',
+      serviceName: route?.serviceName ?? '',
+      tags: route?.tags ?? [],
+      iconUrl: route?.iconUrl ?? '',
+      bazaar: bazaarOf(route ?? {}),
+    };
+    const body = buildUnpaidBody(buildX402Requirement(config, config.x402PriceUsdcUnits), 'desc', metadata);
+    const bodyBazaar = body.extensions?.['bazaar'] as BodyDiscoveryExtension | undefined;
+    expect(bodyBazaar).toBeDefined();
+    expect(bodyBazaar?.info.input.method).toBe('POST');
+    const methodProp = bodyBazaar?.schema.properties.input.properties.method as { enum?: readonly string[] } | undefined;
+    expect(methodProp?.enum).toEqual(['POST']);
+  });
 });
