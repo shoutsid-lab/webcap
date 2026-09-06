@@ -1,29 +1,19 @@
+/**
+ * The webcap deployment config: the WebcapConfig type, the DEFAULT_* fallbacks,
+ * the env parse helpers, and loadConfig (parses + validates the WEBCAP_*
+ * environment). The chain table + EIP-712 domains live in ./config/chains.ts
+ * and the USDC pricing model in ./config/pricing.ts; everything moved is
+ * re-exported here so every existing import from config.ts keeps resolving.
+ */
 import { isAddress, Wallet } from 'ethers';
+import { CHAINS, X402_NETWORKS, type ChainConfig, type ChainName, type X402Network } from './config/chains.js';
+import { USDC_SCALE } from './config/pricing.js';
 
-export type ChainName = 'base-sepolia' | 'base' | 'local';
-export type PackName = 'starter' | 'pro' | 'max';
-/** CAIP-2 network ids for the x402 wire. `undefined` = x402 disabled. */
-export type X402Network = 'eip155:84532' | 'eip155:8453';
-
-export interface ChainConfig {
-  readonly name: ChainName;
-  readonly rpcUrl: string;
-  readonly chainId: number;
-  readonly usdcContract: string;
-  readonly explorer: string;
-  /**
-   * EIP-712 domain of this chain's USDC deploy (single source for the x402
-   * signing `extra`). `undefined` on local anvil (no real USDC; x402 disabled).
-   */
-  readonly usdcEip712Domain?: { readonly name: string; readonly version: string };
-}
-
-export interface CreditPack {
-  readonly credits: number;
-  readonly usd: number;
-  /** USDC amount in 6-decimal units. */
-  readonly usdc: number;
-}
+export type { ChainConfig, ChainName, Eip712Domain, X402Network } from './config/chains.js';
+export { EIP712_DOMAINS, X402_NETWORKS } from './config/chains.js';
+export type { CreditPack, PackName } from './config/pricing.js';
+export { CAPTURE_COST_CREDITS, CREDITS_PER_USDC, PACKS, PRICE_PER_CREDIT, USDC_SCALE, USDC_UNITS_PER_CREDIT, WATCH_TOPUP_RUNS } from './config/pricing.js';
+export { creditsForUsdc, getPack, usdcForCredits, usdcUnitsForCredits, watchTopUpPriceUsdcUnits } from './config/pricing.js';
 
 export interface WebcapConfig {
   readonly chain: ChainConfig;
@@ -102,54 +92,6 @@ export interface WebcapConfig {
   readonly artifactRetentionDays?: number;
 }
 
-const CHAINS: Record<ChainName, Omit<ChainConfig, 'name'>> = {
-  'base-sepolia': {
-    rpcUrl: 'https://sepolia.base.org',
-    chainId: 84532,
-    usdcContract: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
-    explorer: 'https://sepolia.basescan.org',
-    usdcEip712Domain: { name: 'USDC', version: '2' },
-  },
-  base: {
-    rpcUrl: 'https://mainnet.base.org',
-    chainId: 8453,
-    usdcContract: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-    explorer: 'https://basescan.org',
-    usdcEip712Domain: { name: 'USD Coin', version: '2' },
-  },
-  local: {
-    rpcUrl: 'http://127.0.0.1:8545',
-    chainId: 31337,
-    // Replaced by LOCAL_USDC_CONTRACT at load time (required in local mode).
-    usdcContract: '',
-    explorer: '',
-  },
-};
-
-/** x402 only works on chains with a real USDC deploy; local anvil is excluded. */
-export const X402_NETWORKS: Record<Exclude<ChainName, 'local'>, X402Network> = {
-  'base-sepolia': 'eip155:84532',
-  base: 'eip155:8453',
-};
-
-export type Eip712Domain = { readonly name: string; readonly version: string };
-
-function eip712DomainOf(chainName: Exclude<ChainName, 'local'>): Eip712Domain {
-  const domain = CHAINS[chainName].usdcEip712Domain;
-  if (domain === undefined) throw new Error(`chain ${chainName} is missing its USDC EIP-712 domain`);
-  return domain;
-}
-
-/**
- * EIP-712 domain of each chain's USDC deploy, keyed by x402 CAIP-2 network.
- * Single source for the domain values: the CHAINS table. A mismatch makes
- * every payment signature unrecoverable (sepolia "USDC" vs mainnet "USD Coin").
- */
-export const EIP712_DOMAINS: Record<X402Network, Eip712Domain> = {
-  'eip155:84532': eip712DomainOf('base-sepolia'),
-  'eip155:8453': eip712DomainOf('base'),
-};
-
 export const DEFAULT_X402_FACILITATOR_URL = 'https://x402.org/facilitator';
 export const DEFAULT_X402_PRICE_USDC_UNITS = 1_000; // $0.001 in 6-decimal atomic units
 export const DEFAULT_X402_EXTRACT_PRICE_USDC_UNITS = 10_000; // $0.01 — a "meaning" price, above raw capture
@@ -173,52 +115,6 @@ export const DEFAULT_PREVIEW_MARKDOWN_LIMIT = 1_500; // free preview slice: mark
 export const DEFAULT_BAZAAR_CATALOG_URL = 'https://cdp.coinbase.com'; // CDP Bazaar catalog link
 export const DEFAULT_ARTIFACT_RETENTION_DAYS = 0; // 0 disables the artifact sweep
 export const ARTIFACT_SWEEP_INTERVAL_MS = 6 * 3_600_000; // retention sweep cadence
-
-export const PACKS: Record<PackName, CreditPack> = {
-  starter: { credits: 100, usd: 0.5, usdc: 500_000 },
-  pro: { credits: 1000, usd: 3.0, usdc: 3_000_000 },
-  max: { credits: 10_000, usd: 12.0, usdc: 12_000_000 },
-};
-
-/** Look up a credit pack by name; throws on unknown names. */
-export function getPack(name: string): CreditPack {
-  if (name === 'starter' || name === 'pro' || name === 'max') return PACKS[name];
-  throw new Error(`unknown pack: ${name}`);
-}
-
-export const CREDITS_PER_USDC = 100;
-export const USDC_SCALE = 1_000_000;
-export const USDC_UNITS_PER_CREDIT = USDC_SCALE / CREDITS_PER_USDC;
-export const PRICE_PER_CREDIT = 1 / CREDITS_PER_USDC;
-export const CAPTURE_COST_CREDITS = 1;
-
-/** Runs per watch top-up pack: the x402 top-up route sells exactly this many runs. */
-export const WATCH_TOPUP_RUNS = 100;
-
-/**
- * Price of a 100-run watch top-up pack in 6-decimal USDC units:
- * the watch's mode unit price × 100 (capture: x402PriceUsdcUnits × 100,
- * extract: x402ExtractPriceUsdcUnits × 100).
- */
-export function watchTopUpPriceUsdcUnits(mode: 'capture' | 'extract', config: WebcapConfig): number {
-  const unit = mode === 'extract' ? config.x402ExtractPriceUsdcUnits : config.x402PriceUsdcUnits;
-  return unit * WATCH_TOPUP_RUNS;
-}
-
-/** Credits granted for a settled USDC payment: floor(paidUsdc * CREDITS_PER_USDC). */
-export function creditsForUsdc(usdcUnits: bigint): number {
-  return Number(usdcUnits / BigInt(USDC_UNITS_PER_CREDIT));
-}
-
-/** 6-decimal USDC units required to buy `credits`. */
-export function usdcUnitsForCredits(credits: number): number {
-  return credits * USDC_UNITS_PER_CREDIT;
-}
-
-/** USDC (human units) required to buy `credits`. */
-export function usdcForCredits(credits: number): number {
-  return credits / CREDITS_PER_USDC;
-}
 
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
   if (raw === undefined || raw.trim() === '') return fallback;

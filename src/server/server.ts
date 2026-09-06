@@ -6,6 +6,7 @@ import { DEFAULT_BODY_LIMIT_BYTES, DEFAULT_REQUEST_TIMEOUT_MS, type WebcapConfig
 import { toResponse, type ErrorBody, HttpError } from '../util/errors.js';
 import type { CaptureRequest, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
 import type { OgResult } from '../capture/og.js';
+import { registerBillingRoutes } from './billing.js';
 import { registerRoutes } from './routes.js';
 import { registerDiscoveryRoutes } from './discovery.js';
 import { registerWatchRoutes } from './watches.js';
@@ -54,6 +55,11 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   // After the x402 hooks on purpose: the x402 402 challenge must win for the
   // GET /v1/x402/* discovery paths, which register no GET route of their own.
   registerNotFoundEnvelope(app);
+  // The credits-rail routes used to be the first half of registerRoutes;
+  // keeping them ahead of it preserves the original registration order (all
+  // paths are unique, so the router is order-independent — but the x402
+  // hooks above must still precede every route registration).
+  registerBillingRoutes(app, deps);
   registerRoutes(app, deps);
   registerDiscoveryRoutes(app, deps);
   registerWatchRoutes(app, deps);
