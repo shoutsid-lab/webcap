@@ -179,7 +179,7 @@ extraction.
 ## Failure modes
 
 - 402 again after retry: the authorization was rejected (wrong amount, payTo, network, signature, or expiry window) — fetch a fresh challenge and sign it again.
-- 429 on the free preview: rate-limited — wait a minute, or pay for extract.
+- 429 on the free preview: rate-limited — the 429 body's detail.paidUpgrade carries the paid next-step (endpoint POST /v1/x402/extract, price, howToPay, skill guide); wait a minute, or pay for extract.
 - 502: the upstream page capture failed — nothing is charged when capture fails; retry later.
 `;
 }
