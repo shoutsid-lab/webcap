@@ -46,8 +46,8 @@ export class RateLimiter {
  * `retry-after` header (integer seconds, >= 1) + the `rate_limited` envelope
  * whose `detail.retryAfterSeconds` matches the header. Always throws.
  */
-export function rejectRateLimited(reply: FastifyReply, limiter: RateLimiter, key: string, message: string): never {
+export function rejectRateLimited(reply: FastifyReply, limiter: RateLimiter, key: string, message: string, extraDetail?: Record<string, unknown>): never {
   const retryAfterSeconds = Math.max(1, Math.ceil(limiter.retryAfterMs(key) / 1000));
   reply.header('retry-after', String(retryAfterSeconds));
-  throw new HttpError(429, 'rate_limited', message, { retryAfterSeconds });
+  throw new HttpError(429, 'rate_limited', message, { retryAfterSeconds, ...extraDetail });
 }
