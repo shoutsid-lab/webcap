@@ -13,7 +13,10 @@ Merchant wallet (recipient only): `0xB25572D7317eb98EBb39c45Da40eAAEA2A56c25e`
 | Route | Price (default) | You get |
 |---|---|---|
 | `POST /v1/x402/capture` | **$0.001** (1000 atomic USDC units) | Screenshot as PNG/JPEG/PDF (base64) + a **persistent public artifact link** + free OG metadata |
-| `POST /v1/x402/extract` | **$0.01** (10000 units) | Structured page data as JSON (title, description, headings h1-h3, paragraphs, links, images, word count, document-order markdown). One URL, or a **batch of up to 10 URLs for one payment** |
+| `POST /v1/x402/extract` | **$0.01** (10000 units) | Structured page data as JSON (title, description, headings h1-h3, paragraphs, links, images, word count, document-order markdown). One URL, or a **batch of up to 50 URLs for one payment** |
+| `POST /v1/x402/audit` | **$0.002** (2000 units) | SEO basics + link/OG health in one call (title, description, OG tags, link health). One URL |
+| `POST /v1/x402/map-lite` | **$0.002** (2000 units) | Site URL list in one call: URLs from sitemap/robots plus a 1-hop same-host crawl (`maxUrls` optional, default 20, at most 50) |
+| `POST /v1/x402/video` | **$0.005** (5000 units) | Scroll-capture a URL as an MP4/WebM video in one call (base64) |
 | `POST /v1/x402/watches/topup` | **$0.10** capture-pack / **$1.00** extract-pack | **100 pre-paid runs** of an existing scheduled monitor (watch mode sets which pack price applies) |
 
 Chain, prices, asset, and `payTo` are config-driven (`WEBCAP_CHAIN` selects the
@@ -39,7 +42,7 @@ Body `{"url": "https://..."}`; optional `format` (`png` | `jpeg` | `pdf`, defaul
 ### `POST /v1/x402/extract`
 
 Body `{"url": "https://..."}` or `{"urls": ["...", "..."], "schema": "..."}`
-(batches up to 10 URLs; one flat price covers the whole batch, so batches carry
+(batches up to 50 URLs; one flat price covers the whole batch, so batches carry
 higher margin per URL). `schema` is an optional natural-language description of
 the JSON you want; when a model is configured server-side (`MODEL_*` vars) it
 adds an `extracted` object on top of the deterministic structure, which is
@@ -57,6 +60,45 @@ always returned as a floor.
 One URL failing in a batch still returns `200` (that entry is
 `status: "error"`); only if **all** URLs fail does the request `502`
 (`extract_failed`).
+
+### `POST /v1/x402/audit`
+
+Body `{"url": "https://..."}` (one URL). Returns SEO basics + link/OG health
+in one call (title, description, OG tags, link health):
+
+```json
+{
+  "audit": { "url": "https://example.com/", "…": "…" },
+  "payment": { "payer": "0x...", "priceUsdcUnits": 2000 }
+}
+```
+
+### `POST /v1/x402/map-lite`
+
+Body `{"url": "https://..."}` with optional `maxUrls` (integer, default 20,
+at most 50). Returns the site URL list in one call: URLs from
+sitemap/robots plus a 1-hop same-host crawl:
+
+```json
+{
+  "urls": ["https://example.com/", "https://example.com/about"],
+  "payment": { "payer": "0x...", "priceUsdcUnits": 2000 }
+}
+```
+
+### `POST /v1/x402/video`
+
+Body `{"url": "https://..."}` with optional `format` (`mp4` | `webm`, default
+`mp4`), `durationMs` (default 5000, at most 30000), `scrollSpeed` (default
+800, at most 5000), and `scrollEasing` (`linear` | `ease-in-out`). Returns a
+scroll-capture video artifact (base64) in one call:
+
+```json
+{
+  "artifact": { "mime": "video/mp4", "bytes": 48213, "data": "AAAAIGZ0eXA..." },
+  "payment": { "payer": "0x...", "priceUsdcUnits": 5000 }
+}
+```
 
 ### `POST /v1/x402/watches/topup`
 
@@ -176,7 +218,7 @@ X402_CUSTOMER_PRIVATE_KEY=0x... npx tsx scripts/extract-pay.ts \
 | `GET /v1/extract/preview?url=...` | Bounded structured preview (title, description, top 5 headings, top 10 links, word count, ≤1500 chars of markdown). **Rate-limited 10/min per peer IP**; a `429` carries `detail.retryAfterSeconds` and a matching `Retry-After` header |
 | `GET /v1/og?url=...` | OG link-preview metadata (fields omitted when the page has none) |
 | `POST /v1/watches` | Create a scheduled monitor (free; rate-limited 10/min per peer IP). Body `{"url": "https://...", "every": "15m"\|"1h"\|"6h"\|"24h", "mode": "capture"\|"extract"}` + optional `schema` (string) and `webhook` (https-only). Starts with 0 credits: the first (immediately due) run is recorded `no-credit` and the watch pauses until the first top-up. `GET /v1/watches/:id` (state + last ~10 runs), `DELETE /v1/watches/:id` (`204`) |
-| `GET /v1/x402/service` | Canonical agent-discoverable descriptor: all 3 paid endpoints + prices, network/asset/`payTo`/facilitator, the exact payment flow, and the free endpoints |
+| `GET /v1/x402/service` | Canonical agent-discoverable descriptor: all paid endpoints + prices, network/asset/`payTo`/facilitator, the exact payment flow, and the free endpoints |
 | `GET /.well-known/x402` + `GET /.well-known/agent-card.json` | Machine discovery: x402 catalog + an A2A-style agent card with an x402 payments section |
 | `GET /openapi.json` | Full OpenAPI 3.1 catalog of every route (incl. the 402 challenge schema) |
 | `GET /v1/health` | Liveness + chain (log-silent, used by the compose healthcheck) |
@@ -193,7 +235,7 @@ $ curl -s "https://nickname-trident-driveway.ngrok-free.dev/v1/og?url=https://ex
 {"url":"https://example.com/","title":"Example Domain","icon":"data:,"}
 
 $ curl -s "https://nickname-trident-driveway.ngrok-free.dev/v1/extract/preview?url=https://example.com"
-{"url":"https://example.com","preview":{"title":"Example Domain","description":"","headings":[{"level":1,"text":"Example Domain"}],"links":[{"href":"https://iana.org/domains/example","text":"Learn more"}],"wordCount":19,"markdown":"# Example Domain\n\nThis domain is for use in documentation examples without needing permission. Avoid use in operations.\n\nLearn more"},"truncated":true,"upgrade":{"endpoint":"POST /v1/x402/extract","note":"paid: full paragraphs + images + batch (up to 10 URLs) + optional model extraction"}}
+{"url":"https://example.com","preview":{"title":"Example Domain","description":"","headings":[{"level":1,"text":"Example Domain"}],"links":[{"href":"https://iana.org/domains/example","text":"Learn more"}],"wordCount":19,"markdown":"# Example Domain\n\nThis domain is for use in documentation examples without needing permission. Avoid use in operations.\n\nLearn more"},"truncated":true,"upgrade":{"endpoint":"POST /v1/x402/extract","note":"paid: full paragraphs + images + batch (up to 50 URLs) + optional model extraction"}}
 ```
 
 `GET /v1/x402/service` (live; long `note`/`howToPay` values abridged):
@@ -435,7 +477,7 @@ curl -s -X POST https://api.cdp.coinbase.com/platform/v2/x402/validate \
 # → { "valid": true, "simulation": {"outcome":"accepted"}, "preflight": [ {check, detail, passed, severity}, ... ] }
 ```
 
-Re-verified 2026-09-06: all three paid routes return `valid: true` with
+Re-verified 2026-09-06: all paid routes return `valid: true` with
 `simulation.outcome: "accepted"` and zero failed preflight checks on
 `eip155:8453`.
 
@@ -487,7 +529,7 @@ logs the x402gle listing presence.
 Agent-facing discovery surfaces: `/llms.txt`, `/skill.md`, `/openapi.json`,
 `/.well-known/x402`, `/v1/x402/service`.
 
-MPP note: the same 3 paid routes double as Machine Payments Protocol
+MPP note: the same paid routes double as Machine Payments Protocol
 endpoints (see `docs/MPP.md` for the `WWW-Authenticate` header anatomy,
 `MPP_SECRET_KEY` setup, realm semantics, and the mppscan registration
 pre-probe plus `POST /api/register` steps); x402 payers see zero change,
@@ -538,5 +580,5 @@ npm run typecheck
 
 ## Proof
 
-Live evidence (mainnet flip, CDP validator verdicts for all three routes,
+Live evidence (mainnet flip, CDP validator verdicts for all paid routes,
 settlement receipts) is in [`artifacts/PROOF.md`](artifacts/PROOF.md).
