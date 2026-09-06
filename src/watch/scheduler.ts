@@ -24,7 +24,7 @@
  */
 import type { ArtifactRepo } from '../db/artifacts.js';
 import type { RevenueRepo } from '../db/revenue.js';
-import { DEFAULT_WEBHOOK_RETRIES, DEFAULT_WEBHOOK_TIMEOUT_MS, type WebcapConfig } from '../config.js';
+import { DEFAULT_MODEL_TIMEOUT_MS, DEFAULT_WEBHOOK_RETRIES, DEFAULT_WEBHOOK_TIMEOUT_MS, type WebcapConfig } from '../config.js';
 import type { CaptureRequest, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
 import { extractPage, storeArtifact } from '../extract/service.js';
 import { consoleServiceLogger, type ServiceLogger } from '../util/logger.js';
@@ -185,6 +185,7 @@ async function executeWatch(input: WatchSchedulerInput, watch: WatchRow, nowMs: 
           apiKey: input.config.modelApiKey,
           model: input.config.modelName,
         },
+        modelTimeoutMs: input.config.modelTimeoutMs ?? DEFAULT_MODEL_TIMEOUT_MS,
         logger: input.logger,
       });
       extractJson = stableStringify(data);

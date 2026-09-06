@@ -4,8 +4,10 @@ import { makeArtifactRepo, type ArtifactRepo } from '../../src/db/artifacts.js';
 import { makeRevenueRepo, type RevenueRepo } from '../../src/db/revenue.js';
 import { makeWatchRepo, type WatchRepo, type WatchRow } from '../../src/watch/store.js';
 import { createWatchScheduler, type WatchClock, type WatchPipeline } from '../../src/watch/scheduler.js';
+import { createServer } from 'node:http';
 import { sha256Hex, stableStringify } from '../../src/watch/diff.js';
 import type { WebcapConfig } from '../../src/config.js';
+import type { ServiceLogger } from '../../src/util/logger.js';
 import type { PageStructure } from '../../src/capture/pipeline.js';
 
 const T0 = Date.parse('2026-06-01T00:00:00.000Z');
@@ -646,5 +648,174 @@ describe('watch scheduler webhook alerts', () => {
 
     expect(stub.calls).toHaveLength(0);
     expect(scheduler.stats().webhooksSkipped).toBe(2);
+  });
+});
+
+const SILENT_LOGGER: ServiceLogger = {
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+};
+
+/**
+ * Extract-mode pipeline for these tests: artifact capture is never expected;
+ * the structured capture hands the model a page (html) only when the caller
+ * opts into includeHtml — which the model path must do to have anything to parse.
+ */
+function makeExtractPipeline(): WatchPipeline {
+  return {
+    capture: async () => {
+      throw new Error('capture is never called for extract-mode watches');
+    },
+    captureStructured: async (req) => ({
+      html: req.options?.includeHtml === true ? '<html>x</html>' : '',
+      structure: BASE_STRUCTURE,
+    }),
+  };
+}
+
+interface ModelServerHandle {
+  readonly baseUrl: string;
+  close(): Promise<void>;
+}
+
+/**
+ * A real local OpenAI-compatible model endpoint on an ephemeral port: answers
+ * POST /chat/completions with a fixed completion after replyDelayMs. A fetch
+ * stub cannot honor AbortSignal, so only a live server exercises the
+ * production abort path in modelExtract.
+ */
+function startModelServer(replyDelayMs: number): Promise<ModelServerHandle> {
+  const completion = JSON.stringify({
+    choices: [{ index: 0, message: { role: 'assistant', content: '{"a":"x"}' } }],
+  });
+  const server = createServer((req, res) => {
+    req.resume(); // drain the request body
+    setTimeout(
+      () => {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(completion);
+      },
+      replyDelayMs,
+    ).unref(); // a late reply must never hold the test process open
+  });
+  server.keepAliveTimeout = 0;
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server.address();
+      if (addr === null || typeof addr === 'string') {
+        reject(new Error('model server did not bind a TCP port'));
+        return;
+      }
+      resolve({
+        baseUrl: `http://127.0.0.1:${addr.port}`,
+        close: () =>
+          new Promise<void>((resolveClose, rejectClose) => {
+            server.closeAllConnections();
+            server.close((err) => {
+              if (err === undefined) resolveClose();
+              else rejectClose(err);
+            });
+          }),
+      });
+    });
+  });
+}
+
+describe('watch scheduler extract model timeout (real local model server)', () => {
+  let world: World;
+  let modelServer: ModelServerHandle | undefined;
+
+  beforeEach(() => {
+    world = makeWorld();
+  });
+
+  afterEach(async () => {
+    await modelServer?.close();
+    modelServer = undefined;
+    world.close();
+  });
+
+  it('a slow model call aborts at config.modelTimeoutMs and the run stays ok, structure-only', async () => {
+    modelServer = await startModelServer(1_500);
+    const clock = makeFakeClock(T0 + HOUR);
+    seedWatch(world.repo, {
+      id: 'w',
+      mode: 'extract',
+      schemaJson: '{"a":"string"}',
+      nextRunAt: new Date(T0).toISOString(),
+      credits: 2,
+    });
+    const scheduler = createWatchScheduler({
+      repo: world.repo,
+      pipeline: makeExtractPipeline(),
+      artifacts: world.artifacts,
+      revenue: world.revenue,
+      config: {
+        ...world.config,
+        modelApiBaseUrl: modelServer.baseUrl,
+        modelApiKey: 'k',
+        modelName: 'm',
+        modelTimeoutMs: 300,
+      },
+      clock: clock.clock,
+      logger: SILENT_LOGGER,
+    });
+
+    const startedAt = Date.now();
+    await scheduler.tick();
+    const elapsedMs = Date.now() - startedAt;
+
+    const runs = world.repo.recentRuns('w', 10);
+    expect(runs).toHaveLength(1);
+    const run = runs[0];
+    if (run === undefined) throw new Error('run vanished');
+    expect(run.status).toBe('ok');
+    const extractJson = run.extract_json;
+    if (extractJson === null) throw new Error('extract run recorded no extract_json');
+    const extract = JSON.parse(extractJson) as Record<string, unknown>;
+    expect(extract).not.toHaveProperty('extracted');
+    expect(extractJson).toBe(stableStringify(BASE_STRUCTURE));
+    expect(elapsedMs).toBeLessThan(1_500);
+  });
+
+  it('a model call that fits the configured timeout completes with extracted data', async () => {
+    modelServer = await startModelServer(100);
+    const clock = makeFakeClock(T0 + HOUR);
+    seedWatch(world.repo, {
+      id: 'w',
+      mode: 'extract',
+      schemaJson: '{"a":"string"}',
+      nextRunAt: new Date(T0).toISOString(),
+      credits: 2,
+    });
+    const scheduler = createWatchScheduler({
+      repo: world.repo,
+      pipeline: makeExtractPipeline(),
+      artifacts: world.artifacts,
+      revenue: world.revenue,
+      config: {
+        ...world.config,
+        modelApiBaseUrl: modelServer.baseUrl,
+        modelApiKey: 'k',
+        modelName: 'm',
+        modelTimeoutMs: 5_000,
+      },
+      clock: clock.clock,
+      logger: SILENT_LOGGER,
+    });
+
+    await scheduler.tick();
+
+    const runs = world.repo.recentRuns('w', 10);
+    expect(runs).toHaveLength(1);
+    const run = runs[0];
+    if (run === undefined) throw new Error('run vanished');
+    expect(run.status).toBe('ok');
+    const extractJson = run.extract_json;
+    if (extractJson === null) throw new Error('extract run recorded no extract_json');
+    const extract = JSON.parse(extractJson) as Record<string, unknown>;
+    expect(extract).toHaveProperty('extracted', { a: 'x' });
   });
 });
