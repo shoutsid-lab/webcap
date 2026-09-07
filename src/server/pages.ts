@@ -61,7 +61,7 @@ ${topBar(bazaarCatalogUrl)}
   <div class="artifact-actions"><a class="primary" href="${esc(publicUrl)}">Download raw ${esc(artifact.format)}</a><a href="/">← back to webcap</a></div>
   </div>
   <figure class="frame">
-    <img src="${esc(publicUrl)}" alt="Screenshot of ${esc(sourceUrl)}" width="1200">
+    <img src="${esc(publicUrl)}" alt="Screenshot of ${esc(sourceUrl)}" width="1200" loading="eager">
   </figure>
   <dl class="meta">
     <div><dt>format</dt><dd>${esc(artifact.format)}</dd></div>
