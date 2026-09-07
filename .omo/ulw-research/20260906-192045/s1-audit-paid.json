@@ -1,0 +1,59 @@
+{
+  "audit": {
+    "url": "https://example.com/",
+    "seo": {
+      "title": {
+        "present": true,
+        "length": 1,
+        "ok": true
+      },
+      "description": {
+        "present": false,
+        "length": 0,
+        "ok": false
+      },
+      "h1Count": 0,
+      "h1Ok": false,
+      "canonical": {
+        "present": false
+      },
+      "robotsMeta": {
+        "present": false
+      }
+    },
+    "og": {
+      "present": {
+        "title": false,
+        "description": false,
+        "image": false,
+        "twitterCard": false,
+        "twitterSite": false,
+        "twitterCreator": false,
+        "twitterTitle": false,
+        "twitterDescription": false,
+        "twitterImage": false,
+        "articlePublishedTime": false,
+        "articleAuthor": false,
+        "articleSection": false,
+        "articleTags": false
+      }
+    },
+    "links": {
+      "total": 1,
+      "internal": 1,
+      "external": 0,
+      "emptyText": 0,
+      "duplicates": 0,
+      "sample": [
+        {
+          "href": "https://example.com/",
+          "text": "self"
+        }
+      ]
+    }
+  },
+  "payment": {
+    "payer": "0xF5EA4EA65F44852651AA8b08694AB7A002F64453",
+    "priceUsdcUnits": 2000
+  }
+}

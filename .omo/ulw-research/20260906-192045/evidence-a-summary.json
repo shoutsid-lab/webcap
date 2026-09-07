@@ -1,0 +1,68 @@
+{
+  "s1-audit-paid.json": "/home/shoutsid/code/webcap/.omo/ulw-research/20260906-192045/s1-audit-paid.json (1210 bytes)",
+  "s1-binary": {
+    "status": 200,
+    "everyItemHasHrefAndText": true,
+    "oldStringShape": false,
+    "sample": [
+      {
+        "href": "https://example.com/",
+        "text": "self"
+      }
+    ],
+    "priceUsdcUnits": 2000
+  },
+  "amounts-402": {
+    "capture": "402:1000",
+    "extract": "402:10000",
+    "audit": "402:2000",
+    "watches-topup": "402:100000"
+  },
+  "s2-debugger-tag-rich.html": "/home/shoutsid/code/webcap/.omo/ulw-research/20260906-192045/s2-debugger-tag-rich.html (15708 bytes)",
+  "s2-binary": {
+    "status": 200,
+    "rowsPresent": {
+      "twitter:title": true,
+      "twitter:card": true,
+      "twitter:image": true,
+      "article:published_time": true,
+      "article:author": true,
+      "Jane Author": true
+    }
+  },
+  "s3-debugger-tag-poor.html": "/home/shoutsid/code/webcap/.omo/ulw-research/20260906-192045/s3-debugger-tag-poor.html (15211 bytes)",
+  "s3-poor-binary": {
+    "status": 200,
+    "score": "0",
+    "below50": true,
+    "hasStrongCTA": true,
+    "hasHintBand": true
+  },
+  "s3-debugger-tag-rich.html": "/home/shoutsid/code/webcap/.omo/ulw-research/20260906-192045/s3-debugger-tag-rich.html (15715 bytes)",
+  "s3-rich-binary": {
+    "status": 200,
+    "score": "95",
+    "atLeast80": true,
+    "hasStrongCTA": false,
+    "hasSoftCTA": true
+  },
+  "s3-scorer-vector.json": "/home/shoutsid/code/webcap/.omo/ulw-research/20260906-192045/s3-scorer-vector.json (995 bytes)",
+  "s3-vector-binary": {
+    "deterministic": true,
+    "poorInBounds": true,
+    "richInBounds": true,
+    "poorScore": 0,
+    "richScore": 94
+  },
+  "s4-422-envelope.json": "/home/shoutsid/code/webcap/.omo/ulw-research/20260906-192045/s4-422-envelope.json (141 bytes)",
+  "s4-422-binary": {
+    "status": 422,
+    "balanceAfter": 1,
+    "balanceDelta": 0
+  },
+  "s4-width100-probe": {
+    "status": 200,
+    "code": "(200 path)",
+    "balanceAfter": 0
+  }
+}

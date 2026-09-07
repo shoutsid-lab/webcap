@@ -24,6 +24,7 @@ import {
 import { accountPaths } from './openapi/paths-accounts.js';
 import { freePaths } from './openapi/paths-free.js';
 import { jobsPaths } from './openapi/paths-jobs.js';
+import { mlPaths } from './openapi/paths-ml.js';
 import { webPaths } from './openapi/paths-web.js';
 import { x402Paths } from './openapi/paths-x402.js';
 import { jsonError, type PathContext } from './openapi/shared.js';
@@ -86,9 +87,11 @@ export async function openapiDocument(config: WebcapConfig): Promise<OpenapiDocu
       { name: 'artifacts', description: 'Stored capture artifacts' },
       { name: 'accounts', description: 'API-key accounts, credit packs, and the credit-metered capture (non-x402 front door)' },
       { name: 'discovery', description: 'Service metadata, catalog, icon, SEO surface' },
+      { name: 'ml', description: 'AI-powered visual analysis (classification, accessibility, entities, sentiment)' },
     ],
     paths: {
       ...x402Paths(config, ctx),
+      ...mlPaths(config, ctx),
       ...freePaths(ctx),
       ...webPaths(config),
       ...accountPaths(config, ctx),

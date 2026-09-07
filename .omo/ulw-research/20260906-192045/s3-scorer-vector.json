@@ -1,0 +1,38 @@
+{
+  "poor": {
+    "score": 0,
+    "issues": [
+      "Missing og:title — chat apps fall back to the bare URL.",
+      "Missing og:description — previews render with no summary text.",
+      "Missing og:image — link previews render as text-only.",
+      "Missing twitter:card — X falls back to a small summary card."
+    ],
+    "suggestedTags": [
+      "og:title",
+      "og:description",
+      "og:image",
+      "twitter:card"
+    ]
+  },
+  "poorRepeat": {
+    "score": 0,
+    "issues": [
+      "Missing og:title — chat apps fall back to the bare URL.",
+      "Missing og:description — previews render with no summary text.",
+      "Missing og:image — link previews render as text-only.",
+      "Missing twitter:card — X falls back to a small summary card."
+    ],
+    "suggestedTags": [
+      "og:title",
+      "og:description",
+      "og:image",
+      "twitter:card"
+    ]
+  },
+  "rich": {
+    "score": 94,
+    "issues": [],
+    "suggestedTags": []
+  },
+  "deterministic": true
+}

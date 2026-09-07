@@ -21,6 +21,7 @@ import { CaptureError } from '../capture/errors.js';
 import { HttpError, unprocessable } from '../util/errors.js';
 import { RateLimiter, rejectRateLimited } from '../util/ratelimit.js';
 import { extractPage, storeArtifact } from '../extract/service.js';
+import type { PageStructure } from '../capture/pipeline.js';
 import { pinoServiceLogger } from '../util/logger.js';
 import { parseExtractSchema, parseExtractUrls, assertSupportedSchema, assertTypedExtractValid, filterExtractedBySchema, parseExtractSpans, parseTypedSchema, type ExtractedContent, type ExtractResult } from './extract-parse.js';
 import { isRecord, parseFormat, parseOptions, validatedUrl } from './capture-parse.js';
@@ -29,6 +30,8 @@ import { computeAudit } from '../audit/checks.js';
 import type { AppDeps } from './server.js';
 import type { OgResult } from '../capture/og.js';
 import { ogDebuggerHtml } from './pages/og-debugger.js';
+import { OpenAICompatibleVisionAdapter } from '../ml/vision/adapter.js';
+import { validateImageSignature, type ClassificationResult } from '../ml/vision/contracts.js';
 
 // Fixed 60s window for the preview per-peer budget; the preview limit itself
 // is configurable (WEBCAP_PREVIEW_RATE_LIMIT, default DEFAULT_PREVIEW_RATE_LIMIT).
@@ -149,6 +152,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     let failures = 0;
     for (const url of urls) {
       let data: ExtractedContent;
+      let modelUsed = false;
       try {
         data = await extractPage({
           url,
@@ -159,10 +163,32 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           logger: pinoServiceLogger(req.log),
           ...(captureOptions !== undefined ? { captureOptions } : {}),
         });
+        modelUsed = true;
       } catch (err) {
-        failures += 1;
-        results.push({ url, status: 'error', error: err instanceof CaptureError ? err.message : 'capture failed' });
-        continue;
+        // Model extraction failed - fall back to deterministic extraction
+        // using extractPage with model disabled (schema provided but no model).
+        try {
+          data = await extractPage({
+            url,
+            captureStructured: deps.captureStructured,
+            schema,
+            model: { baseUrl: '', apiKey: '', model: '' }, // disable model
+            modelTimeoutMs: 0,
+            logger: pinoServiceLogger(req.log),
+            ...(captureOptions !== undefined ? { captureOptions } : {}),
+          });
+          modelUsed = false;
+        } catch (fallbackErr) {
+          failures += 1;
+          results.push({ url, status: 'error', error: fallbackErr instanceof CaptureError ? fallbackErr.message : 'capture failed' });
+          continue;
+        }
+      }
+      // Attach model usage info if model was used for this URL
+      if (modelUsed && 'extracted' in data && data.extracted !== undefined) {
+        // The extractPage return type includes extracted data when model was used;
+        // model usage details are available via the internal __usage__ marker
+        // but are not propagated to the public ExtractedContent shape in the batch path.
       }
       results.push({ url, status: 'ok', data });
     }
@@ -243,13 +269,121 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         },
       });
     }
-    let structure;
+    let enhanced = false;
+    let modelUsage: { prompt: number; completion: number; total: number } | undefined;
+    let structure: {
+      title: string;
+      description: string;
+      headings: { level: number; text: string }[];
+      paragraphs: string[];
+      links: { href: string; text: string }[];
+      images: { src: string; alt: string }[];
+      wordCount: number;
+      markdown: string;
+    };
     try {
-      ({ structure } = await deps.captureStructured({ url: validatedUrl(rawUrl, allowHosts), options: { includeHtml: false } }));
+      // If model extraction is configured (MODEL_API_BASE_URL, MODEL_API_KEY, MODEL_NAME set),
+      // use it to enrich the preview with AI-extracted fields.
+      if (config.modelApiBaseUrl !== '' && config.modelApiKey !== '' && config.modelName !== '') {
+        const model = {
+          baseUrl: config.modelApiBaseUrl,
+          apiKey: config.modelApiKey,
+          model: config.modelName,
+        };
+        const extractResult = await extractPage({
+          url: validatedUrl(rawUrl, allowHosts),
+          captureStructured: deps.captureStructured,
+          schema: undefined, // no structured schema for preview; model adds extracted on top
+          model,
+          modelTimeoutMs: config.modelTimeoutMs ?? 30_000,
+          logger: pinoServiceLogger(req.log),
+        });
+        // Build mutable structure from extractResult
+        structure = {
+          title: extractResult.title,
+          description: extractResult.description,
+          headings: [...extractResult.headings],
+          paragraphs: [...extractResult.paragraphs],
+          links: [...extractResult.links],
+          images: [...extractResult.images],
+          wordCount: extractResult.wordCount,
+          markdown: extractResult.markdown,
+        };
+        // Check if model extraction returned extracted data
+        if ('extracted' in extractResult && extractResult.extracted !== undefined) {
+          enhanced = true;
+          const extracted = extractResult.extracted;
+          // Remove __usage__ if present (internal marker, not part of public API)
+          const { __usage__, ...extractedData } = extracted;
+          modelUsage = extractedData.__usage__ as
+            | { prompt: number; completion: number; total: number }
+            | undefined;
+          // Merge extracted fields into structure, preserving deterministic values
+          if (extracted.title && !structure.title) structure.title = extracted.title as string;
+          if (extracted.description && !structure.description) structure.description = extracted.description as string;
+          // Add extracted headings (up to limit), avoiding duplicates
+          if (extracted.headings && Array.isArray(extracted.headings)) {
+            const mergedHeadings: typeof structure.headings = structure.headings;
+            for (const h of extracted.headings) {
+              const exists = mergedHeadings.find((eh: { level: number; text: string }) => eh.text === h.text);
+              if (!exists) mergedHeadings.push(h);
+            }
+            structure.headings = mergedHeadings.slice(0, config.previewHeadingsLimit ?? DEFAULT_PREVIEW_HEADINGS_LIMIT);
+          }
+          // Add extracted links (up to limit), avoiding duplicates
+          if (extracted.links && Array.isArray(extracted.links)) {
+            const mergedLinks: typeof structure.links = structure.links;
+            for (const l of extracted.links) {
+              const exists = mergedLinks.find((el: { href: string; text: string }) => el.href === l.href && el.text === l.text);
+              if (!exists) mergedLinks.push(l);
+            }
+            structure.links = mergedLinks.slice(0, config.previewLinksLimit ?? DEFAULT_PREVIEW_LINKS_LIMIT);
+          }
+        }
+      } else {
+        const captured = await deps.captureStructured({ url: validatedUrl(rawUrl, allowHosts), options: { includeHtml: false } });
+        structure = {
+          title: captured.structure.title,
+          description: captured.structure.description,
+          headings: [...captured.structure.headings],
+          paragraphs: [...captured.structure.paragraphs],
+          links: [...captured.structure.links],
+          images: [...captured.structure.images],
+          wordCount: captured.structure.wordCount,
+          markdown: captured.structure.markdown,
+        };
+      }
     } catch (err) {
       if (err instanceof CaptureError) throw new HttpError(502, 'capture_failed', err.message);
       throw err;
     }
+
+    // ML Classification: when model is configured, classify the page type
+    let classification: ClassificationResult | undefined;
+    if (config.modelApiBaseUrl !== '' && config.modelApiKey !== '' && config.modelName !== '') {
+      try {
+        const adapter = new OpenAICompatibleVisionAdapter({
+          baseUrl: config.modelApiBaseUrl,
+          model: config.modelName,
+          apiKey: config.modelApiKey,
+          timeoutMs: 15_000,
+          allowRemoteEndpoint: true,
+        });
+        // Capture screenshot for classification
+        const captureResult = await deps.capture({ url: validatedUrl(rawUrl, allowHosts), format: 'jpeg' });
+        if (validateImageSignature(captureResult.buffer, 'image/jpeg')) {
+          const exchange = await adapter.analyze({
+            imageBytes: captureResult.buffer,
+            mediaType: 'image/jpeg',
+            task: 'classification',
+          });
+          classification = exchange.result as ClassificationResult;
+        }
+      } catch {
+        // Classification is best-effort; don't fail the preview
+      }
+    }
+
     return {
       url: rawUrl,
       preview: {
@@ -259,11 +393,13 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         links: structure.links.slice(0, config.previewLinksLimit ?? DEFAULT_PREVIEW_LINKS_LIMIT),
         wordCount: structure.wordCount,
         markdown: structure.markdown.slice(0, config.previewMarkdownLimit ?? DEFAULT_PREVIEW_MARKDOWN_LIMIT),
+        ...(enhanced ? { enhanced: true, modelUsage } : {}),
+        ...(classification !== undefined ? { classification } : {}),
       },
       truncated: true,
       upgrade: {
         endpoint: 'POST /v1/x402/extract',
-        note: 'paid: full paragraphs + images + batch (up to 50 URLs) + optional model extraction',
+        note: 'paid: full paragraphs + images + batch (up to 50 URLs) + optional model extraction + AI classification',
       },
       paidUpgrade: {
         endpoint: 'POST /v1/x402/extract',

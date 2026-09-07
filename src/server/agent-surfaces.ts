@@ -67,6 +67,8 @@ on-chain. You pay USDC only, never ETH gas.
 | POST /v1/x402/audit | ${usdc(config.x402AuditPriceUsdcUnits)} | SEO basics + link/OG health in one call (title, description, OG tags, link health) |
 | POST /v1/x402/map-lite | ${usdc(config.x402AuditPriceUsdcUnits)} | Site map in one call: URL list from sitemap/robots plus a 1-hop same-host crawl (maxUrls up to 50, default 20) |
 | POST /v1/x402/video | ${usdc(config.x402VideoPriceUsdcUnits)} | Scroll-capture of one URL as video (mp4/webm): base64 artifact |
+| POST /v1/x402/analyze | $0.01 | AI-powered visual analysis: classification, accessibility, layout, entities, sentiment |
+| POST /v1/x402/analyze/batch | $0.01 | Batch AI analysis (up to 10 URLs, one payment) |
 | POST /v1/x402/watches/topup | ${usdc(watchTopUpPriceUsdcUnits('capture', config))}–${usdc(watchTopUpPriceUsdcUnits('extract', config))} | 100 scheduled re-capture runs for an existing watch (capture watch ${usdc(watchTopUpPriceUsdcUnits('capture', config))}, extract watch ${usdc(watchTopUpPriceUsdcUnits('extract', config))}) |
 
 ### Request / response shapes
@@ -94,13 +96,24 @@ POST /v1/x402/video
   200 {"artifact": {"mime": "video/mp4", "bytes": 1048576, "data": "<base64>"},
        "payment": {"payer": "0x…", "priceUsdcUnits": ${config.x402VideoPriceUsdcUnits}}}
 
+POST /v1/x402/analyze
+    {"url": "https://example.com", "task": "classification"}   // task: classification | accessibility | layout | entities | sentiment
+    // optional "context": "focus on product pricing"
+  200 {"task": "classification", "result": {"category": "e-commerce", "confidence": 0.92, "tags": ["shopping", "retail"]},
+       "payment": {"payer": "0x…", "priceUsdcUnits": 10000}, "latency_ms": 1234}
+
+POST /v1/x402/analyze/batch
+    {"urls": ["https://a.com", "https://b.com"], "task": "classification"}   // up to 10 URLs, one payment
+  200 {"results": [{"url": "…", "status": "ok", "result": {"category": "article", "confidence": 0.88}}],
+       "task": "classification", "payment": {"payer": "0x…", "priceUsdcUnits": 10000}}
+
 POST /v1/x402/watches/topup
     {"watchId": "<id from POST /v1/watches>", "runs": 100}
   200 {"watchId": "…", "credits": 100, "priceUsdcUnits": ${watchTopUpPriceUsdcUnits('capture', config)}}
 
 ## Free endpoints (no payment)
 
-- GET /v1/extract/preview?url=… — bounded structured preview (title, headings, links, truncated markdown); rate-limited per IP
+- GET /v1/extract/preview?url=… — bounded structured preview (title, headings, links, truncated markdown + AI classification when model configured); rate-limited per IP
 - GET /v1/og?url=… — Open Graph metadata (title, description, image, icon)
 - POST /v1/watches — create a scheduled re-capture watch (free; starts with 0 credits — top up via /v1/x402/watches/topup)
 - GET /v1/watches/:id — watch state + recent runs · DELETE /v1/watches/:id — remove it
