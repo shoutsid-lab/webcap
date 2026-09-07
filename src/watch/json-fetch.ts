@@ -12,7 +12,7 @@
  *   drive it directly.
  */
 import { validateCaptureUrl } from '../util/url.js';
-import { conditionsMatch, parseConditionsField, type ConditionContext } from './conditions.js';
+import { conditionsMatch, parseConditionsField, storedConditionsMet } from './conditions.js';
 import { diffJson, stableStringify } from './diff.js';
 
 /** Default per-request budget for a plain JSON fetch. */
@@ -167,35 +167,7 @@ export async function executeJsonWatch(input: ExecuteJsonWatchInput): Promise<Ex
     extractJson: fetched.canonicalJson,
     changed,
     diffSummary,
-    conditionsMet: storedConditionsMet(input.conditionsJson, fetched.data),
+    conditionsMet: storedConditionsMet(input.conditionsJson, JSON.stringify(fetched.data)),
     error: null,
   };
-}
-
-/** Stored-conditions gate (mirrors the scheduler's fail-closed semantics). */
-function storedConditionsMet(conditionsJson: string | null, extract: unknown): boolean {
-  if (conditionsJson === null) return true;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(conditionsJson);
-  } catch {
-    return false;
-  }
-  try {
-    const conditions = parseConditionsField(parsed);
-    return conditions === null ? true : conditionsMatch(conditions, conditionContextOf(extract));
-  } catch {
-    return false;
-  }
-}
-
-/** Condition context for plain JSON (mirrors the scheduler's extract branch). */
-function conditionContextOf(extract: unknown): ConditionContext {
-  const markdown =
-    typeof extract === 'object' &&
-    extract !== null &&
-    typeof (extract as Record<string, unknown>)['markdown'] === 'string'
-      ? ((extract as Record<string, unknown>)['markdown'] as string)
-      : null;
-  return { markdown, extract };
 }

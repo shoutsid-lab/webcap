@@ -11,6 +11,8 @@ export class RateLimiter {
   private readonly limit: number;
   private readonly windowMs: number;
   private readonly windows = new Map<string, Window>();
+  /** Threshold for triggering lazy cleanup (map size). */
+  private static readonly CLEANUP_THRESHOLD = 10_000;
 
   constructor(limit: number, windowMs: number) {
     this.limit = limit;
@@ -23,6 +25,10 @@ export class RateLimiter {
     const window = this.windows.get(key);
     if (window === undefined || window.resetsAt <= now) {
       this.windows.set(key, { count: 1, resetsAt: now + this.windowMs });
+      // Lazy cleanup when the map grows large to prevent unbounded memory growth.
+      if (this.windows.size > RateLimiter.CLEANUP_THRESHOLD) {
+        this.cleanup(now);
+      }
       return true;
     }
     if (window.count >= this.limit) return false;
@@ -38,6 +44,20 @@ export class RateLimiter {
     const window = this.windows.get(key);
     if (window === undefined) return 0;
     return Math.max(0, window.resetsAt - Date.now());
+  }
+
+  /** Remove expired windows to bound memory usage. Called lazily on threshold. */
+  cleanup(now: number): void {
+    for (const [key, window] of this.windows) {
+      if (window.resetsAt <= now) {
+        this.windows.delete(key);
+      }
+    }
+  }
+
+  /** Number of active windows (for testing/monitoring). */
+  get size(): number {
+    return this.windows.size;
   }
 }
 

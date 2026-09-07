@@ -5,13 +5,13 @@ import {
   boundsValid,
   iou,
   type Bounds,
+  type WorldSnapshot,
 } from '../../src/ml/detection/models.js';
 import {
   groundSnapshot,
   describeScreen,
   findGrounded,
   findElements,
-  type WorldSnapshot,
 } from '../../src/ml/detection/grounding.js';
 
 describe('ml/detection/models', () => {
@@ -123,7 +123,7 @@ describe('ml/detection/grounding', () => {
     it('sorts by confidence descending', () => {
       const snapshot = createSnapshot();
       const grounded = groundSnapshot(snapshot);
-      expect(grounded[0].confidence).toBeGreaterThanOrEqual(grounded[1].confidence);
+      expect(grounded[0]!.confidence).toBeGreaterThanOrEqual(grounded[1]!.confidence);
     });
 
     it('fuses OCR text when IoU threshold met', () => {
@@ -173,7 +173,7 @@ describe('ml/detection/grounding', () => {
       const snapshot = createSnapshot();
       const results = findElements(snapshot, { role: 'button' });
       expect(results.length).toBe(1);
-      expect(results[0].role).toBe('button');
+      expect(results[0]!.role).toBe('button');
     });
 
     it('filters by name substring', () => {
@@ -186,7 +186,7 @@ describe('ml/detection/grounding', () => {
       const snapshot = createSnapshot();
       const results = findElements(snapshot, { interactive: true });
       expect(results.length).toBe(1);
-      expect(results[0].interactive).toBe(true);
+      expect(results[0]!.interactive).toBe(true);
     });
 
     it('respects limit', () => {

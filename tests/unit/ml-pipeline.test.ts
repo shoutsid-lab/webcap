@@ -37,11 +37,11 @@ describe('ml/pipeline/types', () => {
 
     it('defines dependencies correctly', () => {
       const pipeline = standardAnalysisPipeline();
-      expect(pipeline.nodes.classify.dependsOn).toEqual(['capture']);
-      expect(pipeline.nodes.detect.dependsOn).toEqual(['capture']);
-      expect(pipeline.nodes.ocr.dependsOn).toEqual(['capture']);
-      expect(pipeline.nodes.ground.dependsOn).toEqual(['detect', 'ocr']);
-      expect(pipeline.nodes.merge.dependsOn).toEqual(['classify', 'ground']);
+      expect(pipeline.nodes.classify!.dependsOn).toEqual(['capture']);
+      expect(pipeline.nodes.detect!.dependsOn).toEqual(['capture']);
+      expect(pipeline.nodes.ocr!.dependsOn).toEqual(['capture']);
+      expect(pipeline.nodes.ground!.dependsOn).toEqual(['detect', 'ocr']);
+      expect(pipeline.nodes.merge!.dependsOn).toEqual(['classify', 'ground']);
     });
   });
 
@@ -76,7 +76,7 @@ describe('ml/pipeline/types', () => {
 
     it('has diff node with prompt', () => {
       const pipeline = visualDiffPipeline();
-      expect(pipeline.nodes.diff.prompt).toContain('Compare');
+      expect(pipeline.nodes.diff!.prompt).toContain('Compare');
     });
 
     it('has multiple entry nodes', () => {

@@ -36,7 +36,7 @@ import { defaultClock, defaultTimers, type WatchClock, type WatchTimers } from '
 import { checkWebhookUrl, fireWebhook, formatAlertPayload, type WatchAlert, type WatchChannel } from './webhook.js';
 import type { WatchAiTokenBudget } from '../extract/modelSummarize.js';
 import { createWatchAiTokenBudget, modelSummarizeWithBudget } from '../extract/modelSummarize.js';
-import { conditionsMatch, parseConditionsField, type ConditionContext } from './conditions.js';
+import { conditionsMatch, parseConditionsField, storedConditionsMet, type ConditionContext } from './conditions.js';
 import type { WatchMode, WatchRepo, WatchRow } from './store.js';
 
 // Re-exported unchanged: the watch-scheduler unit tests import these from this module.
@@ -345,34 +345,4 @@ function storedModeOf(watch: WatchRow): WatchMode {
   return watch.mode;
 }
 
-function conditionContextOf(extractJson: string | null): ConditionContext {
-  let extract: unknown = null;
-  if (extractJson !== null) {
-    try {
-      extract = JSON.parse(extractJson);
-    } catch {
-      extract = null;
-    }
-  }
-  const markdown =
-    typeof extract === 'object' && extract !== null && typeof (extract as Record<string, unknown>)['markdown'] === 'string'
-      ? ((extract as Record<string, unknown>)['markdown'] as string)
-      : null;
-  return { markdown, extract };
-}
 
-function storedConditionsMet(conditionsJson: string | null, extractJson: string | null): boolean {
-  if (conditionsJson === null) return true;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(conditionsJson);
-  } catch {
-    return false;
-  }
-  try {
-    const conditions = parseConditionsField(parsed);
-    return conditions === null ? true : conditionsMatch(conditions, conditionContextOf(extractJson));
-  } catch {
-    return false;
-  }
-}

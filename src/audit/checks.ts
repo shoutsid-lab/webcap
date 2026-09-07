@@ -1,4 +1,5 @@
 import type { PageStructure } from '../capture/pipeline.js';
+import { metaContent, metaAll, clean } from '../util/html-parse.js';
 
 export interface AuditTitleCheck {
   readonly present: boolean;
@@ -195,27 +196,6 @@ export function computeAudit(args: ComputeAuditArgs): AuditResult {
   };
 }
 
-function metaContent(html: string, property: string): string | undefined {
-  const tag = html.match(new RegExp(`<meta[^>]+(?:property|name)\\s*=\\s*["']${property}["'][^>]*>`, 'i'));
-  if (tag === null) return undefined;
-  const content = tag[0].match(/content\s*=\s*["']([^"']*)["']/i);
-  const value = content === null || content[1] === undefined ? undefined : clean(content[1]);
-  return value === '' || value === undefined ? undefined : value;
-}
-
-function metaAll(html: string, property: string): readonly string[] | undefined {
-  const tags = html.match(new RegExp(`<meta[^>]+(?:property|name)\\s*=\\s*["']${property}["'][^>]*>`, 'gi'));
-  if (tags === null) return undefined;
-  const values: string[] = [];
-  for (const tag of tags) {
-    const content = tag.match(/content\s*=\s*["']([^"']*)["']/i);
-    if (content?.[1] === undefined) continue;
-    const value = clean(content[1]);
-    if (value !== '') values.push(value);
-  }
-  return values.length > 0 ? values : undefined;
-}
-
 function canonicalHref(html: string): string | undefined {
   const match = html.match(/<link[^>]+rel\s*=\s*["'][^"']*canonical[^"']*["'][^>]*>/i);
   if (match === null) return undefined;
@@ -223,14 +203,4 @@ function canonicalHref(html: string): string | undefined {
   if (href === null || href[1] === undefined) return undefined;
   const value = clean(href[1]);
   return value === '' ? undefined : value;
-}
-
-function clean(value: string | undefined): string {
-  return (value ?? '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .trim();
 }

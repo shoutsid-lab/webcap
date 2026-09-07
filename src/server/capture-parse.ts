@@ -1,10 +1,10 @@
 import type { CaptureAction, CaptureFormat, CaptureOptions, CaptureProxy } from '../capture/pipeline.js';
 import { HttpError, unprocessable } from '../util/errors.js';
 import { validateCaptureUrl } from '../util/url.js';
+import { isRecord } from '../util/type-guards.js';
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+// Re-export for backward compatibility (many server modules import isRecord from here).
+export { isRecord } from '../util/type-guards.js';
 
 export function parseFormat(body: unknown): CaptureFormat {
   const raw = isRecord(body) ? body.format : undefined;

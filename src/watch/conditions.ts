@@ -1,4 +1,5 @@
 import { badRequest, unprocessable } from '../util/errors.js';
+import { isRecord } from '../util/type-guards.js';
 import { stableStringify } from './diff.js';
 
 export type WatchChannel = 'generic' | 'slack' | 'discord';
@@ -83,10 +84,6 @@ function numericAtPath(doc: unknown, path: string): number | null {
   return typeof resolved.value === 'number' && Number.isFinite(resolved.value) ? resolved.value : null;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
 export function parseConditionsField(raw: unknown): WatchCondition[] | null {
   if (raw === undefined) return null;
   if (!Array.isArray(raw)) throw unprocessable('conditions must be an array');
@@ -121,4 +118,45 @@ export function parseChannel(raw: unknown): WatchChannel {
   if (raw === undefined) return 'generic';
   if (raw === 'generic' || raw === 'slack' || raw === 'discord') return raw;
   throw badRequest(`channel must be one of: ${WATCH_CHANNELS.join(', ')}`);
+}
+
+/**
+ * Build a ConditionContext from extract JSON (a string or null).
+ * Shared by the scheduler and JSON fetch modules.
+ */
+export function conditionContextOf(extractJson: string | null): ConditionContext {
+  let extract: unknown = null;
+  if (extractJson !== null) {
+    try {
+      extract = JSON.parse(extractJson);
+    } catch {
+      extract = null;
+    }
+  }
+  const markdown =
+    typeof extract === 'object' && extract !== null && typeof (extract as Record<string, unknown>)['markdown'] === 'string'
+      ? ((extract as Record<string, unknown>)['markdown'] as string)
+      : null;
+  return { markdown, extract };
+}
+
+/**
+ * Evaluate stored conditions against extract JSON.
+ * Shared by the scheduler and JSON fetch modules.
+ * Returns true when no conditions are set or all conditions match.
+ */
+export function storedConditionsMet(conditionsJson: string | null, extractJson: string | null): boolean {
+  if (conditionsJson === null) return true;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(conditionsJson);
+  } catch {
+    return false;
+  }
+  try {
+    const conditions = parseConditionsField(parsed);
+    return conditions === null ? true : conditionsMatch(conditions, conditionContextOf(extractJson));
+  } catch {
+    return false;
+  }
 }
