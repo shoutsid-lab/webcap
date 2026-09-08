@@ -49,6 +49,7 @@ async function main(): Promise<void> {
     captureAllowHosts: parseAllowHosts(process.env),
     x402Facilitator,
     loggerOptions: defaultLoggingOptions(),
+    startTimeMs: Date.now(),
   });
   log = pinoServiceLogger(app.log);
   const poller: Poller = startPoller({

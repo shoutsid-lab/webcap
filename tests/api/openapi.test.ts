@@ -405,6 +405,7 @@ describe('mppscan/x402gle discovery metadata', () => {
     ['get', '/openapi.json'],
     ['get', '/v1/x402/service'],
     ['get', '/v1/health'],
+    ['get', '/v1/status'],
     ['get', '/robots.txt'],
     ['get', '/sitemap.xml'],
     ['get', '/.well-known/x402'],
@@ -532,7 +533,7 @@ describe('mppscan/x402gle discovery metadata', () => {
   it('declares security: [] on every free/public op (the explicit 19-list)', async () => {
     const fx = makeApiFixture();
     try {
-      expect(FREE_OPS.length).toBe(19);
+      expect(FREE_OPS.length).toBe(20);
       const res = await getDoc(fx.app);
       const doc = res.json() as OpenapiDocView;
       for (const [method, path] of FREE_OPS) {

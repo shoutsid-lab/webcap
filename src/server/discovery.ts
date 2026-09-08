@@ -31,12 +31,23 @@ export function registerDiscoveryRoutes(app: FastifyInstance, deps: AppDeps): vo
 
   app.get('/openapi.json', async () => openapiDocument(config));
 
-  app.get('/v1/health', async () => ({
-    ok: true,
-    chainId: config.chain.chainId,
-    creditsPerUsdc: CREDITS_PER_USDC,
-    pricePerCredit: PRICE_PER_CREDIT,
-  }));
+  app.get('/v1/health', async () => {
+    // Lightweight DB check — a simple query to confirm SQLite is responsive
+    let dbOk = true;
+    try {
+      deps.db.prepare('SELECT 1').get();
+    } catch {
+      dbOk = false;
+    }
+    const uptimeSeconds = Math.floor((Date.now() - (deps.startTimeMs ?? Date.now())) / 1000);
+    return {
+      ok: dbOk,
+      uptimeSeconds,
+      chainId: config.chain.chainId,
+      creditsPerUsdc: CREDITS_PER_USDC,
+      pricePerCredit: PRICE_PER_CREDIT,
+    };
+  });
 
   // Service icon referenced by the x402 bazaar resource.iconUrl.
   app.get('/icon.png', async (_req, reply) => {

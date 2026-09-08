@@ -60,14 +60,15 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
     '/v1/health': {
       get: {
         tags: ['discovery'],
-        summary: 'Liveness + chain identity',
+        summary: 'Liveness + chain identity + uptime',
         responses: {
           200: {
-            description: 'Liveness probe: ok, chainId, creditsPerUsdc, pricePerCredit',
+            description: 'Liveness probe: ok (includes DB health check), uptime, chainId, creditsPerUsdc, pricePerCredit',
             content: jsonContent({
               type: 'object',
               properties: {
-                ok: { type: 'boolean', example: true },
+                ok: { type: 'boolean', example: true, description: 'true when the DB is responsive' },
+                uptimeSeconds: { type: 'integer', example: 3600, description: 'Seconds since server start' },
                 chainId: { type: 'integer', example: config.chain.chainId },
                 creditsPerUsdc: { type: 'integer', example: CREDITS_PER_USDC },
                 pricePerCredit: { type: 'number', example: PRICE_PER_CREDIT },

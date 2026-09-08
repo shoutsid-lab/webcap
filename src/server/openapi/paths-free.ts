@@ -174,5 +174,62 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
         security: [],
       },
     },
+    '/v1/status': {
+      get: {
+        tags: ['discovery'],
+        summary: 'Operational status dashboard (uptime, revenue totals, hit counts)',
+        description:
+          'Public, non-sensitive operational snapshot: server uptime, chain config, DB health, ' +
+          'aggregate revenue totals (no payer-identifiable data), top endpoint hit counts, ' +
+          'active watch count, and artifact count. Designed for status pages and monitoring.',
+        responses: {
+          200: {
+            description: 'Operational status snapshot',
+            content: jsonContent({
+              type: 'object',
+              properties: {
+                status: { type: 'string', example: 'ok' },
+                uptimeSeconds: { type: 'integer', description: 'Seconds since server start' },
+                version: { type: 'string', example: '0.1.0' },
+                chain: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'integer', example: 8453 },
+                    name: { type: 'string', example: 'base' },
+                    network: { type: 'string', example: 'eip155:8453' },
+                  },
+                },
+                db: { type: 'object', properties: { ok: { type: 'boolean' } } },
+                pricing: {
+                  type: 'object',
+                  properties: {
+                    creditsPerUsdc: { type: 'integer' },
+                    pricePerCredit: { type: 'number' },
+                  },
+                },
+                revenue: {
+                  type: 'object',
+                  properties: {
+                    totalRevenueUsdcUnits: { type: 'integer' },
+                    totalCostUsdcUnits: { type: 'integer' },
+                    netMarginUsdcUnits: { type: 'integer' },
+                    requestCount: { type: 'integer' },
+                  },
+                },
+                endpoints: {
+                  type: 'object',
+                  properties: {
+                    topHits: { type: 'array', items: { type: 'object', properties: { endpoint: { type: 'string' }, hits: { type: 'integer' } } } },
+                  },
+                },
+                watches: { type: 'object', properties: { active: { type: 'integer' } } },
+                artifacts: { type: 'object', properties: { count: { type: 'integer' } } },
+              },
+            }),
+          },
+        },
+        security: [],
+      },
+    },
   };
 }

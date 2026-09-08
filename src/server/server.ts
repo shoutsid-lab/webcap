@@ -16,6 +16,7 @@ import { registerDiscoveryRoutes } from './discovery.js';
 import { registerAgentSurfaces } from './agent-surfaces.js';
 import { registerWatchRoutes } from './watches.js';
 import { registerMLRoutes } from './ml-routes.js';
+import { registerStatusRoute } from './status.js';
 import { registerX402Middleware } from './x402.js';
 import { registerMppChallengeHook } from '../mpp/plugin.js';
 import { registerHitsHook } from '../db/hits.js';
@@ -38,6 +39,8 @@ export interface AppDeps {
   readonly jobSecret?: string;
   /** Pino options for the request logger (default: logging disabled). */
   readonly loggerOptions?: FastifyServerOptions['logger'];
+  /** Epoch ms when the server started (for uptime reporting). Defaults to Date.now() if omitted. */
+  readonly startTimeMs?: number;
 }
 
 /** Build the webcap Fastify app with routes and the central error mapping. */
@@ -82,6 +85,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   registerAgentSurfaces(app, deps.config);
   registerWatchRoutes(app, deps);
   registerMLRoutes(app, deps);
+  registerStatusRoute(app, deps);
   // Metrics write path (additive, zero-risk): onResponse hit rows carry only
   // the hashed payer; a throwing write never 500s a paid request.
   registerHitsHook(app, deps.db);
