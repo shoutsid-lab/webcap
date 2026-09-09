@@ -143,10 +143,13 @@ describe('GET / (content negotiation: landing page + JSON front door)', () => {
 });
 
 describe('landing copy follows the configured chain', () => {
-  it('base config: hero claims mainnet and the page contains no sepolia/testnet wording', () => {
+  it('base config: hero leads with value prop (not crypto payment details) and contains no sepolia/testnet wording', () => {
     const html = landingHtml(chainConfig('base'));
     const upper = html.toUpperCase();
-    expect(upper).toContain('LIVE ON BASE MAINNET');
+    // Hero now leads with the product value, not payment method
+    expect(upper).toContain('WEB CAPTURE API');
+    expect(upper).toContain('SCREENSHOTS');
+    expect(upper).toContain('EXTRACTION');
     expect(upper).not.toContain('SEPOLIA');
     expect(upper).not.toContain('TESTNET');
   });
@@ -166,14 +169,15 @@ describe('landing copy follows the configured chain', () => {
     expect(html).not.toMatch(/eip155:8453(?!\d)/);
   });
 
-  it('local config: hero claims local dev, not mainnet or sepolia', () => {
+  it('local config: hero leads with value prop, not mainnet or sepolia', () => {
     const config = loadConfig({
       WEBCAP_CHAIN: 'local',
       LOCAL_USDC_CONTRACT: USDC_ADDRESS,
       WEBCAP_PUBLIC_BASE_URL: 'http://localhost:8080',
     });
     const upper = landingHtml(config).toUpperCase();
-    expect(upper).toContain('LOCAL DEV');
+    // Hero now leads with the product value, not chain/payment details
+    expect(upper).toContain('WEB CAPTURE API');
     expect(upper).not.toContain('MAINNET');
   });
 

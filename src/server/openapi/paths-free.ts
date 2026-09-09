@@ -231,6 +231,39 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
         security: [],
       },
     },
+    '/v1/waitlist': {
+      post: {
+        tags: ['discovery'],
+        summary: 'Join the email waitlist',
+        description:
+          'Stores an email address for the waitlist/mailing list. ' +
+          'No auth required; fire-and-forget from the landing page.',
+        requestBody: {
+          required: true,
+          content: jsonContent({
+            type: 'object',
+            required: ['email'],
+            properties: {
+              email: { type: 'string', format: 'email', description: 'Email address to add to the waitlist' },
+            },
+          }),
+        },
+        responses: {
+          200: {
+            description: 'Email added to waitlist',
+            content: jsonContent({
+              type: 'object',
+              properties: {
+                ok: { type: 'boolean', example: true },
+                message: { type: 'string', example: 'Added to waitlist' },
+              },
+            }),
+          },
+          422: ctx.unprocessable('Missing or invalid email field'),
+        },
+        security: [],
+      },
+    },
     '/v1/track': {
       post: {
         tags: ['discovery'],

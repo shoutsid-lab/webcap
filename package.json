@@ -1,7 +1,16 @@
 {
   "name": "webcap",
   "version": "0.1.0",
-  "description": "Web Capture API - URL to PNG/JPEG/PDF + OG link preview, metered in credits, paid with on-chain USDC (Base)",
+  "description": "Screenshot any URL, extract structured data, monitor pages for changes — pay-per-call web capture API with x402 USDC micropayments",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shoutsid-lab/webcap.git"
+  },
+  "bugs": {
+    "url": "https://github.com/shoutsid-lab/webcap/issues"
+  },
+  "homepage": "https://github.com/shoutsid-lab/webcap#readme",
   "type": "module",
   "engines": {
     "node": ">=24"
@@ -25,7 +34,8 @@
     "better-sqlite3": "^12.0.0",
     "ethers": "^6.13.4",
     "fastify": "^5.1.0",
-    "playwright-core": "^1.53.0"
+    "playwright-core": "^1.53.0",
+    "stripe": "^22.6.1"
   },
   "devDependencies": {
     "@flydotio/dockerfile": "^0.7.10",

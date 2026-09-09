@@ -17,6 +17,7 @@ import { registerAgentSurfaces } from './agent-surfaces.js';
 import { registerWatchRoutes } from './watches.js';
 import { registerMLRoutes } from './ml-routes.js';
 import { registerStatusRoute } from './status.js';
+import { registerStripeRoutes } from './stripe-routes.js';
 import { registerX402Middleware } from './x402.js';
 import { registerMppChallengeHook } from '../mpp/plugin.js';
 import { registerHitsHook } from '../db/hits.js';
@@ -93,6 +94,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   registerWatchRoutes(app, deps);
   registerMLRoutes(app, deps);
   registerStatusRoute(app, deps);
+  registerStripeRoutes(app, deps);
   // Metrics write path (additive, zero-risk): onResponse hit rows carry only
   // the hashed payer; a throwing write never 500s a paid request.
   registerHitsHook(app, deps.db);

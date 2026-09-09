@@ -82,18 +82,18 @@ console.log(res.data.artifact.url); <span class="c">// 200 \u2014 paid, settled,
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>webcap \u2014 pay-per-call web capture API (x402 USDC)</title>
-<meta name="description" content="webcap turns any URL into a PNG/JPEG/PDF screenshot + Open Graph metadata, or structured text/JSON from batch extraction. Pay per call in USDC over x402 micropayments \u2014 no API keys, no accounts, gasless.">
+<title>webcap \u2014 web capture API · screenshots · extraction · monitoring</title>
+<meta name="description" content="Developer API for screenshot capture (PNG/JPEG/PDF), structured extraction (title-to-markdown), and change monitoring with webhook alerts. Pay per call, no accounts needed.">
 <!-- Open Graph / Facebook -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="${base}">
-<meta property="og:title" content="webcap \u2014 pay-per-call web capture API (x402 USDC)">
-<meta property="og:description" content="Screenshot any URL. Pay per call, on-chain. PNG/JPEG/PDF capture, structured extraction, and scheduled monitoring with change alerts. ${copy.settlement}.">
+<meta property="og:title" content="webcap \u2014 web capture API · screenshots · extraction · monitoring">
+<meta property="og:description" content="Screenshot any URL. Extract structured data. Monitor for changes. Developer API with pay-per-call pricing \u2014 no API keys, no accounts.">
 <meta property="og:image" content="${base}/icon.png">
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="webcap \u2014 pay-per-call web capture API (x402 USDC)">
-<meta name="twitter:description" content="Screenshot any URL. Pay per call, on-chain. PNG/JPEG/PDF capture, structured extraction, and scheduled monitoring with change alerts. ${copy.settlement}.">
+<meta name="twitter:title" content="webcap \u2014 web capture API · screenshots · extraction · monitoring">
+<meta name="twitter:description" content="Screenshot any URL. Extract structured data. Monitor for changes. Developer API with pay-per-call pricing \u2014 no API keys, no accounts.">
 <meta name="twitter:image" content="${base}/icon.png">
 <link rel="canonical" href="${base}">
 <link rel="icon" href="/icon.png">
@@ -102,7 +102,7 @@ console.log(res.data.artifact.url); <span class="c">// 200 \u2014 paid, settled,
   "@context": "https://schema.org",
   "@type": "WebAPI",
   "name": "webcap",
-  "description": "Pay-per-call web capture API: screenshots (PNG/JPEG/PDF), structured extraction, and scheduled monitoring with change alerts. x402 USDC micropayments ${copy.settlement}.",
+  "description": "Web capture API: screenshot any URL as PNG/JPEG/PDF, extract structured data (title, headings, links, markdown), and monitor for changes with webhook alerts. Pay per call, no accounts needed.",
   "url": "${base}",
   "documentation": "${base}/openapi.json",
   "provider": {
@@ -149,27 +149,30 @@ ${topBar(bazaarCatalogUrl)}
     <div class="hero-inner">
       <div>
         <p class="kicker"><span class="rec">\u25CF</span> ${copy.kicker}</p>
-        <h1>Screenshot any URL. <span class="hl">Pay per call, on-chain.</span></h1>
-        <p class="lede">${copy.lede} The full suite in one service:
-          <strong>one-time capture</strong> (PNG / JPEG / PDF screenshot; Open Graph
-          metadata via <code>GET /v1/og</code>), <strong>structured extraction</strong> (title, headings, paragraphs,
-          links, images, document-order markdown), and <strong>scheduled monitoring with
-          change alerts</strong> (${WATCH_TOPUP_RUNS}-run pre-paid packs, webhook diff on change).</p>
+        <h1>Screenshot any URL. <span class="hl">Extract data. Monitor changes.</span></h1>
+        <p class="lede">${copy.lede}</p>
         <div class="cta-row">
-          <a class="btn" href="#pay">How to pay</a>
-          <a class="btn ghost" href="/openapi.json">OpenAPI spec</a>
+          <a class="btn" href="#preview">Try it free \u2193</a>
+          <a class="btn ghost" href="#pricing">Pricing</a>
+          <a class="btn ghost" href="#pay">How to pay</a>
         </div>
-        <div class="social-proof" id="social-proof"><span class="proof-icon">\u2713</span> Pay per call \u00B7 No accounts \u00B7 x402 USDC</div>
-        <div class="preview-cta">
-          <p class="preview-title">Try it free \u2014 no account, no payment</p>
-          <p class="preview-desc">See what webcap returns. Want the full data? Pay per call with USDC \u2014 no sign-up required.</p>
+        <div class="hero-badges">
+          <span>\u{1F4F7} PNG/JPEG/PDF</span>
+          <span>\u{1F4CA} Structured JSON</span>
+          <span>\u{1F514} Webhook alerts</span>
+          <span>\u{26A1} Pay per call</span>
+        </div>
+        <div class="social-proof" id="social-proof"><span class="proof-icon">\u2713</span> Pay per call \u00B7 No accounts \u00B7 Developer API</div>
+        <div class="preview-cta" id="preview">
+          <p class="preview-title">Try it free \u2014 instant preview, zero setup</p>
+          <p class="preview-desc">Paste any URL and see what webcap extracts. Free preview is truncated \u2014 full data is $0.01 via x402.</p>
           <form class="preview-form" id="preview-form">
             <div class="url-row">
               <input type="url" id="preview-url-input" name="url" inputmode="url" autocomplete="url"
-                placeholder="https://example.com/" required aria-label="URL to preview">
-              <button class="btn" type="submit" id="preview-btn">Try it now \u2197</button>
+                value="https://news.ycombinator.com/" placeholder="https://example.com/" required aria-label="URL to preview">
+              <button class="btn" type="submit" id="preview-btn">Extract \u2197</button>
             </div>
-            <p class="form-note">Results appear inline below. Full extract: $0.01/batch via x402. <a href="/og-debugger">OG debugger</a> for meta tags.</p>
+            <p class="form-note">Results appear below. Full extract: $0.01/batch via x402. <a href="/og-debugger">OG debugger</a> for meta tags.</p>
           </form>
           <div id="preview-results" class="preview-results" hidden></div>
         </div>
@@ -179,15 +182,23 @@ ${topBar(bazaarCatalogUrl)}
           fetch('/v1/status').then(function(r){return r.json();}).then(function(s){
             var el=document.getElementById('social-proof');
             if(!el)return;
-            var parts=[];
-            parts.push('Pay per call');
-            parts.push('No accounts');
-            if(s.artifacts&&s.artifacts.count>0)parts.push(s.artifacts.count+' artifacts served');
+            var captures=0,extracts=0,audits=0,analyses=0;
             if(s.endpoints&&s.endpoints.topHits){
-              var total=0;s.endpoints.topHits.forEach(function(e){total+=e.hits;});
-              if(total>0)parts.push(total+' API hits');
+              s.endpoints.topHits.forEach(function(e){
+                if(e.endpoint&&e.endpoint.indexOf('/capture')!==-1)captures+=e.hits;
+                if(e.endpoint&&e.endpoint.indexOf('/extract')!==-1)extracts+=e.hits;
+                if(e.endpoint&&e.endpoint.indexOf('/audit')!==-1)audits+=e.hits;
+                if(e.endpoint&&e.endpoint.indexOf('/analyze')!==-1)analyses+=e.hits;
+              });
             }
-            parts.push('x402 USDC');
+            var parts=['Developer API'];
+            if(captures>0)parts.push(captures.toLocaleString()+' captures served');
+            if(extracts>0)parts.push(extracts.toLocaleString()+' extracts completed');
+            if(audits>0)parts.push(audits.toLocaleString()+' audits run');
+            if(analyses>0)parts.push(analyses.toLocaleString()+' analyses run');
+            if(s.artifacts&&s.artifacts.count>0)parts.push(s.artifacts.count.toLocaleString()+' artifacts stored');
+            parts.push('No API keys');
+            parts.push('No accounts');
             el.innerHTML='<span class="proof-icon">\u2713</span> '+parts.join(' \u00B7 ');
           }).catch(function(){});
           /* --- preview form --- */
@@ -247,6 +258,32 @@ ${topBar(bazaarCatalogUrl)}
               try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'cta_click',meta:{text:btn.textContent||'',href:btn.getAttribute('href')||''}})],{type:'application/json'}));}catch(ex){}
             });
           });
+          /* --- waitlist form --- */
+          var wlForm=document.getElementById('waitlist-form');
+          if(wlForm){
+            wlForm.addEventListener('submit',function(e){
+              e.preventDefault();
+              var emailInput=document.getElementById('waitlist-email');
+              var btn=document.getElementById('waitlist-btn');
+              var note=document.getElementById('waitlist-note');
+              var email=emailInput?emailInput.value.trim():'';
+              if(!email||!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))return;
+              if(btn){btn.disabled=true;btn.textContent='Joining...';}
+              fetch('/v1/waitlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email})})
+                .then(function(r){return r.json();})
+                .then(function(d){
+                  if(note){note.hidden=false;note.textContent='Thanks! You\\'re on the list.';note.className='waitlist-note success';}
+                  if(emailInput)emailInput.value='';
+                  try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'waitlist_signup',meta:{email:email}})],{type:'application/json'}));}catch(ex){}
+                })
+                .catch(function(err){
+                  if(note){note.hidden=false;note.textContent='Something went wrong. Try again.';note.className='waitlist-note error';}
+                })
+                .finally(function(){
+                  if(btn){btn.disabled=false;btn.textContent='Join waitlist';}
+                });
+            });
+          }
         })();
         </script>
       </div>
@@ -257,11 +294,27 @@ ${topBar(bazaarCatalogUrl)}
     </div>
   </section>
 
+  <section class="section wrap" id="waitlist">
+    <div class="waitlist-card">
+      <div class="waitlist-content">
+        <h3>Stay updated</h3>
+        <p>Get notified about new features, pricing changes, and API updates. No spam.</p>
+      </div>
+      <form class="waitlist-form" id="waitlist-form">
+        <div class="waitlist-row">
+          <input type="email" id="waitlist-email" name="email" placeholder="you@example.com" required aria-label="Email address">
+          <button class="btn" type="submit" id="waitlist-btn">Join waitlist</button>
+        </div>
+        <p class="waitlist-note" id="waitlist-note" hidden></p>
+      </form>
+    </div>
+  </section>
+
   <section class="section wrap" id="pricing">
     <p class="eyebrow">Pricing</p>
-    <h2>Pricing</h2>
+    <h2>Pay per call. No accounts.</h2>
     <p class="hint">Flat per-call prices. Compute costs are covered by us \u2014 you pay only
-      for the capture, ${copy.settlement}.</p>
+      for the capture, ${copy.settlement}. Pay with card (Stripe) or crypto (x402 USDC).</p>
     <div class="price-grid">
       <div class="price">
         <h3>Capture</h3>
@@ -308,67 +361,12 @@ ${topBar(bazaarCatalogUrl)}
     <p class="hint">Also available: <code>POST /v1/x402/audit</code> \u2014 SEO basics + link/OG health in one call for ${esc(auditPrice)} per URL.</p>
   </section>
 
-  <section class="section wrap" id="crypto">
-    <p class="eyebrow">New to crypto?</p>
-    <h2>Get started in 3 steps</h2>
-    <p class="hint">webcap uses USDC on Base via x402 micropayments. No API keys, no accounts.
-      If you have USDC on Base, you can pay. If not, here's how to get set up:</p>
-    <ol class="steps">
-      <li><b>Get USDC on Base</b>
-        <p>Use a bridge or on-ramp to get USDC on the Base network. Most wallets
-        (Coinbase Wallet, MetaMask, etc.) support Base. You only need a few dollars
-        \u2014 each capture is just ${esc(capturePrice)}.</p></li>
-      <li><b>Connect your wallet</b>
-        <p>No account needed \u2014 webcap uses your existing wallet. The payment
-        flow is gasless: you sign a message, the facilitator submits the tx.
-        No ETH required for gas.</p></li>
-      <li><b>Sign and pay</b>
-        <p>When you call a paid endpoint, webcap returns a 402 with a payment
-        challenge. Sign it with your wallet and retry \u2014 the facilitator settles
-        on-chain and you get the result.</p></li>
-    </ol>
-  </section>
-
-  <section class="section wrap" id="pay">
-    <p class="eyebrow">Payment flow</p>
-    <h2>How to pay \u2014 x402 in four moves</h2>
-    <p class="hint">x402 v2, <code>exact</code> scheme, USDC as the asset. Any x402 HTTP
-      client can pay; the flow below is what every client does under the hood.</p>
-    <ol class="steps">
-      <li><b>Call the paid endpoint without payment.</b>
-        <p>POST <code>/v1/x402/capture</code> or <code>/v1/x402/extract</code>. The server
-        answers <code>402 Payment Required</code> with the challenge.</p></li>
-      <li><b>Read the challenge.</b>
-        <p>Decode the base64 <code>PAYMENT-REQUIRED</code> header (the same JSON is also in
-        the body for curl-friendly clients): <code>accepts[]</code> says scheme
-        <code>exact</code>, network, USDC asset, amount in atomic units, and the
-        <code>payTo</code> wallet; <code>extensions.bazaar</code> carries the CDP Bazaar
-        service metadata.</p></li>
-      <li><b>Sign a gasless EIP-3009 transfer.</b>
-        <p>Sign a <code>transferWithAuthorization</code> (from = your wallet, to =
-        <code>payTo</code>, value = amount). You never broadcast a tx and never hold
-        ETH for gas \u2014 the facilitator submits and settles it on-chain.</p></li>
-      <li><b>Retry with the signature.</b>
-        <p>Send the same request again with the <code>PAYMENT-SIGNATURE</code> header.
-        The facilitator verifies + settles, and you get the artifact.</p></li>
-    </ol>
-    <h3 class="sub-h">Raw curl</h3>
-    <div class="term">${termBar('bash')}<pre><code>${curlFlow}</code></pre></div>
-    <h3 class="sub-h">Agents: one wrapper</h3>
-    <div class="term">${termBar('agent.ts')}<pre><code>${agentSnippet}</code></pre></div>
-    <p class="hint">Free, no-payment entry point for agents that want to sample output
-      first: <code>GET /v1/extract/preview?url=\u2026</code> returns a bounded structured
-      preview (rate-limited). Full discoverable descriptor:
-      <code>GET /v1/x402/service</code>.</p>
-  </section>
-
   <section class="section wrap" id="monitoring">
     <p class="eyebrow">Monitoring</p>
-    <h2>Monitoring \u2014 scheduled watches</h2>
+    <h2>Change monitoring with webhook alerts</h2>
     <p class="hint">Point webcap at a URL on a schedule and it re-runs the capture or extract pipeline for
       you: every run is compared against the previous one (screenshot bytes sha256-fingerprinted, or field-by-field
-      for structured content) and a webhook fires when something changed. Runs are pre-paid in ${WATCH_TOPUP_RUNS}-run packs over
-      x402 \u2014 the same 402 \u2192 sign \u2192 retry flow as every paid endpoint.</p>
+      for structured content) and a webhook fires when something changed. Runs are pre-paid in ${WATCH_TOPUP_RUNS}-run packs.</p>
     <div class="price-grid">
       <div class="price">
         <h3>Capture watch</h3>
@@ -394,23 +392,62 @@ ${topBar(bazaarCatalogUrl)}
         <span class="tag">your https endpoint</span>
       </div>
     </div>
-    <h3 class="sub-h">How it works</h3>
+  </section>
+
+  <section class="section wrap" id="pay">
+    <p class="eyebrow">How it works</p>
+    <h2>Simple API, pay when you use it</h2>
+    <p class="hint">webcap uses x402 micropayments \u2014 an open HTTP standard for pay-per-call APIs.
+      No API keys, no accounts, no sign-up. You can also pay by card via Stripe.</p>
+    <div class="pay-options">
+      <div class="pay-option">
+        <h3>\u{1F4B3} Pay with card</h3>
+        <p>Buy credit packs via Stripe Checkout. Credits are deducted per API call.
+          No wallet needed \u2014 just a credit card.</p>
+        <span class="tag">POST /v1/stripe/checkout</span>
+      </div>
+      <div class="pay-option">
+        <h3>\u{1F4E8} Pay with crypto</h3>
+        <p>Each call returns HTTP 402 with a USDC payment challenge.
+          Sign a gasless EIP-3009 transfer and retry \u2014 no ETH needed for gas.</p>
+        <span class="tag">x402 v2 on Base</span>
+      </div>
+    </div>
     <ol class="steps">
-      <li><b>Create the watch (free).</b>
-        <p>POST <code>/v1/watches</code> with
-        <code>{"url":"https://\u2026","every":"1h","mode":"extract","schema":"\u2026","webhook":"https://\u2026"}</code> \u2014
-        <code>every</code> is <code>15m</code>, <code>1h</code>, <code>6h</code> or <code>24h</code>. The first
-        run is due on the next scheduler tick.</p></li>
-       <li><b>Top up a ${WATCH_TOPUP_RUNS}-run pack (x402).</b>
-        <p>POST <code>/v1/x402/watches/topup?watchId=\u2026</code> with
-        <code>{"watchId":"\u2026","runs":${WATCH_TOPUP_RUNS}}</code> \u2014 the 402 challenge prices the pack at the watch mode
-        (${esc(captureTopUpPrice)} capture / ${esc(extractTopUpPrice)} extract). Pay like every other endpoint
-        with the PAYMENT-SIGNATURE header; the watch resumes and its next run is rescheduled.</p></li>
-      <li><b>Runs + change alerts.</b>
-        <p>Each run consumes 1 credit (ok or error); GET <code>/v1/watches/:id</code> shows the state and the
-        last ~10 runs. A changed run replaces the baseline and POSTs the alert to your webhook; a run with 0
-        credits is recorded as <code>no-credit</code> and pauses the watch until the next top-up.</p></li>
+      <li><b>Call the endpoint.</b>
+        <p>POST <code>/v1/x402/capture</code> or <code>/v1/x402/extract</code>. The server
+        answers <code>402 Payment Required</code> with a payment challenge.</p></li>
+      <li><b>Sign the payment.</b>
+        <p>Sign a gasless EIP-3009 <code>transferWithAuthorization</code> with your wallet.
+        No ETH required for gas \u2014 the facilitator submits and settles it on-chain.</p></li>
+      <li><b>Get your result.</b>
+        <p>Retry with the <code>PAYMENT-SIGNATURE</code> header. The facilitator verifies
+        and settles, and you get the artifact.</p></li>
     </ol>
+    <p class="hint">Free preview endpoint for testing: <code>GET /v1/extract/preview?url=\u2026</code>
+      returns structured data (rate-limited, truncated). Full API spec:
+      <code><a href="/openapi.json">GET /v1/x402/service</a></code>.</p>
+    <div class="term">${termBar('bash — quick start')}<pre><code><span class="c"># Free preview \u2014 no payment needed</span>
+curl "${base}/v1/extract/preview?url=https://example.com/"
+
+<span class="c"># Paid capture \u2014 returns 402, sign, retry</span>
+curl -si -X POST "${base}/v1/x402/capture" \\
+  -H <span class="s">'content-type: application/json'</span> \\
+  -d <span class="s">'{"url":"https://example.com/"}'</span>
+
+<span class="c"># Paid extract \u2014 structured JSON from any URL</span>
+curl -si -X POST "${base}/v1/x402/extract" \\
+  -H <span class="s">'content-type: application/json'</span> \\
+  -H <span class="s">'PAYMENT-SIGNATURE: &lt;signed payload&gt;'</span> \\
+  -d <span class="s">'{"urls":["https://example.com/"]}'</span></code></pre></div>
+  </section>
+
+  <section class="section wrap" id="crypto" class="secondary">
+    <p class="eyebrow">Payment methods</p>
+    <h2>Pay with card or crypto</h2>
+    <p class="hint">Choose the method that works for you: <strong>Stripe</strong> for card payments
+      (credit packs added to your account), or <strong>USDC on Base</strong> via x402 micropayments
+      (gasless, no ETH needed). No API keys, no accounts, no sign-up.</p>
   </section>
 
   <section class="section wrap" id="links">
@@ -421,6 +458,7 @@ ${topBar(bazaarCatalogUrl)}
       <a href="/openapi.json">/openapi.json \u2014 OpenAPI 3.1 catalog <span class="arr">\u2192</span></a>
       <a href="/icon.png">/icon.png \u2014 service icon <span class="arr">\u2192</span></a>
       <a href="/og-debugger">/og-debugger \u2014 free OG meta debugger <span class="arr">\u2192</span></a>
+      <a href="/compare">/compare \u2014 webcap vs alternatives <span class="arr">\u2192</span></a>
       <a href="#pricing">Pricing <span class="arr">\u2192</span></a>
     </div>
     <p class="hint">Independently observed trust (third-party index, live-probed \u2014 not a guarantee):</p>
@@ -431,6 +469,27 @@ ${topBar(bazaarCatalogUrl)}
   </section>
 </main>
 ${footer(bazaarCatalogUrl)}
+<div class="sticky-cta" id="sticky-cta">
+  <a class="btn" href="#preview" id="sticky-cta-btn">Try it now — extract any URL for free</a>
+</div>
+<script>
+(function(){
+  var sticky=document.getElementById('sticky-cta');
+  var form=document.getElementById('preview');
+  if(!sticky||!form)return;
+  function checkVisibility(){
+    var rect=form.getBoundingClientRect();
+    if(rect.top<window.innerHeight&&rect.bottom>0){
+      sticky.style.transform='translateY(100%)';
+      sticky.style.transition='transform .3s ease';
+    }else{
+      sticky.style.transform='translateY(0)';
+    }
+  }
+  window.addEventListener('scroll',checkVisibility,{passive:true});
+  checkVisibility();
+})();
+</script>
 </body>
 </html>`;
 }

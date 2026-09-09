@@ -145,9 +145,26 @@ function hookPayer(req: FastifyRequest): string | undefined {
 }
 
 /**
+ * Infrastructure endpoints that should not pollute user-facing hit metrics.
+ * Health checks, static assets, and crawlers are excluded so that
+ * endpoint_hits reflects real API usage.
+ */
+const INFRA_ENDPOINTS = new Set([
+  'GET /v1/health',
+  'GET /icon.png',
+  'GET /robots.txt',
+  'GET /sitemap.xml',
+  'GET /.well-known/x402',
+]);
+
+/**
  * Additive, zero-risk onResponse hook: every settled request writes one
  * endpoint_hits row (normalized endpoint, status, hashed payer, duration_ms),
  * fire-and-forget — a throwing write path never 500s a paid request.
+ *
+ * Infrastructure endpoints (health, static assets, crawler files) are
+ * excluded so that hit counts reflect genuine API usage, not uptime
+ * monitor noise.
  */
 export function registerHitsHook(app: FastifyInstance, db: Db): void {
   app.addHook('onResponse', (_req, _reply, done) => {
@@ -156,9 +173,18 @@ export function registerHitsHook(app: FastifyInstance, db: Db): void {
       const reply = _reply as { statusCode?: unknown; elapsedTime?: unknown };
       const replyStatus = reply.statusCode;
       const routePath = req.routeOptions?.url ?? req.url;
+      const endpoint = normalizeEndpoint(req.method, routePath);
       const durationMs = typeof reply.elapsedTime === 'number' ? Math.round(reply.elapsedTime) : undefined;
+
+      // Skip infrastructure endpoints — health checks, static assets, etc.
+      // These inflate hit counts without representing real user activity.
+      if (INFRA_ENDPOINTS.has(endpoint)) {
+        done();
+        return;
+      }
+
       recordHit(db, {
-        endpoint: normalizeEndpoint(req.method, routePath),
+        endpoint,
         status: typeof replyStatus === 'number' ? replyStatus : 0,
         payer: hookPayer(req),
         durationMs,

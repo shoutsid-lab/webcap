@@ -23,6 +23,7 @@ import { ARTIFACT_CSS, BASE_CSS } from './pages/css.js';
 import { esc, formatBytes, readableCapturedAt } from './pages/format.js';
 
 export { landingHtml } from './pages/landing.js';
+export { compareHtml } from './pages/compare.js';
 
 // ---------------------------------------------------------------------------
 // GET /v1/artifacts/:id/page — shareable artifact page

@@ -53,7 +53,7 @@ realms (`REALM_MISMATCH`) and attributes on-chain stats to the origin host.
 For this deployment:
 
 ```text
-realm = webcap.fly.dev
+realm = nickname-trident-driveway.ngrok-free.dev
 ```
 
 The MPP session is bound to that host. If the public base URL changes
@@ -70,7 +70,7 @@ values redacted, secret never appears on the wire):
 ```http
 HTTP/1.1 402 Payment Required
 PAYMENT-REQUIRED: <base64 x402 v2 challenge, unchanged>
-WWW-Authenticate: Payment id="<redacted session id>", realm="https://webcap.fly.dev", method="evm", intent="charge", request="<redacted terms blob>", expires="<unix epoch seconds>"
+WWW-Authenticate: Payment id="<redacted session id>", realm="https://nickname-trident-driveway.ngrok-free.dev", method="evm", intent="charge", request="<redacted terms blob>", expires="<unix epoch seconds>"
 ```
 
 Fields: `id` is the opaque session id, `realm` is the origin above,
@@ -107,7 +107,7 @@ plus guidance on) before registering, otherwise the registration call wastes
 a round trip.
 
 ```bash
-BASE=https://webcap.fly.dev
+BASE=https://nickname-trident-driveway.ngrok-free.dev
 
 # 1. Pre-probe: paid ops advertise both protocols, 402s document WWW-Authenticate.
 curl -fsS "$BASE/openapi.json" | python3 -c '

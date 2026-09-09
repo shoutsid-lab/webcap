@@ -131,6 +131,10 @@ export interface WebcapConfig {
    */
   readonly watchAiMaxTokensPerRun?: number;
   readonly watchAiMaxTokensGlobalWindow?: number;
+  /** Stripe secret key for fiat payments (STRIPE_SECRET_KEY). Optional: when set, enables the /v1/stripe/checkout endpoint. */
+  readonly stripeSecretKey?: string;
+  /** Stripe webhook secret for verifying webhook signatures (STRIPE_WEBHOOK_SECRET). Optional: required for /v1/stripe/webhook. */
+  readonly stripeWebhookSecret?: string;
 }
 
 export const DEFAULT_X402_FACILITATOR_URL = 'https://x402.org/facilitator';
@@ -348,5 +352,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WebcapConfig {
       DEFAULT_WATCH_AI_MAX_TOKENS_GLOBAL_WINDOW,
       'WATCH_AI_MAX_TOKENS_GLOBAL_WINDOW',
     ),
+    stripeSecretKey: parseOptionalSecret(env.STRIPE_SECRET_KEY),
+    stripeWebhookSecret: parseOptionalSecret(env.STRIPE_WEBHOOK_SECRET),
   };
 }

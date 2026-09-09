@@ -77,24 +77,24 @@ function topBar(bazaarCatalogUrl: string): string {
   <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>webcap</a>
   <nav>
     <a href="#pricing">Pricing</a>
-    <a href="#crypto">New to crypto?</a>
-    <a href="#pay">How to pay</a>
-    <a href="/openapi.json" class="keep">openapi.json</a>
-    <a href="${bazaarCatalogUrl}" target="_blank" rel="noopener">CDP Bazaar</a>
-    <a href="/icon.png">icon.png</a>
+    <a href="#monitoring">Monitoring</a>
+    <a href="#pay">How it works</a>
+    <a href="/openapi.json" class="keep">OpenAPI</a>
+    <a href="/compare" class="keep">vs alternatives</a>
+    <a href="${bazaarCatalogUrl}" target="_blank" rel="noopener">Bazaar</a>
     <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark theme" data-current="system">
       <span class="icon-sun">${SUN_SVG}</span>
       <span class="icon-moon">${MOON_SVG}</span>
     </button>
-    <a href="/v1/extract/preview?url=https://example.com/" class="nav-cta">Try it</a>
+    <a href="/v1/extract/preview?url=https://example.com/" class="nav-cta">Try it free</a>
   </nav>
 </div></div>${THEME_SCRIPT}`;
 }
 
 function footer(bazaarCatalogUrl: string): string {
   return `<footer><div class="wrap"><div class="foot-row">
-  <span>webcap \u2014 pay-per-call web capture. No keys, no accounts, USDC over x402.</span>
-  <span><a href="/">landing</a> \u00B7 <a href="/openapi.json">OpenAPI</a> \u00B7 <a href="${bazaarCatalogUrl}" target="_blank" rel="noopener">Bazaar</a> \u00B7 <a href="/icon.png">icon</a></span>
+  <span>webcap \u2014 web capture API. Screenshot, extract, monitor. Pay per call, no accounts.</span>
+  <span><a href="/">home</a> \u00B7 <a href="/openapi.json">OpenAPI</a> \u00B7 <a href="${bazaarCatalogUrl}" target="_blank" rel="noopener">Bazaar</a> \u00B7 <a href="/icon.png">icon</a></span>
 </div></div></footer>`;
 }
 

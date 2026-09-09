@@ -561,6 +561,32 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
   });
 
   /**
+   * POST /v1/waitlist — email capture for the landing page.
+   * Stores email addresses for the waitlist/mailing list.
+   * Uses the tracking_events table with event='waitlist_signup'.
+   */
+  app.post('/v1/waitlist', async (req) => {
+    const body = req.body;
+    if (!isRecord(body)) throw unprocessable('body must be an object');
+    const email = typeof body.email === 'string' ? body.email.trim() : undefined;
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw unprocessable('valid email is required');
+
+    // Store as a tracking event
+    try {
+      const referrer = typeof req.headers.referer === 'string' ? req.headers.referer : null;
+      const userAgent = typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : null;
+      const ipHash = req.ip ? createHash('sha256').update(req.ip).digest('hex').slice(0, 16) : null;
+      db.prepare(
+        'INSERT INTO tracking_events (event, meta_json, referrer, user_agent, ip_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      ).run('waitlist_signup', JSON.stringify({ email }), referrer, userAgent, ipHash, new Date().toISOString());
+    } catch {
+      // Non-fatal: tracking is best-effort
+    }
+
+    return { ok: true, message: 'Added to waitlist' };
+  });
+
+  /**
    * POST /v1/track — lightweight landing page event tracking.
    * Records page views, preview form submissions, and other conversion events.
    * No auth required; fire-and-forget from client-side JavaScript.

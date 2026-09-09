@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Rounded square background - purple -->
+  <rect width="512" height="512" rx="96" fill="#6366f1"/>
+  <!-- Outer capture frame - corner brackets -->
+  <g fill="none" stroke="white" stroke-width="28" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Top-left corner -->
+    <path d="M 140 80 L 80 80 L 80 140"/>
+    <!-- Top-right corner -->
+    <path d="M 372 80 L 432 80 L 432 140"/>
+    <!-- Bottom-left corner -->
+    <path d="M 140 432 L 80 432 L 80 372"/>
+    <!-- Bottom-right corner -->
+    <path d="M 372 432 L 432 432 L 432 372"/>
+  </g>
+  <!-- Center crosshair dot - amber -->
+  <circle cx="256" cy="256" r="32" fill="#f59e0b"/>
+  <!-- Inner crosshair lines -->
+  <g fill="none" stroke="white" stroke-width="8" stroke-linecap="round" opacity="0.8">
+    <line x1="256" y1="196" x2="256" y2="220"/>
+    <line x1="256" y1="292" x2="256" y2="316"/>
+    <line x1="196" y1="256" x2="220" y2="256"/>
+    <line x1="292" y1="256" x2="316" y2="256"/>
+  </g>
+</svg>

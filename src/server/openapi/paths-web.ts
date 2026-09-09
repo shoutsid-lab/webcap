@@ -239,5 +239,21 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
         security: [],
       },
     },
+    '/compare': {
+      get: {
+        tags: ['discovery'],
+        summary: 'Pricing comparison: webcap vs SaaS screenshot alternatives',
+        description:
+          'Side-by-side comparison of webcap pay-per-call pricing against Urlbox, ScreenshotAPI, Screenshotone, ' +
+          'Browserless, and other screenshot API services. Shows per-call costs, payment methods, and account requirements.',
+        responses: {
+          200: {
+            description: 'text/html; charset=utf-8 — the comparison page',
+            content: { 'text/html': { schema: { type: 'string' } } },
+          },
+        },
+        security: [],
+      },
+    },
   };
 }

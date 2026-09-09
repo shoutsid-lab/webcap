@@ -11,7 +11,7 @@ import { CREDITS_PER_USDC, PRICE_PER_CREDIT, type WebcapConfig } from '../config
 import { HttpError, unprocessable } from '../util/errors.js';
 import { isRecord } from './capture-parse.js';
 import type { AppDeps } from './server.js';
-import { landingHtml, artifactPageHtml } from './pages.js';
+import { landingHtml, compareHtml, artifactPageHtml } from './pages.js';
 import { openapiDocument } from './openapi.js';
 import { agentCard, frontDoorPayload, sitemapXml, x402WellKnown } from './catalogs.js';
 
@@ -27,6 +27,12 @@ export function registerDiscoveryRoutes(app: FastifyInstance, deps: AppDeps): vo
     }
     reply.header('content-type', 'text/html; charset=utf-8');
     return reply.send(landingHtml(config));
+  });
+
+  // Pricing comparison page: webcap vs SaaS alternatives
+  app.get('/compare', async (_req, reply) => {
+    reply.header('content-type', 'text/html; charset=utf-8');
+    return reply.send(compareHtml(config));
   });
 
   app.get('/openapi.json', async () => openapiDocument(config));
