@@ -146,7 +146,7 @@ export function registerStatusRoute(app: FastifyInstance, deps: AppDeps): void {
         { event: 'landing_view', label: 'page_view' },
         { event: 'preview_submit', label: 'preview_try' },
         { event: 'preview_result_success', label: 'preview_success' },
-        { event: 'preview_upgrade_click', label: 'upgrade_click' },
+        { event: 'upgrade_click', label: 'upgrade_click' },
         { event: 'cta_click', label: 'cta_click' },
       ];
       let prevCount = 0;
@@ -235,6 +235,26 @@ export function registerStatusRoute(app: FastifyInstance, deps: AppDeps): void {
       funnelStructured,
       funnelHourly,
       funnelReferrers,
+    };
+  });
+
+  // shields.io-compatible status badge endpoint
+  app.get('/v1/status-badge', async () => {
+    let dbOk = true;
+    try {
+      db.prepare('SELECT 1').get();
+    } catch {
+      dbOk = false;
+    }
+
+    const isOk = dbOk;
+    const schemaVersion = 1;
+
+    return {
+      schemaVersion,
+      label: 'API Status',
+      message: isOk ? 'operational' : 'degraded',
+      color: isOk ? 'brightgreen' : 'yellow',
     };
   });
 }

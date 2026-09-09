@@ -3,6 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/webcap.svg)](https://www.npmjs.com/package/webcap)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Try%20It%20Now-brightgreen)](https://nickname-trident-driveway.ngrok-free.dev)
+[![API Status](https://img.shields.io/endpoint?url=https%3A%2F%2Fnickname-trident-driveway.ngrok-free.dev%2Fv1%2Fstatus-badge&label=API%20Status)](https://nickname-trident-driveway.ngrok-free.dev/v1/status)
 
 **Screenshot any URL, extract structured data, monitor pages for changes** — all via a single HTTP API call. Pay-per-call with USDC micropayments (x402), no accounts, no API keys.
 
