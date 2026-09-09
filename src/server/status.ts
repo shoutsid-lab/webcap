@@ -43,6 +43,40 @@ export function registerStatusRoute(app: FastifyInstance, deps: AppDeps): void {
     const hits = makeHitsRepo(db);
     const topEndpoints = hits.summary(10);
 
+    // Latency summary (last 1 hour for the status dashboard)
+    let avgDurationMs: number | null = null;
+    let p50DurationMs: number | null = null;
+    let errorRate: number | null = null;
+    try {
+      const since = new Date(Date.now() - 3600_000).toISOString();
+      const latencyRow = db
+        .prepare<[string], { avgDurationMs: number | null; totalRequests: number; errorCount: number }>(
+          "SELECT " +
+            'ROUND(AVG(duration_ms)) AS avgDurationMs, ' +
+            'COUNT(*) AS totalRequests, ' +
+            "SUM(CASE WHEN status >= 500 THEN 1 ELSE 0 END) AS errorCount " +
+            'FROM endpoint_hits WHERE created_at >= ?',
+        )
+        .get(since);
+      if (latencyRow !== undefined) {
+        avgDurationMs = latencyRow.avgDurationMs;
+        errorRate = latencyRow.totalRequests > 0
+          ? Math.round((latencyRow.errorCount / latencyRow.totalRequests) * 10000) / 100
+          : 0;
+      }
+      // P50 via sorted median query
+      const p50Row = db
+        .prepare<[string, string], { p50: number | null }>(
+          "SELECT duration_ms AS p50 FROM endpoint_hits " +
+            'WHERE created_at >= ? AND duration_ms IS NOT NULL ' +
+            'ORDER BY duration_ms LIMIT 1 OFFSET (SELECT COUNT(*) / 2 FROM endpoint_hits WHERE created_at >= ? AND duration_ms IS NOT NULL)',
+        )
+        .get(since, since);
+      p50DurationMs = p50Row?.p50 ?? null;
+    } catch {
+      // Latency stats are best-effort; don't fail the status endpoint
+    }
+
     // Active watch count
     let activeWatches = 0;
     try {
@@ -82,6 +116,11 @@ export function registerStatusRoute(app: FastifyInstance, deps: AppDeps): void {
         totalCostUsdcUnits: revSummary.totalCostUsdcUnits,
         netMarginUsdcUnits: revSummary.netMarginUsdcUnits,
         requestCount: revSummary.requestCount,
+      },
+      performance: {
+        avgDurationMs,
+        p50DurationMs,
+        errorRate,
       },
       endpoints: {
         topHits: topEndpoints,

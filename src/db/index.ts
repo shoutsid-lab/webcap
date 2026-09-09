@@ -132,6 +132,7 @@ function migrateEndpointHits(db: Db): void {
         'endpoint TEXT NOT NULL, ' +
         'status INTEGER NOT NULL, ' +
         "payer_hash TEXT NOT NULL DEFAULT 'anonymous', " +
+        'duration_ms INTEGER, ' +
         'created_at TEXT NOT NULL)',
     );
     db.exec('CREATE INDEX IF NOT EXISTS idx_endpoint_hits_endpoint_created ON endpoint_hits(endpoint, created_at)');
@@ -143,6 +144,7 @@ function migrateEndpointHits(db: Db): void {
   if (!existing.has('endpoint')) db.exec("ALTER TABLE endpoint_hits ADD COLUMN endpoint TEXT NOT NULL DEFAULT ''");
   if (!existing.has('status')) db.exec('ALTER TABLE endpoint_hits ADD COLUMN status INTEGER NOT NULL DEFAULT 0');
   if (!existing.has('payer_hash')) db.exec("ALTER TABLE endpoint_hits ADD COLUMN payer_hash TEXT NOT NULL DEFAULT 'anonymous'");
+  if (!existing.has('duration_ms')) db.exec('ALTER TABLE endpoint_hits ADD COLUMN duration_ms INTEGER');
   if (!existing.has('created_at')) db.exec("ALTER TABLE endpoint_hits ADD COLUMN created_at TEXT NOT NULL DEFAULT ''");
   db.exec('CREATE INDEX IF NOT EXISTS idx_endpoint_hits_endpoint_created ON endpoint_hits(endpoint, created_at)');
 }

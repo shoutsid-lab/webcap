@@ -1,17 +1,20 @@
 /**
- * The merchant-only hits summary view: GET /v1/admin/hits/summary joins
- * endpoint_hits counts (by endpoint) with revenue_ledger paid counts and
- * reports conversion = paid/hits (0 when hits is 0, never null). Merchant
- * guard reuses the GET /v1/ledger pattern (Bearer auth + merchant-address
- * comparison) — no new auth system.
+ * The merchant-only analytics and hits summary views:
+ *
+ * GET /v1/admin/hits/summary — per-endpoint hits joined with paid counts
+ *   (conversion = paid/hits). Merchant-only via Bearer auth + address comparison.
+ *
+ * GET /v1/admin/analytics — time-series API usage analytics: hourly request
+ *   counts, error rates, and latency over the last 24 hours (configurable via
+ *   ?hours=N, max 168). Includes top-endpoint breakdown and aggregate totals.
  *
  * Explicitly out of scope: emails, trials, triggers.
  */
-/* deferred to run #4: per-endpoint rollup triggers (counts/revenue join) live in schema.sql. */
 import type { FastifyInstance } from 'fastify';
 import type { Db } from '../db/index.js';
 import { HttpError } from '../util/errors.js';
 import { authenticate } from './auth.js';
+import { makeHitsRepo } from '../db/hits.js';
 import type { AppDeps } from './server.js';
 
 export interface HitsSummaryRow {
@@ -54,5 +57,30 @@ export function registerAdminHitsRoutes(app: FastifyInstance, deps: AppDeps): vo
       throw new HttpError(403, 'forbidden', 'hits summary is merchant-only');
     }
     return { summary: hitsSummary(db) };
+  });
+
+  /**
+   * GET /v1/admin/analytics — time-series API usage analytics.
+   * Merchant-only. Query param ?hours=N (default 24, max 168).
+   * Returns hourly buckets with request counts, error rates, and latency,
+   * plus top endpoints and aggregate totals.
+   */
+  app.get('/v1/admin/analytics', async (req) => {
+    const { account } = authenticate(req, db);
+    if (account.address.toLowerCase() !== config.merchantAddress.toLowerCase()) {
+      throw new HttpError(403, 'forbidden', 'analytics is merchant-only');
+    }
+    const query = (req.query ?? {}) as Record<string, unknown>;
+    let hoursBack = 24;
+    if (typeof query.hours === 'string') {
+      const parsed = Number.parseInt(query.hours, 10);
+      if (Number.isInteger(parsed) && parsed > 0 && parsed <= 168) hoursBack = parsed;
+    }
+    const hits = makeHitsRepo(db);
+    const analytics = hits.analytics(hoursBack);
+    return {
+      hoursBack,
+      ...analytics,
+    };
   });
 }

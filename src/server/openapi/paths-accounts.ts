@@ -167,6 +167,65 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
         },
       },
     },
+    '/v1/admin/analytics': {
+      get: {
+        tags: ['accounts'],
+        summary: 'Merchant time-series API usage analytics',
+        description:
+          'Merchant-only: hourly request counts, error rates, and latency over a configurable window ' +
+          '(?hours=N, default 24, max 168). Includes top endpoints and aggregate totals.',
+        parameters: [
+          {
+            name: 'hours',
+            in: 'query',
+            required: false,
+            schema: { type: 'integer', minimum: 1, maximum: 168, default: 24 },
+            description: 'Hours of history to return (default 24, max 168)',
+          },
+        ],
+        responses: {
+          200: {
+            description: 'Time-series analytics: hourly buckets, top endpoints, aggregate totals',
+            content: jsonContent({
+              type: 'object',
+              properties: {
+                hoursBack: { type: 'integer' },
+                totalRequests: { type: 'integer' },
+                totalErrors: { type: 'integer' },
+                avgDurationMs: { type: ['number', 'null'] },
+                hourly: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      time_bucket: { type: 'string', description: 'ISO 8601 hourly bucket (e.g. 2026-09-08T14:00:00Z)' },
+                      endpoint: { type: 'string' },
+                      requests: { type: 'integer' },
+                      errors: { type: 'integer' },
+                      avg_duration_ms: { type: ['number', 'null'] },
+                      p95_duration_ms: { type: ['number', 'null'] },
+                    },
+                  },
+                },
+                topEndpoints: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      endpoint: { type: 'string' },
+                      requests: { type: 'integer' },
+                      avgDurationMs: { type: ['number', 'null'] },
+                    },
+                  },
+                },
+              },
+            }),
+          },
+          401: ctx.unauthorized,
+          403: jsonError('403', 'The authenticated account is not the merchant (error envelope, code forbidden)'),
+        },
+      },
+    },
     '/v1/og': {
       get: {
         tags: ['discovery'],
