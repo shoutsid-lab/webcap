@@ -97,6 +97,13 @@ export function registerStatusRoute(app: FastifyInstance, deps: AppDeps): void {
 
     // Conversion funnel (last 24h) from tracking_events
     let funnel: Record<string, number> = {};
+    let funnelStructured: {
+      stage: string;
+      count: number;
+      conversionFromPrev: number | null;
+    }[] = [];
+    let funnelHourly: { hour: string; events: Record<string, number> }[] = [];
+    let funnelReferrers: { referrer: string; count: number }[] = [];
     try {
       const since24h = new Date(Date.now() - 86400_000).toISOString();
       const rows = db
@@ -107,6 +114,53 @@ export function registerStatusRoute(app: FastifyInstance, deps: AppDeps): void {
       for (const row of rows) {
         funnel[row.event] = row.cnt;
       }
+
+      // Structured funnel with conversion rates between stages
+      const funnelStages = [
+        { event: 'landing_view', label: 'page_view' },
+        { event: 'preview_submit', label: 'preview_try' },
+        { event: 'preview_result_success', label: 'preview_success' },
+        { event: 'preview_upgrade_click', label: 'upgrade_click' },
+        { event: 'cta_click', label: 'cta_click' },
+      ];
+      let prevCount = 0;
+      for (const stage of funnelStages) {
+        const count = funnel[stage.event] ?? 0;
+        funnelStructured.push({
+          stage: stage.label,
+          count,
+          conversionFromPrev: prevCount > 0 ? Math.round((count / prevCount) * 10000) / 100 : null,
+        });
+        prevCount = count;
+      }
+
+      // Hourly breakdown for trend analysis
+      const hourlyRows = db
+        .prepare<[string], { hour: string; event: string; cnt: number }>(
+          "SELECT strftime('%Y-%m-%dT%H:00:00Z', created_at) AS hour, event, COUNT(*) AS cnt " +
+            'FROM tracking_events WHERE created_at >= ? GROUP BY hour, event ORDER BY hour',
+        )
+        .all(since24h);
+      const hourlyMap = new Map<string, Record<string, number>>();
+      for (const row of hourlyRows) {
+        if (!hourlyMap.has(row.hour)) hourlyMap.set(row.hour, {});
+        hourlyMap.get(row.hour)![row.event] = row.cnt;
+      }
+      funnelHourly = Array.from(hourlyMap.entries()).map(([hour, events]) => ({ hour, events }));
+
+      // Referrer breakdown
+      const refRows = db
+        .prepare<[string | null, string], { referrer: string | null; cnt: number }>(
+          "SELECT CASE WHEN meta_json LIKE '%\"direct\"%' THEN 'direct' " +
+            "WHEN meta_json LIKE '%ycombinator%' THEN 'hacker_news' " +
+            "WHEN meta_json LIKE '%reddit%' THEN 'reddit' " +
+            "WHEN meta_json LIKE '%twitter%' OR meta_json LIKE '%x.com%' THEN 'twitter' " +
+            "WHEN meta_json IS NOT NULL AND meta_json != '' THEN 'other' " +
+            "ELSE 'unknown' END AS referrer, COUNT(*) AS cnt " +
+            'FROM tracking_events WHERE event = ? AND created_at >= ? GROUP BY referrer ORDER BY cnt DESC',
+        )
+        .all('landing_view', since24h);
+      funnelReferrers = refRows.map((r) => ({ referrer: r.referrer ?? 'unknown', count: r.cnt }));
     } catch {
       // tracking_events table may not exist yet
     }
@@ -148,6 +202,9 @@ export function registerStatusRoute(app: FastifyInstance, deps: AppDeps): void {
         count: artifactCount,
       },
       funnel,
+      funnelStructured,
+      funnelHourly,
+      funnelReferrers,
     };
   });
 }
