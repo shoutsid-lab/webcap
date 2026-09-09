@@ -1,0 +1,37 @@
+# Fly.io — https://fly.io/docs/reference/configuration/
+#
+# Deploy workflow:
+#   1. fly launch (first time — creates the app, accepts this file)
+#   2. fly secrets set <secrets> (see deploy-fly-secrets.sh)
+#   3. fly deploy
+#
+# The capture pipeline runs real Google Chrome — give the VM enough RAM.
+# shared-cpu-2x + 2GB is the minimum for reliable full-page captures.
+app = "webcap"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 100
+    soft_limit = 80
+
+[[mounts]]
+  source = "data"
+  destination = "/data"
+  auto_extend_size_threshold = 80
+  auto_extend_size_increment = "1GB"
+  auto_extend_size_limit = "10GB"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "2048mb"
