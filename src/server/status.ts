@@ -47,6 +47,7 @@ export function registerStatusRoute(app: FastifyInstance, deps: AppDeps): void {
     let avgDurationMs: number | null = null;
     let p50DurationMs: number | null = null;
     let errorRate: number | null = null;
+    let errorBreakdown: { statusCode: number; count: number; endpoints: string[] }[] = [];
     try {
       const since = new Date(Date.now() - 3600_000).toISOString();
       const latencyRow = db
@@ -73,6 +74,20 @@ export function registerStatusRoute(app: FastifyInstance, deps: AppDeps): void {
         )
         .get(since, since);
       p50DurationMs = p50Row?.p50 ?? null;
+
+      // Error breakdown: group 5xx errors by status code with affected endpoints
+      const errorRows = db
+        .prepare<[string], { status: number; count: number; endpoints: string }>(
+          "SELECT status, COUNT(*) AS count, GROUP_CONCAT(DISTINCT endpoint) AS endpoints " +
+            'FROM endpoint_hits WHERE created_at >= ? AND status >= 500 ' +
+            'GROUP BY status ORDER BY count DESC',
+        )
+        .all(since);
+      errorBreakdown = errorRows.map((r) => ({
+        statusCode: r.status,
+        count: r.count,
+        endpoints: r.endpoints ? r.endpoints.split(',') : [],
+      }));
     } catch {
       // Latency stats are best-effort; don't fail the status endpoint
     }
@@ -191,6 +206,7 @@ export function registerStatusRoute(app: FastifyInstance, deps: AppDeps): void {
         avgDurationMs,
         p50DurationMs,
         errorRate,
+        errorBreakdown,
       },
       endpoints: {
         topHits: topEndpoints,
