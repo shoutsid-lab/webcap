@@ -22,6 +22,7 @@ export function openDb(path: string): Db {
   migrateWatchAiSummary(db);
   migrateCaptureJobs(db);
   migrateEndpointHits(db);
+  migratePaymentWebhooks(db);
   return db;
 }
 
@@ -147,4 +148,27 @@ function migrateEndpointHits(db: Db): void {
   if (!existing.has('duration_ms')) db.exec('ALTER TABLE endpoint_hits ADD COLUMN duration_ms INTEGER');
   if (!existing.has('created_at')) db.exec("ALTER TABLE endpoint_hits ADD COLUMN created_at TEXT NOT NULL DEFAULT ''");
   db.exec('CREATE INDEX IF NOT EXISTS idx_endpoint_hits_endpoint_created ON endpoint_hits(endpoint, created_at)');
+}
+
+/**
+ * Payment webhooks: merchants register HTTPS URLs that receive a signed
+ * POST when an invoice is settled (payment.settled event).
+ */
+function migratePaymentWebhooks(db: Db): void {
+  const table = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'payment_webhooks'")
+    .get() as { name: string } | undefined;
+  if (table === undefined) {
+    db.exec(
+      'CREATE TABLE payment_webhooks (' +
+        'id INTEGER PRIMARY KEY AUTOINCREMENT, ' +
+        'account_id INTEGER NOT NULL REFERENCES accounts(id), ' +
+        'url TEXT NOT NULL, ' +
+        'secret TEXT NOT NULL, ' +
+        "events TEXT NOT NULL DEFAULT 'payment.settled', " +
+        'active INTEGER NOT NULL DEFAULT 1, ' +
+        'created_at TEXT NOT NULL)',
+    );
+    db.exec('CREATE INDEX IF NOT EXISTS idx_payment_webhooks_account_id ON payment_webhooks(account_id)');
+  }
 }

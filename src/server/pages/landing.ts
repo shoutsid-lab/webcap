@@ -82,7 +82,56 @@ console.log(res.data.artifact.url); <span class="c">// 200 \u2014 paid, settled,
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>webcap \u2014 pay-per-call web capture API (x402 USDC)</title>
 <meta name="description" content="webcap turns any URL into a PNG/JPEG/PDF screenshot + Open Graph metadata, or structured text/JSON from batch extraction. Pay per call in USDC over x402 micropayments \u2014 no API keys, no accounts, gasless.">
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="${base}">
+<meta property="og:title" content="webcap \u2014 pay-per-call web capture API (x402 USDC)">
+<meta property="og:description" content="Screenshot any URL. Pay per call, on-chain. PNG/JPEG/PDF capture, structured extraction, and scheduled monitoring with change alerts. x402 USDC micropayments on Base mainnet.">
+<meta property="og:image" content="${base}/icon.png">
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="webcap \u2014 pay-per-call web capture API (x402 USDC)">
+<meta name="twitter:description" content="Screenshot any URL. Pay per call, on-chain. PNG/JPEG/PDF capture, structured extraction, and scheduled monitoring with change alerts.">
+<meta name="twitter:image" content="${base}/icon.png">
+<link rel="canonical" href="${base}">
 <link rel="icon" href="/icon.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebAPI",
+  "name": "webcap",
+  "description": "Pay-per-call web capture API: screenshots (PNG/JPEG/PDF), structured extraction, and scheduled monitoring with change alerts. x402 USDC micropayments on Base mainnet.",
+  "url": "${base}",
+  "documentation": "${base}/openapi.json",
+  "provider": {
+    "@type": "Organization",
+    "name": "webcap"
+  },
+  "offers": [
+    {
+      "@type": "Offer",
+      "name": "Capture",
+      "description": "Screenshot as PNG/JPEG/PDF + free OG metadata",
+      "price": "0.001",
+      "priceCurrency": "USD"
+    },
+    {
+      "@type": "Offer",
+      "name": "Extract",
+      "description": "Structured text/JSON extraction from URLs",
+      "price": "0.01",
+      "priceCurrency": "USD"
+    },
+    {
+      "@type": "Offer",
+      "name": "Audit",
+      "description": "SEO basics + link/OG health check",
+      "price": "0.002",
+      "priceCurrency": "USD"
+    }
+  ]
+}
+</script>
 <style>${BASE_CSS}${LANDING_CSS}</style>
 </head>
 <body>

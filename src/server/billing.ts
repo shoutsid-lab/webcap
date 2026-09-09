@@ -23,6 +23,7 @@ import { makeApiKeysRepo } from '../db/api_keys.js';
 import { makeCreditsRepo } from '../db/credits.js';
 import type { Db } from '../db/index.js';
 import { makeInvoicesRepo, type InvoiceRow } from '../db/invoices.js';
+import { makePaymentWebhooksRepo } from '../db/payment-webhooks.js';
 import { makeRevenueRepo } from '../db/revenue.js';
 import { CaptureError } from '../capture/errors.js';
 import { HttpError, unprocessable } from '../util/errors.js';
@@ -158,6 +159,69 @@ export function registerBillingRoutes(app: FastifyInstance, deps: AppDeps): void
         createdAt: inv.created_at,
       })),
     };
+  });
+
+  // --- Payment webhooks ---
+
+  /**
+   * POST /v1/webhooks — Register a payment webhook.
+   * Body: { "url": "https://..." }
+   * Returns: { "id": 1, "url": "https://...", "events": ["payment.settled"] }
+   */
+  app.post('/v1/webhooks', async (req, reply) => {
+    const { account } = authenticate(req, db);
+    const body = req.body;
+    const rawUrl = isRecord(body) ? body.url : undefined;
+    if (typeof rawUrl !== 'string') throw unprocessable('url is required');
+    // Validate URL format
+    let parsed: URL;
+    try {
+      parsed = new URL(rawUrl);
+    } catch {
+      throw unprocessable('invalid url');
+    }
+    if (parsed.protocol !== 'https:') throw unprocessable('webhook url must be https');
+    // Generate a secret for signing
+    const secret = generateApiKey();
+    const webhooks = makePaymentWebhooksRepo(db);
+    const id = webhooks.register(account.id, parsed.origin + parsed.pathname, secret);
+    return reply.status(201).send({
+      id,
+      url: parsed.origin + parsed.pathname,
+      events: ['payment.settled'],
+      secret, // Only shown on creation — user must store it
+    });
+  });
+
+  /**
+   * GET /v1/webhooks — List payment webhooks for the authenticated account.
+   */
+  app.get('/v1/webhooks', async (req) => {
+    const { account } = authenticate(req, db);
+    const webhooks = makePaymentWebhooksRepo(db);
+    const rows = webhooks.listByAccount(account.id);
+    return {
+      webhooks: rows.map((wh) => ({
+        id: wh.id,
+        url: wh.url,
+        events: wh.events.split(','),
+        active: wh.active === 1,
+        createdAt: wh.created_at,
+      })),
+    };
+  });
+
+  /**
+   * DELETE /v1/webhooks/:id — Deactivate a payment webhook.
+   */
+  app.delete('/v1/webhooks/:id', async (req) => {
+    const { account } = authenticate(req, db);
+    const id = Number((req.params as Record<string, string>).id);
+    if (!Number.isInteger(id) || id <= 0) throw unprocessable('invalid webhook id');
+    const webhooks = makePaymentWebhooksRepo(db);
+    const deleted = webhooks.deactivate(id, account.id);
+    if (!deleted) throw new HttpError(404, 'not_found', 'webhook not found');
+    return { ok: true };
   });
 }
 

@@ -140,4 +140,16 @@ CREATE TABLE IF NOT EXISTS endpoint_hits (
 
 CREATE INDEX IF NOT EXISTS idx_endpoint_hits_endpoint_created ON endpoint_hits(endpoint, created_at);
 
+CREATE TABLE IF NOT EXISTS payment_webhooks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL REFERENCES accounts(id),
+  url TEXT NOT NULL,
+  secret TEXT NOT NULL,
+  events TEXT NOT NULL DEFAULT 'payment.settled',
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_webhooks_account_id ON payment_webhooks(account_id);
+
 /* deferred to run #4: per-endpoint rollup triggers (counts/revenue join) live here. */

@@ -3,8 +3,10 @@ import type { Db } from '../db/index.js';
 import type { WebcapConfig } from '../config.js';
 import { makeInvoicesRepo } from '../db/invoices.js';
 import { makePaymentsRepo } from '../db/payments.js';
+import { makePaymentWebhooksRepo } from '../db/payment-webhooks.js';
 import { TRANSFER_TOPIC, decodeTransferLog, encodeAddressTopic } from './erc20.js';
 import { settleInvoice } from './settle.js';
+import { fireSignedWebhook } from '../watch/webhook.js';
 import { consoleServiceLogger, type ServiceLogger } from '../util/logger.js';
 
 /** The narrow chain surface the poller needs (a real Provider satisfies it). */
@@ -65,6 +67,8 @@ export async function processPendingInvoices(input: PollInput): Promise<number> 
       if (isSettled) {
         settled += 1;
         pending.shift();
+        // Fire payment webhooks (fire-and-forget, don't block the poller)
+        firePaymentWebhooks(db, invoice, log.transactionHash, payload.from, payload.value).catch(() => {});
       }
     }
     paymentsRepo.setPollState(chain, latest);
@@ -114,4 +118,43 @@ function contractAddress(usdc: Contract): string {
   const target = usdc.target;
   if (typeof target !== 'string') throw new Error('usdc contract has no address');
   return target;
+}
+
+/**
+ * Fire payment webhooks for a settled invoice. Reads all active webhooks
+ * and delivers a signed POST to each. Failures are silently swallowed
+ * (fire-and-forget from the poller's perspective).
+ */
+async function firePaymentWebhooks(
+  db: Db,
+  invoice: { account_id: number; usdc_amount: number; pack: string },
+  txHash: string,
+  fromAddr: string,
+  value: bigint,
+): Promise<void> {
+  const webhooksRepo = makePaymentWebhooksRepo(db);
+  const active = webhooksRepo.listActive();
+  if (active.length === 0) return;
+
+  const payload = {
+    event: 'payment.settled',
+    timestamp: new Date().toISOString(),
+    invoice: {
+      id: invoice.account_id,
+      pack: invoice.pack,
+      usdcAmount: invoice.usdc_amount,
+    },
+    payment: {
+      txHash,
+      from: fromAddr,
+      value: value.toString(),
+    },
+  };
+
+  // Fire all webhooks concurrently (fire-and-forget)
+  await Promise.allSettled(
+    active.map((wh) =>
+      fireSignedWebhook(wh.url, payload, wh.secret, 3, 5000),
+    ),
+  );
 }
