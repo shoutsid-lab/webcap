@@ -5,7 +5,7 @@ page data, or a scheduled page monitor. Payment is **x402 (HTTP 402)** USDC
 micropayments on **Base mainnet** (`eip155:8453`): no accounts, no API keys, no
 credits, and the payer never pays gas.
 
-Live: `https://nickname-trident-driveway.ngrok-free.dev`
+Live: `https://webcap.fly.dev`
 Merchant wallet (recipient only): `0xB25572D7317eb98EBb39c45Da40eAAEA2A56c25e`
 
 ## Paid routes
@@ -151,7 +151,7 @@ HTTP/2 402
 payment-required: eyJ4NDAyVmVyc2lvbiI6MiwiZXJyb3IiOiJQYXltZW50IHJlcXVpcmVkIiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9uaWNrbmFtZS10cmlkZW50LWRyaXZld2F5Lm5ncm9rLWZyZWUuZGV2L3YxL3g0MDIvY2FwdHVyZSJ9...
 
 { "x402Version": 2, "error": "Payment required",
-  "resource": { "url": "https://nickname-trident-driveway.ngrok-free.dev/v1/x402/capture", "serviceName": "Webcap", "tags": ["screenshot", "web-capture", "pdf", "markdown", "text-extraction"], "iconUrl": "https://.../icon.png", "…": "…" },
+  "resource": { "url": "https://webcap.fly.dev/v1/x402/capture", "serviceName": "Webcap", "tags": ["screenshot", "web-capture", "pdf", "markdown", "text-extraction"], "iconUrl": "https://.../icon.png", "…": "…" },
   "accepts": [ { "scheme": "exact", "network": "eip155:8453", "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "amount": "1000", "payTo": "0xB25572D7317eb98EBb39c45Da40eAAEA2A56c25e", "maxTimeoutSeconds": 300, "extra": { "name": "USD Coin", "version": "2" } } ],
   "extensions": { "bazaar": { "…": "CDP Bazaar discovery extension: example input/output + full request schema" } } }
 ```
@@ -168,7 +168,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 const payer = privateKeyToAccount(process.env.PAYER_KEY as `0x${string}`);
 const client = new x402Client().register('eip155:*', new ExactEvmScheme(payer));
 const api = wrapAxiosWithPayment(
-  axios.create({ baseURL: 'https://nickname-trident-driveway.ngrok-free.dev' }),
+  axios.create({ baseURL: 'https://webcap.fly.dev' }),
   client,
 );
 
@@ -191,6 +191,45 @@ X402_CUSTOMER_PRIVATE_KEY=0x... npx tsx scripts/extract-pay.ts "https://example.
 # or a batch + schema (one payment covers the batch):
 X402_CUSTOMER_PRIVATE_KEY=0x... npx tsx scripts/extract-pay.ts \
   '{"urls":["https://a.com","https://b.com"],"schema":"company name + tagline"}' [base-url]
+```
+
+### Python quickstart (`@x402/python`)
+
+```python
+import os
+from x402 import X402Client
+from x402.schemes import ExactEvmScheme
+from eth_account import Account
+
+# Payer EOA: needs USDC on Base mainnet (no ETH needed — facilitator pays gas)
+payer = Account.from_key(os.environ["PAYER_KEY"])
+client = X402Client().register("eip155:*", ExactEvmScheme(payer))
+
+# Capture a screenshot (unpaid → 402 → sign → retry)
+response = client.post(
+    "https://webcap.fly.dev/v1/x402/capture",
+    json={"url": "https://example.com", "format": "png"},
+)
+print(response.json()["artifact"]["url"])  # persistent public screenshot link
+print(response.json()["payment"])          # {'payer': '0x...', 'priceUsdcUnits': 1000}
+```
+
+### JavaScript quickstart (`@x402/axios`)
+
+```js
+import axios from 'axios';
+import { x402Client, wrapAxiosWithPayment } from '@x402/axios';
+import { ExactEvmScheme } from '@x402/evm';
+import { privateKeyToAccount } from 'viem/accounts';
+
+// Payer EOA: needs USDC on Base mainnet (no ETH needed — facilitator pays gas)
+const payer = privateKeyToAccount(process.env.PAYER_KEY);
+const client = new x402Client().register('eip155:*', new ExactEvmScheme(payer));
+const api = wrapAxiosWithPayment(axios.create({ baseURL: 'https://webcap.fly.dev' }), client);
+
+// Capture a screenshot (unpaid → 402 → sign → retry)
+const { data } = await api.post('/v1/x402/capture', { url: 'https://example.com', format: 'png' });
+console.log(data.artifact.url);  // persistent public screenshot link
 ```
 
 ## Who needs what (funding)
@@ -228,13 +267,13 @@ X402_CUSTOMER_PRIVATE_KEY=0x... npx tsx scripts/extract-pay.ts \
 Real responses (live, 2026-09-06):
 
 ```bash
-$ curl -s https://nickname-trident-driveway.ngrok-free.dev/v1/health
+$ curl -s https://webcap.fly.dev/v1/health
 {"ok":true,"chainId":8453,"creditsPerUsdc":100,"pricePerCredit":0.01}
 
-$ curl -s "https://nickname-trident-driveway.ngrok-free.dev/v1/og?url=https://example.com"
+$ curl -s "https://webcap.fly.dev/v1/og?url=https://example.com"
 {"url":"https://example.com/","title":"Example Domain","icon":"data:,"}
 
-$ curl -s "https://nickname-trident-driveway.ngrok-free.dev/v1/extract/preview?url=https://example.com"
+$ curl -s "https://webcap.fly.dev/v1/extract/preview?url=https://example.com"
 {"url":"https://example.com","preview":{"title":"Example Domain","description":"","headings":[{"level":1,"text":"Example Domain"}],"links":[{"href":"https://iana.org/domains/example","text":"Learn more"}],"wordCount":19,"markdown":"# Example Domain\n\nThis domain is for use in documentation examples without needing permission. Avoid use in operations.\n\nLearn more"},"truncated":true,"upgrade":{"endpoint":"POST /v1/x402/extract","note":"paid: full paragraphs + images + batch (up to 50 URLs) + optional model extraction"}}
 ```
 
@@ -275,11 +314,11 @@ with an optional `detail`. Verified against `src/util/errors.ts`,
 Real examples (live, 2026-09-06):
 
 ```bash
-$ curl -si https://nickname-trident-driveway.ngrok-free.dev/nope
+$ curl -si https://webcap.fly.dev/nope
 HTTP/2 404
 {"error":{"code":"not_found","message":"route not found"}}
 
-$ curl -si -X DELETE https://nickname-trident-driveway.ngrok-free.dev/v1/health
+$ curl -si -X DELETE https://webcap.fly.dev/v1/health
 HTTP/2 405
 allow: GET, HEAD
 {"error":{"code":"method_not_allowed","message":"method not allowed"}}
@@ -473,7 +512,7 @@ Validate a paid route's challenge without paying (no API key needed):
 ```bash
 curl -s -X POST https://api.cdp.coinbase.com/platform/v2/x402/validate \
   -H 'content-type: application/json' \
-  -d '{"resource":"https://nickname-trident-driveway.ngrok-free.dev/v1/x402/capture","protocol":"x402"}'
+  -d '{"resource":"https://webcap.fly.dev/v1/x402/capture","protocol":"x402"}'
 # → { "valid": true, "simulation": {"outcome":"accepted"}, "preflight": [ {check, detail, passed, severity}, ... ] }
 ```
 
