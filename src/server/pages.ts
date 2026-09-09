@@ -24,6 +24,8 @@ import { esc, formatBytes, readableCapturedAt } from './pages/format.js';
 
 export { landingHtml } from './pages/landing.js';
 export { compareHtml } from './pages/compare.js';
+export { quickstartHtml } from './pages/quickstart.js';
+export { buyHtml } from './pages/buy.js';
 
 // ---------------------------------------------------------------------------
 // GET /v1/artifacts/:id/page — shareable artifact page

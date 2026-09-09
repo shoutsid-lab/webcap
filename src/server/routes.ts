@@ -300,9 +300,9 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           captureStructured: deps.captureStructured,
           schema: undefined, // no structured schema for preview; model adds extracted on top
           model,
-          modelTimeoutMs: 15_000, // 15s model response for preview — keeps total under 35s client budget
+          modelTimeoutMs: 12_000, // 12s model response for preview — keeps total under 35s client budget
           logger: pinoServiceLogger(req.log),
-          captureOptions: { timeoutMs: 15_000 }, // 15s browser + 2×8s fallback = 31s total, under 35s client AbortController
+          captureOptions: { timeoutMs: 10_000 }, // 10s browser + 2×8s fallback = 26s total, well under 35s client AbortController
         });
         // Build mutable structure from extractResult
         structure = {
@@ -347,7 +347,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           }
         }
       } else {
-        const captured = await deps.captureStructured({ url: normalizedUrl, options: { timeoutMs: 15_000, includeHtml: false } });
+        const captured = await deps.captureStructured({ url: normalizedUrl, options: { timeoutMs: 10_000, includeHtml: false } });
         structure = {
           title: captured.structure.title,
           description: captured.structure.description,

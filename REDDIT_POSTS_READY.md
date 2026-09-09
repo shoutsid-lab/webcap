@@ -1,39 +1,20 @@
-# webcap Launch Content
+# Reddit Posts Ready for Execution
 
-## Hacker News "Show HN" Post
+**Status:** READY TO POST IMMEDIATELY
+**Date:** 2026-09-09
+**Context:** CEO directive - Execute Reddit and Dev.to posts NOW. Do not wait for HN.
 
-**Title:** Show HN: Webcap — screenshot any URL via API, pay per call with USDC
+---
 
-**URL:** https://nickname-trident-driveway.ngrok-free.dev
+## IMPORTANT: Honest Marketing Approach
 
-**Post body:**
+**Current Reality (from funnel data):**
+- Preview success rate: 33% (4/12 successful)
+- Preview errors: 6 (mostly network_timeout)
+- Zero monetization so far
+- 67 page views, 18 CTA clicks, 0 conversions
 
-Hey HN! I built webcap — a web capture API where you pay per call with USDC micropayments (x402 protocol). No accounts, no API keys, no subscriptions.
-
-**What it does:**
-- `POST /v1/x402/capture` — Screenshot any URL as PNG/JPEG/PDF ($0.001/call)
-- `POST /v1/x402/extract` — Extract structured data (title, headings, links, markdown) ($0.01)
-- `POST /v1/x402/video` — Scroll-capture a page as video ($0.005)
-- Free preview endpoint to try it right now
-
-**How payment works:**
-Uses x402 — an HTTP 402-based payment protocol. POST without payment → get a 402 challenge → sign a gasless USDC transfer → retry with signature. No ETH needed for gas. The facilitator handles settlement.
-
-**Why I built this:**
-Screenshot APIs charge $50+/month subscriptions even if you only need a few captures. Self-hosting Puppeteer means managing servers. I wanted something simpler: call an API, pay a fraction of a cent, get your screenshot.
-
-**Current status (honest):**
-- Live on Base mainnet (real USDC, real money)
-- 33% preview success rate (working on HTTP fallback to improve)
-- Some network_timeout issues with complex SPAs
-- Early stage — looking for feedback
-
-**Try it now:**
-https://nickname-trident-driveway.ngrok-free.dev — use the "Try it now" form on the landing page to see a free preview.
-
-Tech stack: Node.js, Playwright, SQLite, Docker. Self-hostable (MIT license). All 993 tests pass.
-
-Would love feedback on the pricing model, API design, and reliability.
+**Marketing Strategy:** Be honest about current state. Position as early-stage product seeking feedback. Use unique selling points (x402 payments, no accounts, low cost) without overclaiming reliability.
 
 ---
 
@@ -260,8 +241,27 @@ The Docker setup includes health checks, resource limits, and persistent data vo
 
 Live demo: https://nickname-trident-driveway.ngrok-free.dev
 GitHub: https://github.com/shoutsid-lab/webcap
-npm: https://www.npmjs.com/package/webcap
 
 ---
 
 *Built by Shoutsid Lab. Open source, MIT licensed. Early stage — looking for feedback.*
+
+---
+
+## Execution Plan
+
+1. **Post to Reddit r/ethereum** — Focus on x402 payments and Base mainnet
+2. **Post to Reddit r/webdev** — Focus on cost savings and no accounts
+3. **Post to Dev.to** — Technical deep-dive with honest assessment
+4. **Monitor feedback** — Use /v1/funnel to track new traffic
+5. **Iterate** — Fix preview issues based on feedback
+
+**Key Message:** "Early stage product with unique payment model (x402 USDC). Looking for feedback on both the payment flow and reliability."
+
+**NOT claiming:** 98.4% success rate (that's not current reality)
+
+---
+
+**Prepared by:** Marketing Lead, Shoutsid Lab
+**Date:** 2026-09-09
+**Status:** READY TO EXECUTE

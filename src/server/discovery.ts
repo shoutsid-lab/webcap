@@ -11,7 +11,7 @@ import { CREDITS_PER_USDC, PRICE_PER_CREDIT, type WebcapConfig } from '../config
 import { HttpError, unprocessable } from '../util/errors.js';
 import { isRecord } from './capture-parse.js';
 import type { AppDeps } from './server.js';
-import { landingHtml, compareHtml, artifactPageHtml } from './pages.js';
+import { landingHtml, compareHtml, quickstartHtml, buyHtml, artifactPageHtml } from './pages.js';
 import { openapiDocument } from './openapi.js';
 import { agentCard, frontDoorPayload, sitemapXml, x402WellKnown } from './catalogs.js';
 
@@ -33,6 +33,18 @@ export function registerDiscoveryRoutes(app: FastifyInstance, deps: AppDeps): vo
   app.get('/compare', async (_req, reply) => {
     reply.header('content-type', 'text/html; charset=utf-8');
     return reply.send(compareHtml(config));
+  });
+
+  // Quick start guide: developer-friendly walkthrough of x402 payment flow
+  app.get('/quickstart', async (_req, reply) => {
+    reply.header('content-type', 'text/html; charset=utf-8');
+    return reply.send(quickstartHtml(config));
+  });
+
+  // Buy credits page: credit pack purchase with card and crypto payment options
+  app.get('/buy', async (_req, reply) => {
+    reply.header('content-type', 'text/html; charset=utf-8');
+    return reply.send(buyHtml(config));
   });
 
   app.get('/openapi.json', async () => openapiDocument(config));

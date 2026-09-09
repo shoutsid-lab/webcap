@@ -80,7 +80,10 @@ function topBar(bazaarCatalogUrl: string, currentPage?: string): string {
     <a href="${p}#features">Features</a>
     <a href="${p}#pricing">Pricing</a>
     <a href="${p}#how">How it works</a>
+    <a href="${p}#newsletter">Updates</a>
     <a href="/compare" class="keep">vs alternatives</a>
+    <a href="/quickstart" class="keep">quickstart</a>
+    <a href="/buy" class="keep">buy credits</a>
     <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark theme" data-current="system">
       <span class="icon-sun">${SUN_SVG}</span>
       <span class="icon-moon">${MOON_SVG}</span>
@@ -93,7 +96,7 @@ function topBar(bazaarCatalogUrl: string, currentPage?: string): string {
 function footer(bazaarCatalogUrl: string): string {
   return `<footer><div class="wrap"><div class="foot-row">
   <span>webcap \u2014 web capture API. Screenshot, extract, monitor. Pay per call, no accounts.</span>
-  <span><a href="/">home</a> \u00B7 <a href="/openapi.json">OpenAPI</a> \u00B7 <a href="${bazaarCatalogUrl}" target="_blank" rel="noopener">Bazaar</a> \u00B7 <a href="/icon.png">icon</a></span>
+  <span><a href="/">home</a> \u00B7 <a href="/buy">buy credits</a> \u00B7 <a href="/openapi.json">OpenAPI</a> \u00B7 <a href="${bazaarCatalogUrl}" target="_blank" rel="noopener">Bazaar</a> \u00B7 <a href="/icon.png">icon</a></span>
 </div></div></footer>`;
 }
 

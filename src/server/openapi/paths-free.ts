@@ -153,6 +153,70 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
         security: [],
       },
     },
+    '/quickstart': {
+      get: {
+        tags: ['discovery'],
+        summary: 'Quick start guide — step-by-step walkthrough from free preview to paid API',
+        description:
+          'Server-rendered quick start guide that walks developers through the entire flow: ' +
+          'free preview, x402 payment challenge, client library, wallet setup. ' +
+          'Reduces conversion friction by providing copy-paste commands.',
+        responses: {
+          200: { description: 'The quick start guide page (text/html; charset=utf-8)', content: { 'text/html': { schema: { type: 'string' } } } },
+        },
+        security: [],
+      },
+    },
+    '/compare': {
+      get: {
+        tags: ['discovery'],
+        summary: 'Pricing comparison page — webcap vs alternatives',
+        description:
+          'Server-rendered comparison page showing webcap pricing against SaaS alternatives. ' +
+          'Highlights the cost advantage of pay-per-call with no subscriptions.',
+        responses: {
+          200: { description: 'The comparison page (text/html; charset=utf-8)', content: { 'text/html': { schema: { type: 'string' } } } },
+        },
+        security: [],
+      },
+    },
+    '/buy': {
+      get: {
+        tags: ['discovery'],
+        summary: 'Buy credits page — credit pack purchase with card and crypto',
+        description:
+          'Server-rendered credit pack purchase page with three tiers (Starter $0.50, Pro $3, Max $12). ' +
+          'Shows pricing, credit usage, and payment instructions for both Stripe card and x402 crypto payments.',
+        responses: {
+          200: { description: 'The buy credits page (text/html; charset=utf-8)', content: { 'text/html': { schema: { type: 'string' } } } },
+        },
+        security: [],
+      },
+    },
+    '/v1/demo': {
+      get: {
+        tags: ['discovery'],
+        summary: 'Sample full extract response (no payment, no rate limit)',
+        description:
+          'Returns a hardcoded example extract response so users can see the actual JSON output format ' +
+          'before paying. Useful for understanding the API response structure.',
+        responses: {
+          200: {
+            description: 'Sample extract response with _demo flag',
+            content: jsonContent({
+              type: 'object',
+              properties: {
+                url: { type: 'string', example: 'https://example.com/' },
+                results: { type: 'array', items: { type: 'object' } },
+                _demo: { type: 'boolean', example: true },
+                _note: { type: 'string' },
+              },
+            }),
+          },
+        },
+        security: [],
+      },
+    },
     '/icon.png': {
       get: {
         tags: ['discovery'],
@@ -224,6 +288,75 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
                 },
                 watches: { type: 'object', properties: { active: { type: 'integer' } } },
                 artifacts: { type: 'object', properties: { count: { type: 'integer' } } },
+              },
+            }),
+          },
+        },
+        security: [],
+      },
+    },
+    '/v1/funnel': {
+      get: {
+        tags: ['discovery'],
+        summary: 'Conversion funnel analytics (last 24h)',
+        description:
+          'Structured conversion funnel with stage-by-stage conversion rates, hourly breakdown, referrer sources, ' +
+          'error type breakdown, and waitlist count. Pass ?format=text for human-readable terminal output (no jq needed). ' +
+          'Public, non-sensitive analytics for monitoring landing page performance.',
+        parameters: [
+          { name: 'format', in: 'query', required: false, schema: { type: 'string', enum: ['json', 'text'] }, description: 'Response format: json (default) or text for terminal-friendly output' },
+        ],
+        responses: {
+          200: {
+            description: 'Funnel analytics data',
+            content: jsonContent({
+              type: 'object',
+              properties: {
+                generatedAt: { type: 'string', format: 'date-time' },
+                waitlistCount: { type: 'integer' },
+                funnel: { type: 'object', additionalProperties: { type: 'integer' }, description: 'Raw event counts by event name' },
+                funnelStructured: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      stage: { type: 'string', example: 'page_view' },
+                      count: { type: 'integer' },
+                      conversionFromPrev: { type: ['number', 'null'], description: 'Percentage from previous stage, null for first/error stages' },
+                    },
+                  },
+                },
+                funnelHourly: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      hour: { type: 'string', example: '2026-09-09T14:00:00Z' },
+                      events: { type: 'object', additionalProperties: { type: 'integer' } },
+                    },
+                  },
+                },
+                funnelReferrers: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      referrer: { type: 'string', example: 'hacker_news' },
+                      count: { type: 'integer' },
+                    },
+                  },
+                },
+                errorBreakdown: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      errorType: { type: 'string', example: 'capture_failed_502' },
+                      count: { type: 'integer' },
+                      sampleUrls: { type: 'array', items: { type: 'string' } },
+                    },
+                  },
+                },
               },
             }),
           },
