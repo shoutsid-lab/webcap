@@ -5,7 +5,7 @@
  */
 import { DEFAULT_BAZAAR_CATALOG_URL, USDC_SCALE, type WebcapConfig } from '../../config.js';
 import { footer, topBar } from './chrome.js';
-import { BASE_CSS, LANDING_CSS } from './css.js';
+import { BASE_CSS, COMPARE_CSS } from './css.js';
 import { esc } from './format.js';
 
 function usd(atomicUnits: number): string {
@@ -16,6 +16,10 @@ export function compareHtml(config: WebcapConfig): string {
   const bazaarCatalogUrl = config.bazaarCatalogUrl ?? DEFAULT_BAZAAR_CATALOG_URL;
   const capturePrice = usd(config.x402PriceUsdcUnits);
   const extractPrice = usd(config.x402ExtractPriceUsdcUnits);
+
+  const cost100 = (config.x402PriceUsdcUnits * 100 / USDC_SCALE).toFixed(2);
+  const cost1k = (config.x402PriceUsdcUnits * 1000 / USDC_SCALE).toFixed(2);
+  const cost10k = (config.x402PriceUsdcUnits * 10000 / USDC_SCALE).toFixed(2);
 
   return `<!doctype html>
 <html lang="en">
@@ -31,7 +35,7 @@ export function compareHtml(config: WebcapConfig): string {
 <meta property="og:image" content="${config.publicBaseUrl}/icon.png">
 <link rel="canonical" href="${config.publicBaseUrl}/compare">
 <link rel="icon" href="/icon.png">
-<style>${BASE_CSS}${LANDING_CSS}</style>
+<style>${BASE_CSS}${COMPARE_CSS}</style>
 </head>
 <body>
 ${topBar(bazaarCatalogUrl)}
@@ -111,45 +115,64 @@ ${topBar(bazaarCatalogUrl)}
     <p>At <strong>${esc(capturePrice)}/capture</strong>, webcap costs a fraction of traditional SaaS alternatives.
       No monthly subscriptions, no credit packs, no hidden fees \u2014 just pay per call with USDC over x402.
       Gasless transactions mean you never need ETH for gas.</p>
-    <a class="btn" href="#preview">Try it now \u2193</a>
+    <a class="btn" href="https://github.com/shoutsid-lab/webcap" target="_blank" rel="noopener">\u{1F4BB} View on GitHub</a>
   </div>
 
-  <h2 style="margin-top:48px">Why pay-per-call beats subscriptions</h2>
-  <div class="price-grid" style="margin-top:20px">
-    <div class="price">
-      <h3>Pay only for what you use</h3>
-      <p>No minimums, no monthly fees. Capture 5 URLs one week, 5,000 the next \u2014 you only pay for actual usage.</p>
+  <section class="compare-section">
+    <p class="eyebrow">Why pay-per-call</p>
+    <h2>Beats subscriptions</h2>
+    <div class="price-grid">
+      <div class="price">
+        <h3>Pay only for what you use</h3>
+        <p>No minimums, no monthly fees. Capture 5 URLs one week, 5,000 the next \u2014 you only pay for actual usage.</p>
+      </div>
+      <div class="price">
+        <h3>No accounts or API keys</h3>
+        <p>Connect your USDC wallet and start calling. No sign-up forms, no email verification, no API key management.</p>
+      </div>
+      <div class="price">
+        <h3>On-chain settlement</h3>
+        <p>Every payment is an EIP-3009 transfer settled on Base. Fully transparent, auditable, censorship-resistant.</p>
+      </div>
     </div>
-    <div class="price">
-      <h3>No accounts or API keys</h3>
-      <p>Connect your USDC wallet and start calling. No sign-up forms, no email verification, no API key management.</p>
-    </div>
-    <div class="price">
-      <h3>On-chain settlement</h3>
-      <p>Every payment is an EIP-3009 transfer settled on Base. Fully transparent, auditable, censorship-resistant.</p>
-    </div>
-  </div>
+  </section>
 
-  <h2 style="margin-top:48px">Cost examples</h2>
-  <p class="hint" style="margin-top:12px">Real-world scenarios comparing webcap to average SaaS pricing ($0.02/shot midpoint).</p>
-  <div class="price-grid" style="margin-top:20px">
-    <div class="price">
-      <h3>100 captures/month</h3>
-      <div class="amount" style="font-size:28px">$${(config.x402PriceUsdcUnits * 100 / USDC_SCALE).toFixed(2)} <small>webcap</small></div>
-      <p style="margin-top:8px">vs ~$2.00/mo with SaaS alternatives</p>
+  <section class="compare-section">
+    <p class="eyebrow">Cost comparison</p>
+    <h2>Real-world scenarios</h2>
+    <p class="hint">Comparing webcap to average SaaS pricing ($0.02/shot midpoint).</p>
+    <div class="price-grid">
+      <div class="price">
+        <h3>100 captures/month</h3>
+        <div class="amount">$${cost100} <small>webcap</small></div>
+        <p style="margin-top:8px">vs ~$2.00/mo with SaaS alternatives</p>
+      </div>
+      <div class="price featured">
+        <span class="flag">Save 95%+</span>
+        <h3>1,000 captures/month</h3>
+        <div class="amount">$${cost1k} <small>webcap</small></div>
+        <p style="margin-top:8px">vs ~$20.00/mo with SaaS alternatives</p>
+      </div>
+      <div class="price">
+        <h3>10,000 captures/month</h3>
+        <div class="amount">$${cost10k} <small>webcap</small></div>
+        <p style="margin-top:8px">vs ~$200.00/mo with SaaS alternatives</p>
+      </div>
     </div>
-    <div class="price featured">
-      <span class="flag">Save 95%+</span>
-      <h3>1,000 captures/month</h3>
-      <div class="amount" style="font-size:28px">$${(config.x402PriceUsdcUnits * 1000 / USDC_SCALE).toFixed(2)} <small>webcap</small></div>
-      <p style="margin-top:8px">vs ~$20.00/mo with SaaS alternatives</p>
+  </section>
+
+  <section class="compare-section" id="cta">
+    <div class="cta-banner">
+      <div class="cta-content">
+        <h2>Start capturing today</h2>
+        <p>No accounts. No API keys. Just HTTP calls with x402.</p>
+      </div>
+      <div class="cta-actions">
+        <a class="btn" href="https://github.com/shoutsid-lab/webcap" target="_blank" rel="noopener">\u{1F4BB} GitHub</a>
+        <a class="btn ghost" href="/openapi.json">Read the spec \u2192</a>
+      </div>
     </div>
-    <div class="price">
-      <h3>10,000 captures/month</h3>
-      <div class="amount" style="font-size:28px">$${(config.x402PriceUsdcUnits * 10000 / USDC_SCALE).toFixed(2)} <small>webcap</small></div>
-      <p style="margin-top:8px">vs ~$200.00/mo with SaaS alternatives</p>
-    </div>
-  </div>
+  </section>
 
   <p class="compare-note">Prices reflect publicly listed rates as of September 2025. Actual competitor pricing may vary by plan tier, volume discounts, or promotional offers. webcap prices are flat per-call with no volume tiers needed.</p>
 </main>

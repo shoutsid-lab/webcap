@@ -72,21 +72,20 @@ const THEME_SCRIPT = `<script>
 })();
 </script>`;
 
-function topBar(bazaarCatalogUrl: string): string {
+function topBar(bazaarCatalogUrl: string, currentPage?: string): string {
+  const p = currentPage === 'landing' ? '' : '/';
   return `<div class="top"><div class="wrap">
   <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>webcap</a>
   <nav>
-    <a href="#pricing">Pricing</a>
-    <a href="#monitoring">Monitoring</a>
-    <a href="#pay">How it works</a>
-    <a href="/openapi.json" class="keep">OpenAPI</a>
+    <a href="${p}#features">Features</a>
+    <a href="${p}#pricing">Pricing</a>
+    <a href="${p}#how">How it works</a>
     <a href="/compare" class="keep">vs alternatives</a>
-    <a href="${bazaarCatalogUrl}" target="_blank" rel="noopener">Bazaar</a>
     <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark theme" data-current="system">
       <span class="icon-sun">${SUN_SVG}</span>
       <span class="icon-moon">${MOON_SVG}</span>
     </button>
-    <a href="/v1/extract/preview?url=https://example.com/" class="nav-cta">Try it free</a>
+    <a href="${p}#preview" class="nav-cta">Try it free</a>
   </nav>
 </div></div>${THEME_SCRIPT}`;
 }
