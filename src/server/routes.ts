@@ -565,7 +565,18 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
    * Records page views, preview form submissions, and other conversion events.
    * No auth required; fire-and-forget from client-side JavaScript.
    * Stores granular event metadata in the tracking_events table for funnel analysis.
+   *
+   * Safety net: navigator.sendBeacon() sends strings as text/plain by default.
+   * Register a text/plain parser that attempts JSON.parse so beacons that omit
+   * the Blob wrapper still land correctly.
    */
+  app.addContentTypeParser('text/plain', { parseAs: 'string' }, (_req, body, done) => {
+    try {
+      done(null, JSON.parse(body as string));
+    } catch {
+      done(new Error('invalid JSON in text/plain body'), undefined);
+    }
+  });
   app.post('/v1/track', async (req) => {
     const body = req.body;
     if (!isRecord(body)) throw unprocessable('body must be an object');

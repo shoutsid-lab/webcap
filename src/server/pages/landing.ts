@@ -140,7 +140,7 @@ console.log(res.data.artifact.url); <span class="c">// 200 \u2014 paid, settled,
 <script>
 // Track landing page view
 try{
-  navigator.sendBeacon('/v1/track',JSON.stringify({event:'landing_view',meta:{referrer:document.referrer||'direct'}}));
+  navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'landing_view',meta:{referrer:document.referrer||'direct'}})],{type:'application/json'}));
 }catch(ex){}
 </script>
 ${topBar(bazaarCatalogUrl)}
@@ -201,7 +201,7 @@ ${topBar(bazaarCatalogUrl)}
             var url=input?input.value.trim():'';
             if(!url)return;
             if(!/^https?:\\/\\//i.test(url))url='https://'+url;
-            try{navigator.sendBeacon('/v1/track',JSON.stringify({event:'preview_submit',meta:{url:url}}));}catch(ex){}
+            try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'preview_submit',meta:{url:url}})],{type:'application/json'}));}catch(ex){}
             if(btn){btn.disabled=true;btn.textContent='Loading\u2026';}
             if(results){results.hidden=false;results.innerHTML='<div class="pr-loading"><span class="pr-spinner"></span> Fetching preview\u2026</div>';}
             fetch('${base}/v1/extract/preview?url='+encodeURIComponent(url))
@@ -228,13 +228,13 @@ ${topBar(bazaarCatalogUrl)}
                 if(p.wordCount)h+='<div class="pr-section"><span class="pr-label">Words</span> '+p.wordCount+'</div>';
                 h+='<div class="pr-upgrade"><span class="pr-upgrade-icon">\u2191</span> Free preview is truncated. <a href="#pay" class="pr-upgrade-link">Full extract: $0.01/batch</a> via x402 USDC \u2014 no sign-up.</div>';
                 if(results)results.innerHTML=h;
-                try{navigator.sendBeacon('/v1/track',JSON.stringify({event:'preview_result_success',meta:{url:url,wordCount:p.wordCount||0,headingCount:(p.headings||[]).length,linkCount:(p.links||[]).length}}));}catch(ex){}
+                try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'preview_result_success',meta:{url:url,wordCount:p.wordCount||0,headingCount:(p.headings||[]).length,linkCount:(p.links||[]).length}})],{type:'application/json'}));}catch(ex){}
                 var upgradeLink=results?results.querySelector('.pr-upgrade-link'):null;
-                if(upgradeLink)upgradeLink.addEventListener('click',function(){try{navigator.sendBeacon('/v1/track',JSON.stringify({event:'preview_upgrade_click',meta:{url:url}}));}catch(ex){}});
+                if(upgradeLink)upgradeLink.addEventListener('click',function(){try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'preview_upgrade_click',meta:{url:url}})],{type:'application/json'}));}catch(ex){}});
               })
               .catch(function(err){
                 if(results)results.innerHTML='<div class="pr-error">Preview failed: '+esc(String(err))+' <a href="${base}/v1/extract/preview?url='+encodeURIComponent(url)+'" target="_blank">Open raw JSON \u2197</a></div>';
-                try{navigator.sendBeacon('/v1/track',JSON.stringify({event:'preview_result_error',meta:{url:url,error:esc(String(err))}}));}catch(ex){}
+                try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'preview_result_error',meta:{url:url,error:esc(String(err))}})],{type:'application/json'}));}catch(ex){}
               })
               .finally(function(){
                 if(btn){btn.disabled=false;btn.textContent='Try it now \u2197';}
@@ -244,7 +244,7 @@ ${topBar(bazaarCatalogUrl)}
           /* --- CTA click tracking --- */
           document.querySelectorAll('.btn').forEach(function(btn){
             btn.addEventListener('click',function(){
-              try{navigator.sendBeacon('/v1/track',JSON.stringify({event:'cta_click',meta:{text:btn.textContent||'',href:btn.getAttribute('href')||''}}));}catch(ex){}
+              try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'cta_click',meta:{text:btn.textContent||'',href:btn.getAttribute('href')||''}})],{type:'application/json'}));}catch(ex){}
             });
           });
         })();
