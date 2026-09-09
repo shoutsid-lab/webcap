@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { makeRevenueRepo } from '../db/revenue.js';
+
 import type { Db } from '../db/index.js';
 import type { WebcapConfig } from '../config.js';
 import { HttpError, unprocessable } from '../util/errors.js';
@@ -202,8 +202,7 @@ export interface MapLiteRouteDeps {
 }
 
 export function registerMapLiteRoute(app: FastifyInstance, deps: MapLiteRouteDeps): void {
-  const { db, config } = deps;
-  const revenue = makeRevenueRepo(db);
+  const { config } = deps;
   const allowHosts = deps.captureAllowHosts;
   app.post('/v1/x402/map-lite', async (req) => {
     if (config.x402Network === undefined) {
@@ -212,12 +211,12 @@ export function registerMapLiteRoute(app: FastifyInstance, deps: MapLiteRouteDep
     const { url, maxUrls } = parseMapLiteRequest(req.body, allowHosts);
     const discovery = await discoverMapLiteUrls(url, maxUrls, allowHosts);
     const payer = x402Payer(req) ?? 'unknown';
-    revenue.record({
+    (req as unknown as { _pendingRevenue?: { endpoint: string; payer: string; revenueUsdcUnits: number; costUsdcUnits: number } })._pendingRevenue = {
       endpoint: 'map-lite',
       payer,
       revenueUsdcUnits: config.x402AuditPriceUsdcUnits,
       costUsdcUnits: config.computeCostUsdcUnitsPerRequest * discovery.fetchCount,
-    });
+    };
     return {
       urls: discovery.urls,
       payment: {

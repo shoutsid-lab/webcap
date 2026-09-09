@@ -12,6 +12,7 @@ import { x402ResourceServer, type FacilitatorClient } from '@x402/core/server';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
 import type { WebcapConfig } from '../config.js';
 import type { Db } from '../db/index.js';
+import { makeRevenueRepo, type RevenueEntry } from '../db/revenue.js';
 import { makeWatchRepo } from '../watch/store.js';
 import { registerMppSettleHook } from '../mpp/plugin.js';
 import { buildAllX402Routes } from './x402/routes.js';
@@ -43,6 +44,24 @@ export function registerX402Middleware(
   // Disabled MPP registers zero hooks. The SAME resourceServer is shared.
   registerMppSettleHook(app, config, db, resourceServer);
   paymentMiddleware(app, buildAllX402Routes(config, makeWatchRepo(db)), resourceServer);
+
+  // Post-settlement revenue hook: runs AFTER x402's onSend settle.
+  // Only records revenue when settlement actually succeeded (PAYMENT-RESPONSE
+  // header present = facilitator confirmed on-chain transfer).
+  const revenue = makeRevenueRepo(db);
+  app.addHook('onSend', async (request, reply) => {
+    const pending = (request as unknown as { _pendingRevenue?: RevenueEntry })._pendingRevenue;
+    if (pending === undefined) return;
+    // Clear so idempotent hooks don't double-record
+    (request as unknown as { _pendingRevenue?: RevenueEntry })._pendingRevenue = undefined;
+    // Only record if settlement succeeded: x402 middleware sets PAYMENT-RESPONSE
+    // header on successful settlement. Absence means settlement was skipped
+    // (free request) or failed (error already returned).
+    const paymentResponse = reply.getHeader('payment-response');
+    if (paymentResponse !== undefined && paymentResponse !== null) {
+      revenue.record(pending);
+    }
+  });
 }
 
 /** Payer EOA address from the verified payment context, if any. */

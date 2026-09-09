@@ -13,7 +13,7 @@ import { WATCH_TOPUP_RUNS, watchTopUpPriceUsdcUnits } from '../config.js';
 import { HttpError, badRequest } from '../util/errors.js';
 import { RateLimiter, rejectRateLimited } from '../util/ratelimit.js';
 import { validateCaptureUrl } from '../util/url.js';
-import { makeRevenueRepo } from '../db/revenue.js';
+
 import { makeWatchRepo, type WatchRepo, type WatchRow, type WatchRunRow, type WatchMode } from '../watch/store.js';
 import { parseChannel, parseConditionsField, type WatchChannel, type WatchCondition } from '../watch/conditions.js';
 import { WATCH_EVERIES, type WatchEvery } from '../watch/intervals.js';
@@ -57,7 +57,6 @@ export interface WatchStateView {
 export function registerWatchRoutes(app: FastifyInstance, deps: AppDeps): void {
   const { config, db } = deps;
   const repo = makeWatchRepo(db);
-  const revenue = makeRevenueRepo(db);
   const allowHosts = deps.captureAllowHosts;
   // One shared budget per peer IP across both mutation routes (create + delete),
   // keyed on req.ip: the header-spoofing hole of X-Forwarded-For keying.
@@ -121,12 +120,12 @@ export function registerWatchRoutes(app: FastifyInstance, deps: AppDeps): void {
     const credits = repo.topUp(rawWatchId, WATCH_TOPUP_RUNS, new Date().toISOString());
     if (credits === null) throw new HttpError(404, 'not_found', 'watch not found');
     const payer = x402Payer(req) ?? 'unknown';
-    revenue.record({
+    (req as unknown as { _pendingRevenue?: { endpoint: string; payer: string; revenueUsdcUnits: number; costUsdcUnits: number } })._pendingRevenue = {
       endpoint: 'watch-topup',
       payer,
       revenueUsdcUnits: priceUsdcUnits,
       costUsdcUnits: 0,
-    });
+    };
     return { watchId: rawWatchId, credits, priceUsdcUnits };
   });
 }

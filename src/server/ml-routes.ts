@@ -5,7 +5,7 @@
  * These routes use the vision adapter for AI-powered page analysis.
  */
 import type { FastifyInstance } from 'fastify';
-import { makeRevenueRepo } from '../db/revenue.js';
+
 import type { Db } from '../db/index.js';
 import type { WebcapConfig } from '../config.js';
 import { HttpError, unprocessable } from '../util/errors.js';
@@ -32,8 +32,7 @@ export interface MLRouteDeps {
  * Register ML analysis routes.
  */
 export function registerMLRoutes(app: FastifyInstance, deps: AppDeps): void {
-  const { db, config } = deps;
-  const revenue = makeRevenueRepo(db);
+  const { config } = deps;
   const allowHosts = deps.captureAllowHosts;
 
   /**
@@ -107,14 +106,14 @@ export function registerMLRoutes(app: FastifyInstance, deps: AppDeps): void {
     }
     const latencyMs = Math.max(0, performance.now() - started);
 
-    // Record revenue
+    // Record revenue (deferred to post-settlement hook)
     const payer = x402Payer(req) ?? 'unknown';
-    revenue.record({
+    (req as unknown as { _pendingRevenue?: { endpoint: string; payer: string; revenueUsdcUnits: number; costUsdcUnits: number } })._pendingRevenue = {
       endpoint: 'analyze',
       payer,
       revenueUsdcUnits: DEFAULT_ANALYSIS_PRICE_USDC_UNITS,
       costUsdcUnits: config.computeCostUsdcUnitsPerRequest,
-    });
+    };
 
     return {
       task,
@@ -219,14 +218,14 @@ export function registerMLRoutes(app: FastifyInstance, deps: AppDeps): void {
       throw new HttpError(502, 'analysis_failed', 'all urls failed to analyze');
     }
 
-    // Record revenue (flat price for batch)
+    // Record revenue (flat price for batch, deferred to post-settlement hook)
     const payer = x402Payer(req) ?? 'unknown';
-    revenue.record({
+    (req as unknown as { _pendingRevenue?: { endpoint: string; payer: string; revenueUsdcUnits: number; costUsdcUnits: number } })._pendingRevenue = {
       endpoint: 'analyze',
       payer,
       revenueUsdcUnits: DEFAULT_ANALYSIS_PRICE_USDC_UNITS,
       costUsdcUnits: config.computeCostUsdcUnitsPerRequest * urls.length,
-    });
+    };
 
     return {
       results,

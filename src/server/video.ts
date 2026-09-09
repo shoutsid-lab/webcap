@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { makeRevenueRepo } from '../db/revenue.js';
+
 import type { Db } from '../db/index.js';
 import type { WebcapConfig } from '../config.js';
 import { HttpError } from '../util/errors.js';
@@ -21,8 +21,7 @@ export interface VideoRouteDeps {
  * result (base64 data + mime, no persist here).
  */
 export function registerVideoRoute(app: FastifyInstance, deps: VideoRouteDeps): void {
-  const { db, config } = deps;
-  const revenue = makeRevenueRepo(db);
+  const { config } = deps;
   const allowHosts = deps.captureAllowHosts;
   app.post('/v1/x402/video', async (req) => {
     if (config.x402Network === undefined) {
@@ -45,12 +44,12 @@ export function registerVideoRoute(app: FastifyInstance, deps: VideoRouteDeps): 
       throw err;
     }
     const payer = x402Payer(req) ?? 'unknown';
-    revenue.record({
+    (req as unknown as { _pendingRevenue?: { endpoint: string; payer: string; revenueUsdcUnits: number; costUsdcUnits: number } })._pendingRevenue = {
       endpoint: 'video',
       payer,
       revenueUsdcUnits: config.x402VideoPriceUsdcUnits,
       costUsdcUnits: config.computeCostUsdcUnitsPerRequest,
-    });
+    };
     return {
       artifact: { mime: result.mime, bytes: result.bytes, data: result.buffer.toString('base64') },
       payment: {

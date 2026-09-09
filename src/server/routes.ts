@@ -80,12 +80,12 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       if (err instanceof CaptureError) throw new HttpError(502, 'capture_failed', err.message);
       throw err;
     }
-    revenue.record({
+    (req as unknown as { _pendingRevenue?: { endpoint: string; payer: string; revenueUsdcUnits: number; costUsdcUnits: number } })._pendingRevenue = {
       endpoint: 'capture',
       payer,
       revenueUsdcUnits: config.x402PriceUsdcUnits,
       costUsdcUnits: config.computeCostUsdcUnitsPerRequest,
-    });
+    };
     const url = storeArtifact(deps.artifacts, config, normalized, result);
     return {
       artifact: { format: result.format, bytes: result.bytes, data: result.buffer.toString('base64'), url },
@@ -129,12 +129,12 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         throw new HttpError(502, 'extract_failed', 'all urls failed to extract');
       }
       const payer = x402Payer(req) ?? 'unknown';
-      revenue.record({
+      (req as unknown as { _pendingRevenue?: { endpoint: string; payer: string; revenueUsdcUnits: number; costUsdcUnits: number } })._pendingRevenue = {
         endpoint: 'extract',
         payer,
         revenueUsdcUnits: config.x402ExtractPriceUsdcUnits,
         costUsdcUnits: config.computeCostUsdcUnitsPerRequest * urls.length,
-      });
+      };
       return {
         results,
         payment: {
@@ -206,12 +206,12 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     // That floor is the loss boundary: any per-URL cost above 200 units loses
     // money on full batches, which is why the batch cap stops at 50. The
     // T3-S3d e2e test pins this invariant against the revenue ledger.
-    revenue.record({
+    (req as unknown as { _pendingRevenue?: { endpoint: string; payer: string; revenueUsdcUnits: number; costUsdcUnits: number } })._pendingRevenue = {
       endpoint: 'extract',
       payer,
       revenueUsdcUnits: config.x402ExtractPriceUsdcUnits,
       costUsdcUnits: config.computeCostUsdcUnitsPerRequest * urls.length,
-    });
+    };
     return {
       results,
       payment: {
@@ -239,12 +239,12 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     }
     const checks = computeAudit({ structure: captured.structure, html: captured.html, pageUrl: url });
     const payer = x402Payer(req) ?? 'unknown';
-    revenue.record({
+    (req as unknown as { _pendingRevenue?: { endpoint: string; payer: string; revenueUsdcUnits: number; costUsdcUnits: number } })._pendingRevenue = {
       endpoint: 'audit',
       payer,
       revenueUsdcUnits: config.x402AuditPriceUsdcUnits,
       costUsdcUnits: config.computeCostUsdcUnitsPerRequest,
-    });
+    };
     return {
       audit: { url, ...checks },
       payment: {

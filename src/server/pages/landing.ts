@@ -440,42 +440,24 @@ ${footer(bazaarCatalogUrl)}
       if(d.truncated)h+='<span class="pr-badge">preview</span>';
       h+='</div>';
       if(p.description)h+='<p class="pr-desc">'+esc(p.description)+'</p>';
-      /* --- UPGRADE CTA FIRST: Put the action before the data --- */
+      /* --- UPGRADE CTA FIRST: Single action, not 3 steps --- */
       var curlCmd='curl -X POST "'+base+'/v1/x402/extract" -H "content-type: application/json" -d \'{"urls":["'+url+'"]}\'';
       h+='<div class="pr-upgrade pr-upgrade-top">';
       h+='<div class="pr-upgrade-body">';
       h+='<div class="pr-upgrade-title"><span class="pr-upgrade-icon">\u{1F513}</span> Get the full extract \u2014 just $0.01</div>';
-      h+='<p style="margin:6px 0 10px;font-size:13px;color:var(--muted)">Full markdown, all headings & links (no truncation), images, paragraphs, word count, and optional AI classification.</p>';
-      h+='<div class="pr-upgrade-steps">';
-      h+='<span class="pr-upgrade-step"><span class="pr-step-num">1</span> Copy command</span>';
-      h+='<span class="pr-upgrade-step"><span class="pr-step-num">2</span> Paste & run</span>';
-      h+='<span class="pr-upgrade-step"><span class="pr-step-num">3</span> Pay $0.01 (x402)</span>';
-      h+='</div>';
+      h+='<p style="margin:6px 0 10px;font-size:13px;color:var(--muted)">Full markdown, all headings & links (no truncation), images, paragraphs, word count, and optional AI classification. <strong>One payment covers up to 50 URLs.</strong></p>';
       h+='</div>';
       h+='<div class="pr-upgrade-actions">';
-      h+='<a href="'+esc(base)+'/buy" class="pr-upgrade-btn pr-buy-link" style="text-decoration:none" data-track="buy_click">\u{1F4B3} Buy credits</a>';
-      h+='<button class="pr-upgrade-btn pr-copy-main" data-curl="'+esc(curlCmd)+'" title="Copy curl command to clipboard">\u{1F4CB} Copy command</button>';
+      h+='<button class="pr-upgrade-btn pr-copy-main" data-curl="'+esc(curlCmd)+'" title="Copy curl command to clipboard">\u{1F4CB} Copy & run in terminal</button>';
       h+='<button class="pr-copy-btn" data-curl="'+esc(curlCmd)+'" title="Copy curl command">Copy</button>';
+      h+='<a href="'+esc(base)+'/buy" class="pr-upgrade-btn pr-buy-link" style="text-decoration:none;background:var(--panel);color:var(--accent);border:1px solid var(--accent);box-shadow:none;animation:none" data-track="buy_click">\u{1F4B3} Buy credits</a>';
       h+='</div>';
       h+='<div class="pr-copy-toast" id="copy-toast" hidden>\u2713 Copied! Paste in your terminal and run.</div>';
       h+='</div>';
-      /* --- SEE FULL OUTPUT: prominent demo button right after upgrade CTA --- */
-      h+='<div style="margin:12px 0;padding:12px 16px;background:var(--panel-2);border:1px solid var(--line);border-radius:var(--r-m);display:flex;align-items:center;gap:12px;flex-wrap:wrap">';
-      h+='<button class="pr-upgrade-btn pr-demo-btn" title="See what the full extract looks like" style="animation:none">\u{1F441} See full output \u2014 what $0.01 gets you</button>';
-      h+='<span style="font-size:13px;color:var(--muted)">Interactive demo with headings, links, images, markdown, and AI classification.</span>';
-      h+='</div>';
-      /* --- what's missing comparison --- */
-      var missingItems=[];
-      if(d.truncated){missingItems.push('Full markdown (preview shows only first characters)');}
-      missingItems.push('All headings & links (no truncation)');
-      missingItems.push('Open Graph meta tags');
-      missingItems.push('Batch up to 50 URLs');
-      h+='<div class="pr-missing">';
-      h+='<span class="pr-missing-title">\u26A0\uFE0F Preview vs Full extract \u2014 what you\'re missing:</span>';
-      h+='<div class="pr-missing-items">';
-      missingItems.forEach(function(item){h+='<span class="pr-missing-item">\u2717 '+esc(item)+'</span>';});
-      h+='</div>';
-      h+='<p style="margin:8px 0 0;font-size:12px;color:var(--muted)">$0.01 gets you everything above. One payment covers up to 50 URLs in a batch.</p>';
+      /* --- AUTO-DEMO placeholder: full extract comparison loads here --- */
+      h+='<div class="pr-auto-demo" id="pr-auto-demo" style="margin-top:12px;padding:12px 16px;background:var(--panel-2);border:1px dashed var(--accent);border-radius:var(--r-m);display:flex;align-items:center;gap:10px">';
+      h+='<span class="pr-spinner" style="width:16px;height:16px;border-width:2px"></span>';
+      h+='<span style="font-size:13px;color:var(--muted)">Loading full extract sample\u2026</span>';
       h+='</div>';
       /* --- preview data --- */
       if(p.headings&&p.headings.length){
@@ -539,10 +521,12 @@ ${footer(bazaarCatalogUrl)}
       if(buyLink){buyLink.addEventListener('click',function(){
         try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'buy_click',meta:{url:url,source:'preview_results'}})],{type:'application/json'}));}catch(ex){}
       });}
-      /* --- See full output button --- */
+      /* --- See full output button + AUTO-DEMO on success --- */
       var demoBtn=results?results.querySelector('.pr-demo-btn'):null;
-      if(demoBtn){demoBtn.addEventListener('click',function(){
-        demoBtn.textContent='Loading\u2026';demoBtn.disabled=true;
+      var demoLoaded=false;
+      function showDemo(){
+        if(demoLoaded)return;demoLoaded=true;
+        if(demoBtn){demoBtn.textContent='Loading\u2026';demoBtn.disabled=true;}
         fetch('/v1/demo').then(function(r){return r.json();}).then(function(demo){
           var demoSection='<div class="pr-section" style="margin-top:16px;border-top:2px solid var(--accent);padding-top:16px">';
           var r=demo.results&&demo.results[0]?demo.results[0]:null;
@@ -577,11 +561,21 @@ ${footer(bazaarCatalogUrl)}
           demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Images</td><td style="padding:6px 12px;text-align:center">\u2717</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.images||[]).length+'</td></tr>';
           demoSection+='<tr><td style="padding:6px 0;color:var(--muted)">AI classification</td><td style="padding:6px 12px;text-align:center">\u2717</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.classification?r.classification.type:'\u2717')+'</td></tr>';
           demoSection+='</table></div>';
-          if(results){var actionsDiv=results.querySelector('.pr-upgrade-actions');if(actionsDiv){actionsDiv.insertAdjacentHTML('afterend',demoSection);}}
-          demoBtn.textContent='\u2713 Shown below';demoBtn.style.background='var(--ok)';demoBtn.style.color='white';
-        }).catch(function(){demoBtn.textContent='Error \u2014 try again';demoBtn.disabled=false;});
+          if(results){
+            var autoDemoEl=results.querySelector('#pr-auto-demo');
+            if(autoDemoEl){autoDemoEl.outerHTML=demoSection;}
+            else{var actionsDiv=results.querySelector('.pr-upgrade-actions');if(actionsDiv){actionsDiv.insertAdjacentHTML('afterend',demoSection);}}
+          }
+          if(demoBtn){demoBtn.textContent='\u2713 Shown below';demoBtn.style.background='var(--ok)';demoBtn.style.color='white';}
+          try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'demo_view',meta:{url:url,source:'preview_auto'}})],{type:'application/json'}));}catch(ex){}
+        }).catch(function(){if(demoBtn){demoBtn.textContent='Error \u2014 try again';demoBtn.disabled=false;}demoLoaded=false;});
+      }
+      if(demoBtn){demoBtn.addEventListener('click',function(){
         try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'demo_view',meta:{url:url,source:'preview_results'}})],{type:'application/json'}));}catch(ex){}
+        showDemo();
       });}
+      /* --- AUTO-DEMO: fetch full extract sample 800ms after preview success --- */
+      setTimeout(function(){showDemo();},800);
       /* email capture */
       var emailForm=results?results.querySelector('#email-capture-form'):null;
       if(emailForm){emailForm.addEventListener('submit',function(e){
@@ -630,32 +624,18 @@ ${footer(bazaarCatalogUrl)}
       errCta+='<div class="pr-upgrade-body">';
       errCta+='<div class="pr-upgrade-title"><span class="pr-upgrade-icon">\u{1F513}</span> '+(friendlyMsg==='Capture failed'?'Browser capture handles this':'The full API handles this')+' \u2014 $0.001</div>';
       errCta+='<p style="margin:4px 0 8px;font-size:12px;color:var(--muted)">Pay with x402 crypto (USDC). No accounts needed.</p>';
-      errCta+='<div class="pr-upgrade-steps">';
-      errCta+='<span class="pr-upgrade-step"><span class="pr-step-num">1</span> Copy the command</span>';
-      errCta+='<span class="pr-upgrade-step"><span class="pr-step-num">2</span> Paste in your terminal & run</span>';
-      errCta+='<span class="pr-upgrade-step"><span class="pr-step-num">3</span> Sign the $0.001 USDC payment (gasless)</span>';
-      errCta+='</div>';
-      errCta+='<div class="pr-upgrade-features">';
-      errCta+='<span class="pr-upgrade-feature">\u2713 Browser-level capture (handles blocked sites)</span>';
-      errCta+='<span class="pr-upgrade-feature">\u2713 Full structured extraction</span>';
-      errCta+='<span class="pr-upgrade-feature">\u2713 Batch up to 50 URLs</span>';
-      errCta+='<span class="pr-upgrade-feature">\u2713 PNG / JPEG / PDF screenshots</span>';
-      errCta+='</div>';
       errCta+='</div>';
       errCta+='<div class="pr-upgrade-actions">';
-      errCta+='<a href="'+esc(base)+'/buy" class="pr-upgrade-btn pr-buy-link" style="text-decoration:none" data-track="buy_click">\u{1F4B3} Buy credits</a>';
-      errCta+='<button class="pr-upgrade-btn pr-copy-main" data-curl="'+esc(errCurlCmd)+'" title="Copy curl command to clipboard">\u{1F4CB} Copy command</button>';
+      errCta+='<button class="pr-upgrade-btn pr-copy-main" data-curl="'+esc(errCurlCmd)+'" title="Copy curl command to clipboard">\u{1F4CB} Copy & run in terminal</button>';
       errCta+='<button class="pr-copy-btn" data-curl="'+esc(errCurlCmd)+'" title="Copy curl command">Copy</button>';
-      errCta+='<button class="pr-upgrade-btn pr-demo-btn" title="See what the full extract looks like">\u{1F441} See full output</button>';
-      errCta+='<a href="'+esc(base)+'/openapi.json" target="_blank" class="pr-upgrade-link" data-track="upgrade_click">API docs \u2197</a>';
-      errCta+='<a href="'+esc(base)+'/quickstart" class="pr-upgrade-link" data-track="quickstart_click">Quick start guide \u2197</a>';
+      errCta+='<a href="'+esc(base)+'/buy" class="pr-upgrade-btn pr-buy-link" style="text-decoration:none;background:var(--panel);color:var(--accent);border:1px solid var(--accent);box-shadow:none;animation:none" data-track="buy_click">\u{1F4B3} Buy credits</a>';
       errCta+='</div>';
       errCta+='<div class="pr-copy-toast" id="copy-toast" hidden>\u2713 Copied! Paste in your terminal and run.</div>';
       errCta+='</div>';
-      /* --- SEE FULL OUTPUT on error state --- */
-      errCta+='<div style="margin:12px 0;padding:12px 16px;background:var(--panel-2);border:1px solid var(--line);border-radius:var(--r-m);display:flex;align-items:center;gap:12px;flex-wrap:wrap">';
-      errCta+='<button class="pr-upgrade-btn pr-demo-btn" title="See what the full extract looks like" style="animation:none">\u{1F441} See full output \u2014 what $0.01 gets you</button>';
-      errCta+='<span style="font-size:13px;color:var(--muted)">Interactive demo with headings, links, images, markdown, and AI classification.</span>';
+      /* --- AUTO-DEMO placeholder on error state --- */
+      errCta+='<div class="pr-auto-demo" id="pr-auto-demo" style="margin-top:12px;padding:12px 16px;background:var(--panel-2);border:1px dashed var(--accent);border-radius:var(--r-m);display:flex;align-items:center;gap:10px">';
+      errCta+='<span class="pr-spinner" style="width:16px;height:16px;border-width:2px"></span>';
+      errCta+='<span style="font-size:13px;color:var(--muted)">Loading full extract sample\u2026</span>';
       errCta+='</div>';
       errCta+='<div class="pr-email-capture">';
       errCta+='<p>Not ready to pay? Get product updates:</p>';
@@ -739,7 +719,11 @@ ${footer(bazaarCatalogUrl)}
           demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Images</td><td style="padding:6px 12px;text-align:center">\u2717</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.images||[]).length+'</td></tr>';
           demoSection+='<tr><td style="padding:6px 0;color:var(--muted)">AI classification</td><td style="padding:6px 12px;text-align:center">\u2717</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.classification?r.classification.type:'\u2717')+'</td></tr>';
           demoSection+='</table></div>';
-          if(results){var actionsDiv=results.querySelector('.pr-upgrade-actions');if(actionsDiv){actionsDiv.insertAdjacentHTML('afterend',demoSection);}}
+          if(results){
+            var autoDemoEl=results.querySelector('#pr-auto-demo');
+            if(autoDemoEl){autoDemoEl.outerHTML=demoSection;}
+            else{var actionsDiv=results.querySelector('.pr-upgrade-actions');if(actionsDiv){actionsDiv.insertAdjacentHTML('afterend',demoSection);}}
+          }
           errDemoBtn.textContent='\u2713 Shown below';errDemoBtn.style.background='var(--ok)';errDemoBtn.style.color='white';
         }).catch(function(){errDemoBtn.textContent='Error \u2014 try again';errDemoBtn.disabled=false;});
         try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'demo_view',meta:{url:url,source:'preview_error'}})],{type:'application/json'}));}catch(ex){}
