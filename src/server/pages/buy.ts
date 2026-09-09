@@ -346,6 +346,8 @@ ${footer(bazaarCatalogUrl)}
 
   /* track page view */
   try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'buy_page_view',meta:{}})],{type:'application/json'}));}catch(ex){}
+  /* track as upgrade_click for funnel conversion tracking */
+  try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{source:'buy_page'}})],{type:'application/json'}));}catch(ex){}
 })();
 </script>
 </body>

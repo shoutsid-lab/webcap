@@ -189,7 +189,7 @@ ${topBar(bazaarCatalogUrl, 'landing')}
           <button type="button" class="quick-try-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Wikipedia</button>
           <button type="button" class="quick-try-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">MDN Docs</button>
           <button type="button" class="quick-try-btn" data-url="https://github.com/shoutsid-lab/webcap">GitHub repo</button>
-          <button type="button" class="quick-try-btn" data-url="https://www.bbc.com/news">BBC News</button>
+          <button type="button" class="quick-try-btn" data-url="https://docs.python.org/3/">Python Docs</button>
         </div>
       </form>
       <div id="preview-results" class="preview-results" hidden></div>
@@ -457,20 +457,35 @@ ${footer(bazaarCatalogUrl)}
         h+='</div></div>';
       }
       if(p.wordCount)h+='<div class="pr-section"><span class="pr-label">Words</span> '+p.wordCount+(d.truncated?' (truncated)':'')+'</div>';
-      /* --- UPGRADE CTA: now that users see their data, show the gap and CTA --- */
+      /* --- UPGRADE CTA: copy-on-click + step-by-step guide --- */
       var curlCmd='curl -X POST "'+base+'/v1/x402/extract" -H "content-type: application/json" -d \'{"urls":["'+url+'"]}\'';
       h+='<div class="pr-upgrade pr-upgrade-top">';
       h+='<div class="pr-upgrade-body">';
-      h+='<div class="pr-upgrade-title"><span class="pr-upgrade-icon">\u{1F513}</span> Get the full extract \u2014 just $0.01</div>';
-      h+='<p style="margin:6px 0 10px;font-size:13px;color:var(--muted)">Full markdown, all '+hCount+' headings & '+lCount+' links (no truncation), images, paragraphs, word count, and AI classification. <strong>One payment covers up to 50 URLs.</strong></p>';
+      h+='<div class="pr-upgrade-title"><span class="pr-upgrade-icon">\u{1F513}</span> Unlock full data \u2014 $0.01</div>';
+      h+='<p style="margin:6px 0 10px;font-size:13px;color:var(--muted)">Get ALL '+hCount+' headings, ALL '+lCount+' links, full markdown, paragraphs, images, and AI classification. <strong>Batch up to 50 URLs per payment.</strong></p>';
       h+='</div>';
       h+='<div class="pr-upgrade-actions">';
-      h+='<button class="pr-upgrade-btn pr-copy-main" data-curl="'+esc(curlCmd)+'" title="Copy curl command to clipboard">\u{1F4CB} Copy & run in terminal</button>';
-      h+='<button class="pr-copy-btn" data-curl="'+esc(curlCmd)+'" title="Copy curl command">Copy</button>';
-      h+='<a href="'+esc(base)+'/buy" class="pr-upgrade-btn pr-buy-link" style="text-decoration:none;background:var(--panel);color:var(--accent);border:1px solid var(--accent);box-shadow:none;animation:none" data-track="buy_click">\u{1F4B3} Buy credits</a>';
+      h+='<button class="pr-upgrade-btn pr-pay-now" id="pr-pay-now" data-curl="'+esc(curlCmd)+'" data-track="upgrade_click">\u{1F513} Pay $0.01 &amp; get full extract</button>';
+      h+='<button class="pr-upgrade-btn pr-copy-main" data-curl="'+esc(curlCmd)+'" title="Copy curl command to clipboard">\u{1F4CB} Copy curl</button>';
       h+='</div>';
       h+='<div class="pr-copy-toast" id="copy-toast" hidden>\u2713 Copied! Paste in your terminal and run.</div>';
+      h+='<div class="pr-pay-instructions" id="pr-pay-instructions" hidden>';
+      h+='<div style="padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-m);margin-top:12px">';
+      h+='<p style="font-weight:700;margin:0 0 12px;font-size:14px">\u2705 Command copied! Here\u2019s what to do:</p>';
+      h+='<div style="display:flex;gap:12px;margin-bottom:12px">';
+      h+='<div style="flex:1;padding:12px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-s)">';
+      h+='<p style="font-weight:700;margin:0 0 4px;font-size:13px;color:var(--accent)">Step 1: Paste in terminal</p>';
+      h+='<p style="margin:0;font-size:12px;color:var(--muted)">The curl command is on your clipboard. Paste and run it.</p>';
       h+='</div>';
+      h+='<div style="flex:1;padding:12px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-s)">';
+      h+='<p style="font-weight:700;margin:0 0 4px;font-size:13px;color:var(--accent)">Step 2: Sign the payment</p>';
+      h+='<p style="margin:0;font-size:12px;color:var(--muted)">Server returns payment instructions. Sign once with your wallet.</p>';
+      h+='</div>';
+      h+='</div>';
+      h+='<div style="position:relative"><pre style="background:var(--bg);padding:12px 16px;border-radius:var(--r-s);font-size:12px;overflow-x:auto;margin:0;border:1px solid var(--line)"><code>'+esc(curlCmd)+'</code></pre>';
+      h+='<button class="pr-copy-btn" style="position:absolute;top:8px;right:8px;padding:4px 10px;font-size:11px" data-curl="'+esc(curlCmd)+'">Copy</button></div>';
+      h+='<p style="margin:12px 0 0;font-size:12px;color:var(--faint)">Don\u2019t have a USDC wallet? <a href="'+esc(base)+'/buy" style="color:var(--accent);font-weight:600">Buy credit packs with card \u2192</a></p>';
+      h+='</div></div>';
       /* --- USER-SPECIFIC COMPARISON: show what they're missing --- */
       h+='<div class="pr-auto-demo" id="pr-auto-demo" style="padding:16px 18px;background:rgba(37,99,235,.04);border:1px solid rgba(37,99,235,.15);border-radius:var(--r-m)">';
       h+='<span class="pr-label" style="color:var(--accent);font-weight:700">\u{1F4CA} What you got vs what you\\'re missing</span>';
@@ -499,7 +514,7 @@ ${footer(bazaarCatalogUrl)}
       h+='</form>';
       h+='<p class="email-note">No spam. Unsubscribe anytime.</p>';
       h+='</div>';
-      h+='<div class="pr-try-another"><button class="btn-sm pr-try-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Wikipedia</button> <button class="btn-sm pr-try-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">MDN Docs</button> <button class="btn-sm pr-try-btn" data-url="https://github.com/shoutsid-lab/webcap">GitHub repo</button> <button class="btn-sm pr-try-btn" data-url="https://www.bbc.com/news">BBC News</button></div>';
+      h+='<div class="pr-try-another"><button class="btn-sm pr-try-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Wikipedia</button> <button class="btn-sm pr-try-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">MDN Docs</button> <button class="btn-sm pr-try-btn" data-url="https://github.com/shoutsid-lab/webcap">GitHub repo</button> <button class="btn-sm pr-try-btn" data-url="https://docs.python.org/3/">Python Docs</button></div>';
       if(results){results.innerHTML=h;results.scrollIntoView({behavior:'smooth',block:'start'});}
       /* --- primary copy button (big) --- */
       var mainCopyBtn=results?results.querySelector('.pr-copy-main'):null;
@@ -530,10 +545,24 @@ ${footer(bazaarCatalogUrl)}
       if(docsLink){docsLink.addEventListener('click',function(){
         try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_results'}})],{type:'application/json'}));}catch(ex){}
       });}
+      /* --- pay now button: copy command + show step-by-step guide --- */
+      var payNowBtn=results?results.querySelector('#pr-pay-now'):null;
+      if(payNowBtn){payNowBtn.addEventListener('click',function(){
+        var curl=payNowBtn.getAttribute('data-curl')||'';
+        /* Copy command to clipboard */
+        if(navigator.clipboard&&curl){navigator.clipboard.writeText(curl).then(function(){
+          var toast=results?results.querySelector('#copy-toast'):null;
+          if(toast){toast.hidden=false;setTimeout(function(){toast.hidden=true;},3000);}
+        });}
+        /* Show step-by-step instructions */
+        var instr=results?results.querySelector('#pr-pay-instructions'):null;
+        if(instr){instr.hidden=false;instr.scrollIntoView({behavior:'smooth',block:'nearest'});}
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_pay_now'}})],{type:'application/json'}));}catch(ex){}
+      });}
       /* --- buy credits link tracking --- */
       var buyLink=results?results.querySelector('.pr-buy-link'):null;
       if(buyLink){buyLink.addEventListener('click',function(){
-        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'buy_click',meta:{url:url,source:'preview_results'}})],{type:'application/json'}));}catch(ex){}
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_results'}})],{type:'application/json'}));}catch(ex){}
       });}
       /* --- comparison table is now inline (built above) --- */
       try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'demo_view',meta:{url:url,source:'preview_inline',headings:hCount,links:lCount,words:wCount}})],{type:'application/json'}));}catch(ex){}
@@ -578,21 +607,36 @@ ${footer(bazaarCatalogUrl)}
         hint='<p class="pr-hint">The domain couldn\'t be resolved. Check for typos in the URL.</p>';
       }
       var retryBtn='<button class="btn-sm pr-retry-btn" data-url="https://example.com/">Try example.com</button> <button class="btn-sm pr-retry-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Try Wikipedia</button> <button class="btn-sm pr-retry-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">Try MDN</button> <button class="btn-sm pr-retry-btn" data-url="'+url+'">Retry this URL</button>';
-      /* --- upgrade CTA on error: still show the value even when preview fails --- */
+      /* --- upgrade CTA on error: copy-on-click + step-by-step guide --- */
       var errCta='';
       var errCurlCmd='curl -X POST "'+base+'/v1/x402/extract" -H "content-type: application/json" -d \'{"urls":["'+url+'"]}\'';
       errCta+='<div class="pr-upgrade">';
       errCta+='<div class="pr-upgrade-body">';
-      errCta+='<div class="pr-upgrade-title"><span class="pr-upgrade-icon">\u{1F513}</span> Get the full extract \u2014 just $0.01</div>';
-      errCta+='<p style="margin:4px 0 8px;font-size:12px;color:var(--muted)">Full markdown, all headings & links, images, paragraphs, and AI classification. <strong>One payment covers up to 50 URLs.</strong> No accounts needed.</p>';
+      errCta+='<div class="pr-upgrade-title"><span class="pr-upgrade-icon">\u{1F513}</span> Unlock full data \u2014 $0.01</div>';
+      errCta+='<p style="margin:4px 0 8px;font-size:12px;color:var(--muted)">Full markdown, all headings & links, images, paragraphs, and AI classification. <strong>Batch up to 50 URLs per payment.</strong> No accounts needed.</p>';
       errCta+='</div>';
       errCta+='<div class="pr-upgrade-actions">';
-      errCta+='<button class="pr-upgrade-btn pr-copy-main" data-curl="'+esc(errCurlCmd)+'" title="Copy curl command to clipboard">\u{1F4CB} Copy & run in terminal</button>';
-      errCta+='<button class="pr-copy-btn" data-curl="'+esc(errCurlCmd)+'" title="Copy curl command">Copy</button>';
-      errCta+='<a href="'+esc(base)+'/buy" class="pr-upgrade-btn pr-buy-link" style="text-decoration:none;background:var(--panel);color:var(--accent);border:1px solid var(--accent);box-shadow:none;animation:none" data-track="buy_click">\u{1F4B3} Buy credits</a>';
+      errCta+='<button class="pr-upgrade-btn pr-pay-now" id="pr-pay-now" data-curl="'+esc(errCurlCmd)+'" data-track="upgrade_click">\u{1F513} Pay $0.01 &amp; get full extract</button>';
+      errCta+='<button class="pr-upgrade-btn pr-copy-main" data-curl="'+esc(errCurlCmd)+'" title="Copy curl command to clipboard">\u{1F4CB} Copy curl</button>';
       errCta+='</div>';
       errCta+='<div class="pr-copy-toast" id="copy-toast" hidden>\u2713 Copied! Paste in your terminal and run.</div>';
+      errCta+='<div class="pr-pay-instructions" id="pr-pay-instructions" hidden>';
+      errCta+='<div style="padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-m);margin-top:12px">';
+      errCta+='<p style="font-weight:700;margin:0 0 12px;font-size:14px">\u2705 Command copied! Here\u2019s what to do:</p>';
+      errCta+='<div style="display:flex;gap:12px;margin-bottom:12px">';
+      errCta+='<div style="flex:1;padding:12px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-s)">';
+      errCta+='<p style="font-weight:700;margin:0 0 4px;font-size:13px;color:var(--accent)">Step 1: Paste in terminal</p>';
+      errCta+='<p style="margin:0;font-size:12px;color:var(--muted)">The curl command is on your clipboard. Paste and run it.</p>';
       errCta+='</div>';
+      errCta+='<div style="flex:1;padding:12px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-s)">';
+      errCta+='<p style="font-weight:700;margin:0 0 4px;font-size:13px;color:var(--accent)">Step 2: Sign the payment</p>';
+      errCta+='<p style="margin:0;font-size:12px;color:var(--muted)">Server returns payment instructions. Sign once with your wallet.</p>';
+      errCta+='</div>';
+      errCta+='</div>';
+      errCta+='<div style="position:relative"><pre style="background:var(--bg);padding:12px 16px;border-radius:var(--r-s);font-size:12px;overflow-x:auto;margin:0;border:1px solid var(--line)"><code>'+esc(errCurlCmd)+'</code></pre>';
+      errCta+='<button class="pr-copy-btn" style="position:absolute;top:8px;right:8px;padding:4px 10px;font-size:11px" data-curl="'+esc(errCurlCmd)+'">Copy</button></div>';
+      errCta+='<p style="margin:12px 0 0;font-size:12px;color:var(--faint)">Don\u2019t have a USDC wallet? <a href="'+esc(base)+'/buy" style="color:var(--accent);font-weight:600">Buy credit packs with card \u2192</a></p>';
+      errCta+='</div></div>';
       /* --- STATIC COMPARISON on error: show what full extract offers --- */
       errCta+='<div class="pr-auto-demo" id="pr-auto-demo" style="margin-top:16px;padding:16px 18px;background:rgba(37,99,235,.04);border:1px solid rgba(37,99,235,.15);border-radius:var(--r-m)">';
       errCta+='<span class="pr-label" style="color:var(--accent);font-weight:700">\u{1F4CA} What the full extract gives you</span>';
@@ -616,7 +660,7 @@ ${footer(bazaarCatalogUrl)}
       errCta+='</form>';
       errCta+='<p class="email-note">No spam. Unsubscribe anytime.</p>';
       errCta+='</div>';
-      errCta+='<div class="pr-try-another"><button class="btn-sm pr-try-btn" data-url="https://example.com/">Try example.com</button> <button class="btn-sm pr-try-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Try Wikipedia</button> <button class="btn-sm pr-try-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">Try MDN</button> <button class="btn-sm pr-try-btn" data-url="https://www.bbc.com/news">Try BBC News</button></div>';
+      errCta+='<div class="pr-try-another"><button class="btn-sm pr-try-btn" data-url="https://example.com/">Try example.com</button> <button class="btn-sm pr-try-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Try Wikipedia</button> <button class="btn-sm pr-try-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">Try MDN</button> <button class="btn-sm pr-try-btn" data-url="https://docs.python.org/3/">Try Python Docs</button></div>';
       /* Put the upgrade CTA FIRST — above the error details — so users see the solution before the problem */
       if(results){results.innerHTML=errCta+'<div class="pr-error"><span class="pr-error-icon">\u26A0\uFE0F</span> <strong>'+esc(friendlyMsg)+'</strong>: '+esc(errMsg)+' '+hint+'<div class="pr-error-actions">'+retryBtn+'<a href="/v1/extract/preview?url='+encodeURIComponent(url)+'" target="_blank" class="pr-error-link">View raw JSON \u2197</a></div></div>';results.scrollIntoView({behavior:'smooth',block:'start'});}
       var retryEls=results?results.querySelectorAll('.pr-retry-btn'):null;
@@ -656,7 +700,21 @@ ${footer(bazaarCatalogUrl)}
       /* --- buy credits link tracking on error state --- */
       var errBuyLink=results?results.querySelector('.pr-buy-link'):null;
       if(errBuyLink){errBuyLink.addEventListener('click',function(){
-        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'buy_click',meta:{url:url,source:'preview_error'}})],{type:'application/json'}));}catch(ex){}
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_error'}})],{type:'application/json'}));}catch(ex){}
+      });}
+      /* --- pay now button on error state: copy command + show guide --- */
+      var errPayNowBtn=results?results.querySelector('#pr-pay-now'):null;
+      if(errPayNowBtn){errPayNowBtn.addEventListener('click',function(){
+        var curl=errPayNowBtn.getAttribute('data-curl')||'';
+        /* Copy command to clipboard */
+        if(navigator.clipboard&&curl){navigator.clipboard.writeText(curl).then(function(){
+          var toast=results?results.querySelector('#copy-toast'):null;
+          if(toast){toast.hidden=false;setTimeout(function(){toast.hidden=true;},3000);}
+        });}
+        /* Show step-by-step instructions */
+        var instr=results?results.querySelector('#pr-pay-instructions'):null;
+        if(instr){instr.hidden=false;instr.scrollIntoView({behavior:'smooth',block:'nearest'});}
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_error_pay_now'}})],{type:'application/json'}));}catch(ex){}
       });}
       /* --- comparison table is now inline (built above) --- */
       /* email capture on error state */

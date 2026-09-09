@@ -19,13 +19,13 @@ import type { PageStructure } from './pipeline.js';
  * Fetch timeout for the HTTP-only fallback.
  * Budget: browser timeout (12s) + this fallback must stay under 35s (client AbortController).
  * With MAX_RETRIES=1: 12s browser + 2×10s fallback = 32s total — safely under 35s.
- * Previous config (10s × 3 attempts = 30s fallback) could total 50s, exceeding
- * the client's AbortController and causing false "timeout" errors on HN and other sites.
+ * MAX_RETRIES=2 would be 12s + 3×10s = 42s, exceeding the client's AbortController
+ * and causing false "timeout" errors. Previous config caused 5/6 preview failures.
  */
 const FETCH_TIMEOUT_MS = 10_000;
 
 /** Maximum number of retry attempts for transient network errors (0 = one attempt). */
-const MAX_RETRIES = 2;
+const MAX_RETRIES = 1;
 
 /** User-agent rotation to avoid blocks from sites that filter by UA. */
 const USER_AGENTS: readonly string[] = [

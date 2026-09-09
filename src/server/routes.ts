@@ -302,7 +302,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           model,
           modelTimeoutMs: 12_000, // 12s model response for preview — keeps total under 35s client budget
           logger: pinoServiceLogger(req.log),
-          captureOptions: { timeoutMs: 12_000 }, // 12s browser + 2×8s fallback = 28s total, well under 35s client AbortController
+          captureOptions: { timeoutMs: 12_000 }, // 12s browser + 2×10s fallback = 32s total, well under 35s client AbortController
         });
         // Build mutable structure from extractResult
         structure = {

@@ -233,6 +233,8 @@ export const LANDING_CSS = `
 .pr-step-num{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:700;flex-shrink:0}
 .pr-upgrade-price{font-size:12px;color:var(--faint);margin-top:4px}
 .pr-upgrade a{color:var(--accent);font-weight:600}
+.pr-buy-link{background:var(--accent)!important;color:#fff!important;border:2px solid var(--accent)!important;box-shadow:0 4px 16px rgba(37,99,235,.35)!important;font-size:16px!important;padding:14px 32px!important}
+.pr-buy-link:hover{transform:translateY(-2px)!important;box-shadow:0 6px 24px rgba(37,99,235,.45)!important}
 .pr-upgrade-btn{display:inline-flex;align-items:center;gap:6px;padding:12px 24px;background:var(--accent);color:#fff;border-radius:var(--r-m);font-family:var(--mono);font-size:14px;font-weight:700;text-decoration:none;transition:all .2s ease;white-space:nowrap;box-shadow:0 2px 8px rgba(37,99,235,.25);animation:cta-pulse 2s ease-in-out infinite}
 .pr-upgrade-btn:hover{opacity:.9;text-decoration:none;transform:translateY(-2px);box-shadow:0 4px 16px rgba(37,99,235,.4)}
 @keyframes cta-pulse{0%,100%{box-shadow:0 2px 8px rgba(37,99,235,.25)}50%{box-shadow:0 2px 16px rgba(37,99,235,.4)}}
