@@ -174,7 +174,7 @@ ${topBar(bazaarCatalogUrl, 'landing')}
   <section class="section wrap" id="preview">
     <p class="eyebrow">Try it free</p>
     <h2>Extract any URL instantly</h2>
-    <p class="hint">Paste a URL and see what webcap extracts. Free endpoint: <code>GET /v1/extract/preview</code>. Full API: $0.01 via x402.</p>
+    <p class="hint">Paste a URL and see what webcap extracts \u2014 title, headings, links, markdown. Free: <code>GET /v1/extract/preview</code>. Full data: $0.01.</p>
     <div class="preview-cta">
       <form class="preview-form" id="preview-form">
         <div class="url-row">
@@ -182,7 +182,7 @@ ${topBar(bazaarCatalogUrl, 'landing')}
             value="https://example.com/" placeholder="Paste any URL\u2026" required aria-label="URL to preview">
           <button class="btn" type="submit" id="preview-btn">Extract \u2197</button>
         </div>
-        <p class="form-note">Results appear below. Full data: <strong>$0.01</strong> via x402 crypto (USDC). <a href="/buy">Buy credits</a> · <a href="/og-debugger">OG debugger</a></p>
+        <p class="form-note">No sign-up needed. Results appear below instantly. <a href="/buy">Buy credits</a> for full API access \u2014 or copy the curl command and run it yourself.</p>
         <div class="quick-try">
           <span class="quick-try-label">Try:</span>
           <button type="button" class="quick-try-btn" data-url="https://example.com/">example.com</button>
@@ -462,7 +462,7 @@ ${footer(bazaarCatalogUrl)}
       h+='<div class="pr-upgrade pr-upgrade-top">';
       h+='<div class="pr-upgrade-body">';
       h+='<div class="pr-upgrade-title"><span class="pr-upgrade-icon">\u{1F513}</span> Get the full extract \u2014 just $0.01</div>';
-      h+='<p style="margin:6px 0 10px;font-size:13px;color:var(--muted)">Full markdown, all headings & links (no truncation), images, paragraphs, word count, and optional AI classification. <strong>One payment covers up to 50 URLs.</strong></p>';
+      h+='<p style="margin:6px 0 10px;font-size:13px;color:var(--muted)">Full markdown, all '+hCount+' headings & '+lCount+' links (no truncation), images, paragraphs, word count, and AI classification. <strong>One payment covers up to 50 URLs.</strong></p>';
       h+='</div>';
       h+='<div class="pr-upgrade-actions">';
       h+='<button class="pr-upgrade-btn pr-copy-main" data-curl="'+esc(curlCmd)+'" title="Copy curl command to clipboard">\u{1F4CB} Copy & run in terminal</button>';
