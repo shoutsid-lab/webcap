@@ -3,16 +3,30 @@
 [![npm version](https://img.shields.io/npm/v/webcap.svg)](https://www.npmjs.com/package/webcap)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Try%20It%20Now-brightgreen)](https://nickname-trident-driveway.ngrok-free.dev)
-[![API Status](https://img.shields.io/endpoint?url=https%3A%2F%2Fnickname-trident-driveway.ngrok-free.dev%2Fv1%2Fstatus-badge&label=API%20Status)](https://nickname-trident-driveway.ngrok-free.dev/v1/status)
 
-**Screenshot any URL, extract structured data, monitor pages for changes** — all via a single HTTP API call. Pay-per-call with USDC micropayments (x402), no accounts, no API keys.
+**Screenshot any URL, extract structured data, monitor pages for changes** — all via a single HTTP API call. Pay-per-call with no accounts, no API keys.
 
 ```
-POST /v1/x402/capture  →  PNG/JPEG/PDF screenshot + persistent public link
-POST /v1/x402/extract  →  Structured JSON (title, headings, links, markdown)
-POST /v1/x402/video    →  Scroll-capture video (MP4/WebM)
-POST /v1/watches       →  Scheduled monitoring with webhook alerts
+GET  /v1/extract/preview?url=...  →  Free preview (title, headings, links)
+POST /v1/x402/capture             →  PNG/JPEG/PDF screenshot + persistent link
+POST /v1/x402/extract             →  Structured JSON (title, headings, markdown)
+POST /v1/x402/video               →  Scroll-capture video (MP4/WebM)
+POST /v1/watches                  →  Scheduled monitoring with webhook alerts
 ```
+
+**Pricing**: $0.001/screenshot · $0.01/extraction batch · No subscriptions, no minimums.
+
+## Why webcap?
+
+| Feature | webcap | Screenshot APIs (typical) |
+|---|---|---|
+| **Price** | $0.001/screenshot | $0.01–0.10/screenshot |
+| **Accounts required** | No | Yes |
+| **API keys** | No | Yes |
+| **Payment** | Card (Stripe) or crypto (USDC) | Credit card only |
+| **Batch support** | Up to 50 URLs per payment | Limited |
+| **Self-hostable** | Yes (Docker) | No |
+| **Open source** | Yes (MIT) | No |
 
 ## Features
 
@@ -102,6 +116,14 @@ curl -s -X POST "https://nickname-trident-driveway.ngrok-free.dev/v1/x402/extrac
 
 ## How payment works
 
+Pay with **card (Stripe)** or **crypto (USDC on Base)**:
+
+### Card payments (Stripe)
+1. Visit the API endpoint — Stripe Checkout handles the rest.
+2. Enter your card details. Credits are added to your account instantly.
+3. Use API key authentication for subsequent calls.
+
+### Crypto payments (x402 — no accounts needed)
 webcap uses **x402 v2** — a gasless, accountless payment protocol built on HTTP 402:
 
 1. **POST** a paid route with no payment → **HTTP 402** + a `PAYMENT-REQUIRED` header carrying a base64 x402 v2 challenge.
@@ -109,7 +131,7 @@ webcap uses **x402 v2** — a gasless, accountless payment protocol built on HTT
 3. **Sign** a gasless EIP-3009 `transferWithAuthorization` (from your wallet, to the merchant, for the amount). No ETH needed — the facilitator submits the tx and pays gas.
 4. **Retry** the same request with the signed payload in the `PAYMENT-SIGNATURE` header. The facilitator verifies your USDC balance, settles on-chain, and returns the result.
 
-No accounts. No API keys. No credits. Just HTTP + USDC.
+No accounts. No API keys. No credits. Just HTTP + your choice of payment.
 
 ## Self-hosting
 
@@ -172,7 +194,7 @@ Agent discovery: `GET /.well-known/x402`, `GET /v1/x402/service`, `GET /llms.txt
 ## Tests
 
 ```bash
-npm test           # 357 tests (46 files)
+npm test           # 993 tests (99 files)
 npm run typecheck  # Type checking
 ```
 
