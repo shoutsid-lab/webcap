@@ -52,6 +52,13 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     bodyLimit: deps.config.bodyLimitBytes ?? DEFAULT_BODY_LIMIT_BYTES,
   });
   app.setErrorHandler((err, _req, reply) => {
+    // Guard: if the reply was already sent (e.g. by x402 402-challenge or the
+    // 405 not-found envelope), Fastify still fires onError — but we must not
+    // touch the reply or we get FST_ERR_REP_ALREADY_SENT.
+    // Belt-and-suspenders: check both Fastify's `sent` flag AND the raw
+    // Node.js `writableEnded` flag to catch edge cases where the reply was
+    // flushed but the Fastify flag wasn't set yet.
+    if (reply.sent || reply.raw.writableEnded) return;
     if (err instanceof HttpError) {
       const response = toResponse(err);
       void reply.status(response.status).send(response.body satisfies ErrorBody);
@@ -125,6 +132,9 @@ function registerNotFoundEnvelope(app: FastifyInstance): void {
 }
 
 function replyNotFoundOrMethodNotAllowed(app: FastifyInstance, req: FastifyRequest, reply: FastifyReply): void {
+  // Guard: if the reply was already sent (e.g. by the onRequest hook above),
+  // skip to avoid FST_ERR_REP_ALREADY_SENT when the not-found handler fires.
+  if (reply.sent || reply.raw.writableEnded) return;
   const allowed = ALLOW_METHODS.filter((method) => app.findRoute({ method, url: req.url }) !== null);
   if (allowed.length > 0) {
     reply.header('allow', allowed.join(', '));

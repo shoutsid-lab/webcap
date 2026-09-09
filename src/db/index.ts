@@ -23,6 +23,7 @@ export function openDb(path: string): Db {
   migrateCaptureJobs(db);
   migrateEndpointHits(db);
   migratePaymentWebhooks(db);
+  migrateTrackingEvents(db);
   return db;
 }
 
@@ -170,5 +171,30 @@ function migratePaymentWebhooks(db: Db): void {
         'created_at TEXT NOT NULL)',
     );
     db.exec('CREATE INDEX IF NOT EXISTS idx_payment_webhooks_account_id ON payment_webhooks(account_id)');
+  }
+}
+
+/**
+ * Landing page conversion tracking: granular event storage for the HN launch
+ * funnel. Stores event name, JSON metadata (URL, word counts, etc.), referrer,
+ * user-agent hash, and IP hash. Fresh databases carry the table via schema.sql;
+ * pre-existing databases gain it here.
+ */
+function migrateTrackingEvents(db: Db): void {
+  const table = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'tracking_events'")
+    .get() as { name: string } | undefined;
+  if (table === undefined) {
+    db.exec(
+      'CREATE TABLE tracking_events (' +
+        'id INTEGER PRIMARY KEY AUTOINCREMENT, ' +
+        'event TEXT NOT NULL, ' +
+        'meta_json TEXT, ' +
+        'referrer TEXT, ' +
+        'user_agent TEXT, ' +
+        'ip_hash TEXT, ' +
+        'created_at TEXT NOT NULL)',
+    );
+    db.exec('CREATE INDEX IF NOT EXISTS idx_tracking_events_event_created ON tracking_events(event, created_at)');
   }
 }

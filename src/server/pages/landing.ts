@@ -28,6 +28,8 @@ export function landingHtml(config: WebcapConfig): string {
   const capturePrice = usd(config.x402PriceUsdcUnits);
   const extractPrice = usd(config.x402ExtractPriceUsdcUnits);
   const auditPrice = usd(config.x402AuditPriceUsdcUnits);
+  const videoPrice = usd(config.x402VideoPriceUsdcUnits);
+  const analyzePrice = '$0.01'; // hardcoded in ml-routes.ts as 10_000 atomic units
   // WATCH_TOPUP_RUNS-run top-up packs (the monitoring prices), always two-decimal.
   const topUpUsd = (usdcUnits: number): string => `$${(usdcUnits / USDC_SCALE).toFixed(2)}`;
   const captureTopUpPrice = topUpUsd(watchTopUpPriceUsdcUnits('capture', config));
@@ -135,6 +137,12 @@ console.log(res.data.artifact.url); <span class="c">// 200 \u2014 paid, settled,
 <style>${BASE_CSS}${LANDING_CSS}</style>
 </head>
 <body>
+<script>
+// Track landing page view
+try{
+  navigator.sendBeacon('/v1/track',JSON.stringify({event:'landing_view',meta:{referrer:document.referrer||'direct'}}));
+}catch(ex){}
+</script>
 ${topBar(bazaarCatalogUrl)}
 <main>
   <section class="hero wrap">
@@ -151,8 +159,96 @@ ${topBar(bazaarCatalogUrl)}
           <a class="btn" href="#pay">How to pay</a>
           <a class="btn ghost" href="/openapi.json">OpenAPI spec</a>
         </div>
-        <p class="micro">Free preview, no payment: <a href="/v1/extract/preview?url=https://example.com/">Try it \u2014 <code>GET /v1/extract/preview?url=\u2026</code></a> (rate-limited)</p>
-        <div class="hero-badges" aria-label="capabilities"><span>PNG \u00B7 JPEG \u00B7 PDF</span><span>GET /v1/og</span><span>x402 USDC</span></div>
+        <div class="social-proof" id="social-proof"><span class="proof-icon">\u2713</span> Pay per call \u00B7 No accounts \u00B7 x402 USDC</div>
+        <div class="preview-cta">
+          <p class="preview-title">Try it free \u2014 no account, no payment</p>
+          <p class="preview-desc">See what webcap returns. Want the full data? Pay per call with USDC \u2014 no sign-up required.</p>
+          <form class="preview-form" id="preview-form">
+            <div class="url-row">
+              <input type="url" id="preview-url-input" name="url" inputmode="url" autocomplete="url"
+                placeholder="https://example.com/" required aria-label="URL to preview">
+              <button class="btn" type="submit" id="preview-btn">Try it now \u2197</button>
+            </div>
+            <p class="form-note">Results appear inline below. Full extract: $0.01/batch via x402. <a href="/og-debugger">OG debugger</a> for meta tags.</p>
+          </form>
+          <div id="preview-results" class="preview-results" hidden></div>
+        </div>
+        <script>
+        (function(){
+          /* --- social proof: fetch live metrics and update badge --- */
+          fetch('/v1/status').then(function(r){return r.json();}).then(function(s){
+            var el=document.getElementById('social-proof');
+            if(!el)return;
+            var parts=[];
+            parts.push('Pay per call');
+            parts.push('No accounts');
+            if(s.artifacts&&s.artifacts.count>0)parts.push(s.artifacts.count+' artifacts served');
+            if(s.endpoints&&s.endpoints.topHits){
+              var total=0;s.endpoints.topHits.forEach(function(e){total+=e.hits;});
+              if(total>0)parts.push(total+' API hits');
+            }
+            parts.push('x402 USDC');
+            el.innerHTML='<span class="proof-icon">\u2713</span> '+parts.join(' \u00B7 ');
+          }).catch(function(){});
+          /* --- preview form --- */
+          var form=document.getElementById('preview-form');
+          if(!form)return;
+          form.addEventListener('submit',function(e){
+            e.preventDefault();
+            var input=document.getElementById('preview-url-input');
+            var btn=document.getElementById('preview-btn');
+            var results=document.getElementById('preview-results');
+            var url=input?input.value.trim():'';
+            if(!url)return;
+            if(!/^https?:\\/\\//i.test(url))url='https://'+url;
+            try{navigator.sendBeacon('/v1/track',JSON.stringify({event:'preview_submit',meta:{url:url}}));}catch(ex){}
+            if(btn){btn.disabled=true;btn.textContent='Loading\u2026';}
+            if(results){results.hidden=false;results.innerHTML='<div class="pr-loading"><span class="pr-spinner"></span> Fetching preview\u2026</div>';}
+            fetch('${base}/v1/extract/preview?url='+encodeURIComponent(url))
+              .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+              .then(function(d){
+                var p=d.preview||{};
+                var h='';
+                h+='<div class="pr-header"><span class="pr-url">'+esc(p.title||url)+'</span>';
+                if(d.truncated)h+='<span class="pr-badge">preview</span>';
+                h+='</div>';
+                if(p.description)h+='<p class="pr-desc">'+esc(p.description)+'</p>';
+                if(p.headings&&p.headings.length){
+                  h+='<div class="pr-section"><span class="pr-label">Headings</span><ul>';
+                  p.headings.slice(0,8).forEach(function(heading){h+='<li><span class="pr-h'+heading.level+'">H'+heading.level+'</span> '+esc(heading.text)+'</li>';});
+                  h+='</ul></div>';
+                }
+                if(p.links&&p.links.length){
+                  h+='<div class="pr-section"><span class="pr-label">Links ('+p.links.length+')</span>';
+                  h+='<div class="pr-links">';
+                  p.links.slice(0,6).forEach(function(link){h+='<a href="'+esc(link.href)+'" target="_blank" rel="noopener">'+esc(link.text||link.href)+'</a>';});
+                  if(p.links.length>6)h+='<span class="pr-more">+'+(p.links.length-6)+' more</span>';
+                  h+='</div></div>';
+                }
+                if(p.wordCount)h+='<div class="pr-section"><span class="pr-label">Words</span> '+p.wordCount+'</div>';
+                h+='<div class="pr-upgrade"><span class="pr-upgrade-icon">\u2191</span> Free preview is truncated. <a href="#pay" class="pr-upgrade-link">Full extract: $0.01/batch</a> via x402 USDC \u2014 no sign-up.</div>';
+                if(results)results.innerHTML=h;
+                try{navigator.sendBeacon('/v1/track',JSON.stringify({event:'preview_result_success',meta:{url:url,wordCount:p.wordCount||0,headingCount:(p.headings||[]).length,linkCount:(p.links||[]).length}}));}catch(ex){}
+                var upgradeLink=results?results.querySelector('.pr-upgrade-link'):null;
+                if(upgradeLink)upgradeLink.addEventListener('click',function(){try{navigator.sendBeacon('/v1/track',JSON.stringify({event:'preview_upgrade_click',meta:{url:url}}));}catch(ex){}});
+              })
+              .catch(function(err){
+                if(results)results.innerHTML='<div class="pr-error">Preview failed: '+esc(String(err))+' <a href="${base}/v1/extract/preview?url='+encodeURIComponent(url)+'" target="_blank">Open raw JSON \u2197</a></div>';
+                try{navigator.sendBeacon('/v1/track',JSON.stringify({event:'preview_result_error',meta:{url:url,error:esc(String(err))}}));}catch(ex){}
+              })
+              .finally(function(){
+                if(btn){btn.disabled=false;btn.textContent='Try it now \u2197';}
+              });
+          });
+          function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+          /* --- CTA click tracking --- */
+          document.querySelectorAll('.btn').forEach(function(btn){
+            btn.addEventListener('click',function(){
+              try{navigator.sendBeacon('/v1/track',JSON.stringify({event:'cta_click',meta:{text:btn.textContent||'',href:btn.getAttribute('href')||''}}));}catch(ex){}
+            });
+          });
+        })();
+        </script>
       </div>
       <div class="term" aria-label="curl example of the x402 payment flow">
         ${termBar('402 \u2192 PAYMENT-REQUIRED \u2192 sign \u2192 retry')}
@@ -185,6 +281,22 @@ ${topBar(bazaarCatalogUrl)}
         <span class="tag">POST /v1/x402/extract</span>
       </div>
       <div class="price">
+        <h3>Video</h3>
+        <div class="amount">${esc(videoPrice)} <small>/ URL</small></div>
+        <p>Scroll-capture any URL as an MP4 or WebM video. Records the full page
+          scroll with configurable duration and easing. Ideal for demos, archiving,
+          or visual regression feeds.</p>
+        <span class="tag">POST /v1/x402/video</span>
+      </div>
+      <div class="price">
+        <h3>Analyze</h3>
+        <div class="amount">${esc(analyzePrice)} <small>/ URL</small></div>
+        <p>AI-powered visual analysis of a screenshot: classification, accessibility
+          audit, layout analysis, entity extraction, sentiment. One payment per
+          analysis; batch endpoint available.</p>
+        <span class="tag">POST /v1/x402/analyze</span>
+      </div>
+      <div class="price">
         <h3>Compute</h3>
         <div class="amount">$0 <small>/ covered</small></div>
         <p>Browser rendering, page loads and storage are on us \u2014 amortized compute
@@ -193,7 +305,28 @@ ${topBar(bazaarCatalogUrl)}
         <span class="tag">covered by webcap</span>
       </div>
     </div>
-    <p class="hint">New: <code>POST /v1/x402/audit</code> \u2014 SEO basics + link/OG health in one call for ${esc(auditPrice)} per URL.</p>
+    <p class="hint">Also available: <code>POST /v1/x402/audit</code> \u2014 SEO basics + link/OG health in one call for ${esc(auditPrice)} per URL.</p>
+  </section>
+
+  <section class="section wrap" id="crypto">
+    <p class="eyebrow">New to crypto?</p>
+    <h2>Get started in 3 steps</h2>
+    <p class="hint">webcap uses USDC on Base via x402 micropayments. No API keys, no accounts.
+      If you have USDC on Base, you can pay. If not, here's how to get set up:</p>
+    <ol class="steps">
+      <li><b>Get USDC on Base</b>
+        <p>Use a bridge or on-ramp to get USDC on the Base network. Most wallets
+        (Coinbase Wallet, MetaMask, etc.) support Base. You only need a few dollars
+        \u2014 each capture is just ${esc(capturePrice)}.</p></li>
+      <li><b>Connect your wallet</b>
+        <p>No account needed \u2014 webcap uses your existing wallet. The payment
+        flow is gasless: you sign a message, the facilitator submits the tx.
+        No ETH required for gas.</p></li>
+      <li><b>Sign and pay</b>
+        <p>When you call a paid endpoint, webcap returns a 402 with a payment
+        challenge. Sign it with your wallet and retry \u2014 the facilitator settles
+        on-chain and you get the result.</p></li>
+    </ol>
   </section>
 
   <section class="section wrap" id="pay">

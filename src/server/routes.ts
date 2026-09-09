@@ -5,6 +5,7 @@
  * account) routes live in ./billing.ts, the discovery routes in
  * ./discovery.ts, and the monitoring routes in ./watches.ts.
  */
+import { createHash } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import {
   DEFAULT_MODEL_TIMEOUT_MS,
@@ -17,6 +18,7 @@ import {
   watchTopUpPriceUsdcUnits,
 } from '../config.js';
 import { makeRevenueRepo } from '../db/revenue.js';
+import { recordHit } from '../db/hits.js';
 import { CaptureError } from '../capture/errors.js';
 import { HttpError, unprocessable } from '../util/errors.js';
 import { RateLimiter, rejectRateLimited } from '../util/ratelimit.js';
@@ -556,5 +558,40 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       throw err;
     }
     return reply.send(ogDebuggerHtml(config, { state: 'ok', rawUrl, result }));
+  });
+
+  /**
+   * POST /v1/track — lightweight landing page event tracking.
+   * Records page views, preview form submissions, and other conversion events.
+   * No auth required; fire-and-forget from client-side JavaScript.
+   * Stores granular event metadata in the tracking_events table for funnel analysis.
+   */
+  app.post('/v1/track', async (req) => {
+    const body = req.body;
+    if (!isRecord(body)) throw unprocessable('body must be an object');
+    const event = typeof body.event === 'string' ? body.event : undefined;
+    if (!event) throw unprocessable('event is required');
+    const metadata = typeof body.meta === 'object' && body.meta !== null ? body.meta : {};
+    
+    // Record as a special endpoint hit for analytics (backward compat)
+    recordHit(db, {
+      endpoint: `track:${event}`,
+      status: 200,
+      durationMs: 0,
+    });
+
+    // Store granular event data for funnel analysis
+    try {
+      const referrer = typeof req.headers.referer === 'string' ? req.headers.referer : null;
+      const userAgent = typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : null;
+      const ipHash = req.ip ? createHash('sha256').update(req.ip).digest('hex').slice(0, 16) : null;
+      db.prepare(
+        'INSERT INTO tracking_events (event, meta_json, referrer, user_agent, ip_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      ).run(event, JSON.stringify(metadata), referrer, userAgent, ipHash, new Date().toISOString());
+    } catch {
+      // Non-fatal: tracking metadata is best-effort
+    }
+    
+    return { ok: true, event };
   });
 }

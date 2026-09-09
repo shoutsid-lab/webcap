@@ -95,6 +95,22 @@ export function registerStatusRoute(app: FastifyInstance, deps: AppDeps): void {
       // artifacts table may not exist in test environments
     }
 
+    // Conversion funnel (last 24h) from tracking_events
+    let funnel: Record<string, number> = {};
+    try {
+      const since24h = new Date(Date.now() - 86400_000).toISOString();
+      const rows = db
+        .prepare<[string], { event: string; cnt: number }>(
+          'SELECT event, COUNT(*) AS cnt FROM tracking_events WHERE created_at >= ? GROUP BY event',
+        )
+        .all(since24h);
+      for (const row of rows) {
+        funnel[row.event] = row.cnt;
+      }
+    } catch {
+      // tracking_events table may not exist yet
+    }
+
     return {
       status: 'ok',
       uptimeSeconds,
@@ -131,6 +147,7 @@ export function registerStatusRoute(app: FastifyInstance, deps: AppDeps): void {
       artifacts: {
         count: artifactCount,
       },
+      funnel,
     };
   });
 }

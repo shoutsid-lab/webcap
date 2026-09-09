@@ -77,6 +77,7 @@ function topBar(bazaarCatalogUrl: string): string {
   <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>webcap</a>
   <nav>
     <a href="#pricing">Pricing</a>
+    <a href="#crypto">New to crypto?</a>
     <a href="#pay">How to pay</a>
     <a href="/openapi.json" class="keep">openapi.json</a>
     <a href="${bazaarCatalogUrl}" target="_blank" rel="noopener">CDP Bazaar</a>

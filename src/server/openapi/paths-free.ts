@@ -231,5 +231,39 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
         security: [],
       },
     },
+    '/v1/track': {
+      post: {
+        tags: ['discovery'],
+        summary: 'Lightweight landing page event tracking (fire-and-forget)',
+        description:
+          'Records page views, preview form submissions, and other conversion events for analytics. ' +
+          'No auth required; fire-and-forget from client-side JavaScript.',
+        requestBody: {
+          required: true,
+          content: jsonContent({
+            type: 'object',
+            required: ['event'],
+            properties: {
+              event: { type: 'string', description: 'Event name (e.g., landing_view, preview_submit)' },
+              meta: { type: 'object', description: 'Optional event metadata' },
+            },
+          }),
+        },
+        responses: {
+          200: {
+            description: 'Event recorded',
+            content: jsonContent({
+              type: 'object',
+              properties: {
+                ok: { type: 'boolean', example: true },
+                event: { type: 'string' },
+              },
+            }),
+          },
+          422: ctx.unprocessable('Missing or invalid event field'),
+        },
+        security: [],
+      },
+    },
   };
 }

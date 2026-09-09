@@ -152,4 +152,16 @@ CREATE TABLE IF NOT EXISTS payment_webhooks (
 
 CREATE INDEX IF NOT EXISTS idx_payment_webhooks_account_id ON payment_webhooks(account_id);
 
+CREATE TABLE IF NOT EXISTS tracking_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event TEXT NOT NULL,
+  meta_json TEXT,
+  referrer TEXT,
+  user_agent TEXT,
+  ip_hash TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_tracking_events_event_created ON tracking_events(event, created_at);
+
 /* deferred to run #4: per-endpoint rollup triggers (counts/revenue join) live here. */
