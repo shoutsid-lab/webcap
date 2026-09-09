@@ -226,6 +226,47 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
         },
       },
     },
+    '/v1/admin/waitlist': {
+      get: {
+        tags: ['accounts'],
+        summary: 'Merchant email waitlist for mailing list export',
+        description:
+          'Merchant-only: returns all waitlist signup emails with signup dates. ' +
+          'Supports ?format=json (default) or ?format=csv for CSV export.',
+        parameters: [
+          {
+            name: 'format',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', enum: ['json', 'csv'], default: 'json' },
+            description: 'Response format: json (default) or csv',
+          },
+        ],
+        responses: {
+          200: {
+            description: 'Waitlist entries with email and signup date',
+            content: jsonContent({
+              type: 'object',
+              properties: {
+                total: { type: 'integer', description: 'Total number of waitlist entries' },
+                entries: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      email: { type: 'string', format: 'email' },
+                      signedUpAt: { type: 'string', description: 'ISO 8601 timestamp' },
+                    },
+                  },
+                },
+              },
+            }),
+          },
+          401: ctx.unauthorized,
+          403: jsonError('403', 'The authenticated account is not the merchant (error envelope, code forbidden)'),
+        },
+      },
+    },
     '/v1/og': {
       get: {
         tags: ['discovery'],

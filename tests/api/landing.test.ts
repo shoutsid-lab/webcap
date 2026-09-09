@@ -59,10 +59,11 @@ describe('GET / (content negotiation: landing page + JSON front door)', () => {
       expect(html).toContain('x402');
       expect(html).toContain('<link rel="icon" href="/icon.png">');
       expect(html).toContain('GET /v1/extract/preview');
-      expect(html).toContain('href="/v1/extract/preview?url=https://example.com/"');
+      expect(html).toContain('href="#preview"');
       expect(html).toContain('Try it');
-      expect(html).toContain('PAYMENT-REQUIRED');
-      expect(html).toContain('eip155:84532');
+      // Hero now leads with value (screenshot, extract, monitor) — not payment rails
+      expect(html).toContain('Free preview');
+      expect(html).toContain('/v1/x402/capture');
     } finally {
       await closeApiFixture(fx);
     }
@@ -154,19 +155,22 @@ describe('landing copy follows the configured chain', () => {
     expect(upper).not.toContain('TESTNET');
   });
 
-  it('base config: copy-paste examples target eip155:8453 and never 84532', () => {
+  it('base config: hero shows value-led copy with free preview and capture examples', () => {
     const html = landingHtml(chainConfig('base'));
-    expect(html).toMatch(/eip155:8453(?!\d)/);
-    expect(html).not.toMatch(/84532/);
+    // Hero now leads with value — capture, extract, analyze, then free preview
+    expect(html).toContain('Free preview');
+    expect(html).toContain('/v1/x402/capture');
+    expect(html).toContain('/v1/x402/extract');
   });
 
-  it('sepolia config: hero claims testnet and copy-paste examples target eip155:84532', () => {
+  it('sepolia config: pricing section mentions testnet settlement, not mainnet', () => {
     const html = landingHtml(chainConfig('base-sepolia'));
     const upper = html.toUpperCase();
+    // Pricing section shows the settlement info from copy.settlement
     expect(upper).toContain('BASE SEPOLIA');
     expect(upper).toContain('TESTNET');
-    expect(html).toContain('eip155:84532');
-    expect(html).not.toMatch(/eip155:8453(?!\d)/);
+    // Hero now leads with value, not network-specific payment details
+    expect(html).toContain('WEB CAPTURE API');
   });
 
   it('local config: hero leads with value prop, not mainnet or sepolia', () => {

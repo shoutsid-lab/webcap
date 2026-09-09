@@ -110,6 +110,17 @@ export function registerStatusRoute(app: FastifyInstance, deps: AppDeps): void {
       // artifacts table may not exist in test environments
     }
 
+    // Waitlist count
+    let waitlistCount = 0;
+    try {
+      const row = db.prepare(
+        "SELECT COUNT(*) AS cnt FROM tracking_events WHERE event = 'waitlist_signup'",
+      ).get() as { cnt: number } | undefined;
+      waitlistCount = row?.cnt ?? 0;
+    } catch {
+      // tracking_events table may not exist
+    }
+
     // Conversion funnel (last 24h) from tracking_events
     let funnel: Record<string, number> = {};
     let funnelStructured: {
@@ -216,6 +227,9 @@ export function registerStatusRoute(app: FastifyInstance, deps: AppDeps): void {
       },
       artifacts: {
         count: artifactCount,
+      },
+      waitlist: {
+        count: waitlistCount,
       },
       funnel,
       funnelStructured,

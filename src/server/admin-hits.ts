@@ -8,7 +8,8 @@
  *   counts, error rates, and latency over the last 24 hours (configurable via
  *   ?hours=N, max 168). Includes top-endpoint breakdown and aggregate totals.
  *
- * Explicitly out of scope: emails, trials, triggers.
+ * GET /v1/admin/waitlist — email waitlist entries for mailing list export.
+ *   Merchant-only via Bearer auth + address comparison.
  */
 import type { FastifyInstance } from 'fastify';
 import type { Db } from '../db/index.js';
@@ -81,6 +82,47 @@ export function registerAdminHitsRoutes(app: FastifyInstance, deps: AppDeps): vo
     return {
       hoursBack,
       ...analytics,
+    };
+  });
+
+  /**
+   * GET /v1/admin/waitlist — email waitlist entries for mailing list export.
+   * Merchant-only. Returns all waitlist_signup events with email, date, and count.
+   * Query param ?format=json (default) or ?format=csv for CSV export.
+   */
+  app.get('/v1/admin/waitlist', async (req, reply) => {
+    const { account } = authenticate(req, db);
+    if (account.address.toLowerCase() !== config.merchantAddress.toLowerCase()) {
+      throw new HttpError(403, 'forbidden', 'waitlist is merchant-only');
+    }
+    const query = (req.query ?? {}) as Record<string, unknown>;
+    const format = typeof query.format === 'string' ? query.format : 'json';
+
+    const rows = db
+      .prepare<[], { meta_json: string; created_at: string }>(
+        "SELECT meta_json, created_at FROM tracking_events WHERE event = 'waitlist_signup' ORDER BY created_at ASC",
+      )
+      .all();
+
+    const entries = rows.map((row) => {
+      let email = '';
+      try {
+        const meta = JSON.parse(row.meta_json ?? '{}') as { email?: string };
+        email = meta.email ?? '';
+      } catch { /* malformed meta */ }
+      return { email, signedUpAt: row.created_at };
+    });
+
+    if (format === 'csv') {
+      const csv = 'email,signedUpAt\n' + entries.map((e) => `${e.email},${e.signedUpAt}`).join('\n');
+      reply.header('content-type', 'text/csv');
+      reply.header('content-disposition', 'attachment; filename="waitlist.csv"');
+      return csv;
+    }
+
+    return {
+      total: entries.length,
+      entries,
     };
   });
 }

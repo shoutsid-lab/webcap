@@ -1,0 +1,173 @@
+{
+  "screenshots": [
+    {
+      "name": "qa-landing-desktop-light-full",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-landing-desktop-light-full.png"
+    },
+    {
+      "name": "qa-landing-desktop-light-viewport",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-landing-desktop-light-viewport.png"
+    },
+    {
+      "name": "qa-landing-desktop-dark-full",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-landing-desktop-dark-full.png"
+    },
+    {
+      "name": "qa-landing-desktop-dark-viewport",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-landing-desktop-dark-viewport.png"
+    },
+    {
+      "name": "qa-landing-tablet-light-full",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-landing-tablet-light-full.png"
+    },
+    {
+      "name": "qa-landing-mobile-light-full",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-landing-mobile-light-full.png"
+    },
+    {
+      "name": "qa-landing-mobile-light-viewport",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-landing-mobile-light-viewport.png"
+    },
+    {
+      "name": "qa-landing-mobile-dark-full",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-landing-mobile-dark-full.png"
+    },
+    {
+      "name": "qa-theme-toggle-light",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-theme-toggle-light.png"
+    },
+    {
+      "name": "qa-theme-toggle-dark",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-theme-toggle-dark.png"
+    },
+    {
+      "name": "qa-preview-form-empty",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-preview-form-empty.png"
+    },
+    {
+      "name": "qa-preview-loading",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-preview-loading.png"
+    },
+    {
+      "name": "qa-preview-error",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-preview-error.png"
+    },
+    {
+      "name": "qa-og-debugger-empty",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-og-debugger-empty.png"
+    },
+    {
+      "name": "qa-og-debugger-with-url",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-og-debugger-with-url.png"
+    },
+    {
+      "name": "qa-compare-page-light-full",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-compare-page-light-full.png"
+    },
+    {
+      "name": "qa-compare-page-mobile",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-compare-page-mobile.png"
+    },
+    {
+      "name": "qa-waitlist-form",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-waitlist-form.png"
+    },
+    {
+      "name": "qa-sticky-cta-visible",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-sticky-cta-visible.png"
+    },
+    {
+      "name": "qa-404-page",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-404-page.png"
+    },
+    {
+      "name": "qa-invalid-artifact",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-invalid-artifact.png"
+    },
+    {
+      "name": "qa-ngrok-landing",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-ngrok-landing.png"
+    },
+    {
+      "name": "qa-hero-320px",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-hero-320px.png"
+    },
+    {
+      "name": "qa-hero-375px",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-hero-375px.png"
+    },
+    {
+      "name": "qa-hero-768px",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-hero-768px.png"
+    },
+    {
+      "name": "qa-hero-1024px",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-hero-1024px.png"
+    },
+    {
+      "name": "qa-hero-1440px",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-hero-1440px.png"
+    },
+    {
+      "name": "qa-hero-1920px",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-hero-1920px.png"
+    },
+    {
+      "name": "qa-terminal-mobile-overflow",
+      "path": "/home/shoutsid/code/webcap/screenshots/qa/qa-terminal-mobile-overflow.png"
+    }
+  ],
+  "issues": [
+    {
+      "severity": "high",
+      "description": "Horizontal overflow detected on tablet viewport",
+      "selector": "body"
+    },
+    {
+      "severity": "high",
+      "description": "Horizontal overflow on mobile viewport",
+      "selector": "body"
+    },
+    {
+      "severity": "critical",
+      "description": "Preview form returned error: Preview failed: TypeError: Failed to fetch Open raw JSON ↗",
+      "selector": ".pr-error"
+    },
+    {
+      "severity": "high",
+      "description": "OG debugger timed out",
+      "selector": ".og-preview"
+    },
+    {
+      "severity": "high",
+      "description": "Compare page has horizontal overflow on mobile",
+      "selector": ".compare-table-wrap"
+    },
+    {
+      "severity": "low",
+      "description": "No skip navigation link for keyboard users",
+      "selector": "body"
+    },
+    {
+      "severity": "medium",
+      "description": "Heading hierarchy issues: Heading skip: h1 → h3 (\"Stay updated\")",
+      "selector": "headings"
+    },
+    {
+      "severity": "high",
+      "description": "Horizontal overflow at 320px viewport",
+      "selector": ".hero-inner"
+    },
+    {
+      "severity": "high",
+      "description": "Horizontal overflow at 375px viewport",
+      "selector": ".hero-inner"
+    },
+    {
+      "severity": "high",
+      "description": "Horizontal overflow at 768px viewport",
+      "selector": ".hero-inner"
+    }
+  ],
+  "findings": []
+}
