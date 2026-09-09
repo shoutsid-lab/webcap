@@ -231,6 +231,30 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
         security: [],
       },
     },
+    '/v1/status-badge': {
+      get: {
+        tags: ['discovery'],
+        summary: 'Shields.io-compatible status badge endpoint',
+        description:
+          'Returns a shields.io-compatible JSON response for embedding a live API status badge in README files. ' +
+          'Returns operational status based on DB health check.',
+        responses: {
+          200: {
+            description: 'Status badge data',
+            content: jsonContent({
+              type: 'object',
+              properties: {
+                schemaVersion: { type: 'integer', example: 1 },
+                label: { type: 'string', example: 'API Status' },
+                message: { type: 'string', example: 'operational' },
+                color: { type: 'string', example: 'brightgreen' },
+              },
+            }),
+          },
+        },
+        security: [],
+      },
+    },
     '/v1/waitlist': {
       post: {
         tags: ['discovery'],
