@@ -1,8 +1,11 @@
 /**
  * GET /buy — credit pack purchase page.
- * Shows the three credit packs (starter/pro/max) with pricing and payment
- * instructions for both x402 crypto and Stripe card payments.
+ * Shows the three credit packs (starter/pro/max) with BUY BUTTONS that
+ * actually initiate payment via Stripe Checkout (when configured) or
+ * show a fallback email-based purchase request.
+ *
  * The goal: convert free preview users into paying customers.
+ * Previous version had ZERO purchase buttons — this version fixes that.
  */
 import { DEFAULT_BAZAAR_CATALOG_URL, USDC_SCALE, type WebcapConfig } from '../../config.js';
 import { PACKS } from '../../config/pricing.js';
@@ -19,6 +22,7 @@ export function buyHtml(config: WebcapConfig): string {
   const bazaarCatalogUrl = config.bazaarCatalogUrl ?? DEFAULT_BAZAAR_CATALOG_URL;
   const capturePrice = `$${config.x402PriceUsdcUnits / USDC_SCALE}`;
   const extractPrice = `$${config.x402ExtractPriceUsdcUnits / USDC_SCALE}`;
+  const stripeConfigured = !!config.stripeSecretKey;
 
   const starter = PACKS.starter;
   const pro = PACKS.pro;
@@ -56,6 +60,9 @@ export function buyHtml(config: WebcapConfig): string {
 .buy-pack ul{list-style:none;padding:0;margin:0 0 24px;flex:1}
 .buy-pack li{padding:6px 0;color:var(--muted);font-size:14px;line-height:1.5}
 .buy-pack li::before{content:"\\2713 ";color:var(--ok);font-weight:700}
+.buy-pack .pack-btn{display:block;width:100%;text-align:center;margin-top:auto;padding:14px 24px;font-size:16px;font-weight:700;border-radius:var(--r-m);background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent);cursor:pointer;text-decoration:none;transition:all .15s ease;box-shadow:0 2px 8px rgba(37,99,235,.25);font-family:var(--mono)}
+.buy-pack .pack-btn:hover{filter:brightness(1.05);transform:translateY(-1px);box-shadow:0 4px 16px rgba(37,99,235,.35);text-decoration:none}
+.buy-pack .pack-btn.loading{pointer-events:none;opacity:.7}
 .buy-section{margin-top:var(--s7)}
 .buy-section h2{font-size:22px;font-weight:700;letter-spacing:-.02em;margin-bottom:var(--s3)}
 .buy-section p{color:var(--muted);font-size:15px;line-height:1.65;margin-top:var(--s3)}
@@ -71,6 +78,22 @@ export function buyHtml(config: WebcapConfig): string {
 .buy-cta .btn{font-size:16px;padding:14px 32px}
 .term{margin-top:var(--s4);background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);overflow:hidden}
 .term pre{padding:20px 24px;font-size:14px;line-height:1.7;overflow-x:auto;margin:0}
+/* Fallback modal for when Stripe isn't configured */
+.buy-fallback{display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);justify-content:center;align-items:center}
+.buy-fallback.open{display:flex}
+.buy-fallback-card{background:var(--panel);border-radius:var(--r-l);padding:40px;max-width:480px;width:90%;box-shadow:0 24px 48px rgba(0,0,0,.15);position:relative}
+.buy-fallback-card h2{font-size:22px;font-weight:700;margin:0 0 12px}
+.buy-fallback-card p{color:var(--muted);font-size:15px;line-height:1.6;margin:0 0 16px}
+.buy-fallback-card .fallback-close{position:absolute;top:16px;right:16px;background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted);padding:4px 8px}
+.buy-fallback-card .fallback-close:hover{color:var(--text)}
+.fallback-option{padding:16px;background:var(--panel-2);border:1px solid var(--line);border-radius:var(--r-m);margin-bottom:12px}
+.fallback-option h3{font-size:15px;font-weight:700;margin:0 0 6px}
+.fallback-option p{font-size:13px;color:var(--muted);margin:0 0 10px}
+.fallback-option code{font-size:12px;background:var(--bg);padding:2px 6px;border-radius:4px;display:inline-block;word-break:break-all}
+.fallback-option .btn-sm{margin-top:4px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:var(--r-m);padding:12px 24px;box-shadow:0 8px 24px rgba(0,0,0,.12);font-size:14px;z-index:1001;display:none}
+.toast.show{display:block;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 </style>
 </head>
 <body>
@@ -91,6 +114,7 @@ ${topBar(bazaarCatalogUrl, 'buy')}
         <li>Pay with card or crypto</li>
         <li>Credits never expire</li>
       </ul>
+      <button class="pack-btn" data-pack="starter" data-price="${usd(starter.usd)}" data-credits="${starter.credits}">Buy Starter \u2192</button>
     </div>
     <div class="buy-pack popular">
       <h3>Pro</h3>
@@ -103,6 +127,7 @@ ${topBar(bazaarCatalogUrl, 'buy')}
         <li>Pay with card or crypto</li>
         <li>Credits never expire</li>
       </ul>
+      <button class="pack-btn" data-pack="pro" data-price="${usd(pro.usd)}" data-credits="${pro.credits.toLocaleString()}">Buy Pro \u2192</button>
     </div>
     <div class="buy-pack">
       <h3>Max</h3>
@@ -115,6 +140,7 @@ ${topBar(bazaarCatalogUrl, 'buy')}
         <li>Pay with card or crypto</li>
         <li>Credits never expire</li>
       </ul>
+      <button class="pack-btn" data-pack="max" data-price="${usd(max.usd)}" data-credits="${max.credits.toLocaleString()}">Buy Max \u2192</button>
     </div>
   </div>
 
@@ -193,11 +219,135 @@ console.log(data.results[0].title); <span class="c">// "Example Domain"</span></
   </div>
 
   <div class="buy-cta">
-    <a class="btn" href="#preview" onclick="window.location='/'">Try the free preview first \u2192</a>
+    <a class="btn" href="/" onclick="window.location='/'">Try the free preview first \u2192</a>
     <p style="margin-top:16px;color:var(--faint);font-size:14px">No credit card required. Try before you buy.</p>
   </div>
 </main>
 ${footer(bazaarCatalogUrl)}
+
+<!-- Fallback modal: shown when Stripe is NOT configured -->
+<div class="buy-fallback" id="buy-fallback">
+  <div class="buy-fallback-card">
+    <button class="fallback-close" id="fallback-close">&times;</button>
+    <h2 id="fallback-title">Purchase Starter pack</h2>
+    <p>Card payments are being set up. In the meantime, here are two ways to get credits:</p>
+
+    <div class="fallback-option">
+      <h3>\u{1F4B3} Crypto (instant)</h3>
+      <p>Pay with USDC on Base. No accounts needed. Send <code id="fallback-usdc">0.50 USDC</code> to the payment endpoint:</p>
+      <div class="term" style="margin-top:8px"><div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">terminal</span></div>
+      <pre style="padding:12px 16px;font-size:12px;margin:0"><code id="fallback-curl">curl -si -X POST "${base}/v1/x402/capture" \\
+  -H 'content-type: application/json' \\
+  -d '{"url":"https://example.com"}'
+
+<span class="k"># Server returns 402 + payment instructions</span>
+<span class="c"># Sign the USDC transfer from your wallet</span>
+<span class="c"># Credits are added automatically</span></code></pre></div>
+    </div>
+
+    <div class="fallback-option">
+      <h3>\u{2709}\uFE0F Email purchase</h3>
+      <p>Email us at <code>hello@webcap.dev</code> with the pack you want. We'll send you a payment link.</p>
+      <form id="fallback-email-form" style="margin-top:8px;display:flex;gap:8px">
+        <input type="email" id="fallback-email" placeholder="you@example.com" required style="flex:1;padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-s);font-size:13px;background:var(--bg);color:var(--text)">
+        <button type="submit" class="btn-sm">Send request</button>
+      </form>
+      <p id="fallback-email-note" style="margin-top:8px;font-size:12px;color:var(--ok);display:none">\u2713 Request sent! We'll get back to you within 24 hours.</p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var base='${base}';
+  var stripeConfigured=${stripeConfigured};
+
+  function showToast(msg,dur){
+    var t=document.getElementById('toast');
+    if(!t)return;
+    t.textContent=msg;t.className='toast show';
+    setTimeout(function(){t.className='toast';},dur||3000);
+  }
+
+  function trackBuyClick(pack,price,source){
+    try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'buy_click',meta:{pack:pack,price:price,source:source}})],{type:'application/json'}));}catch(ex){}
+  }
+
+  function openFallback(pack,price,credits){
+    var fb=document.getElementById('buy-fallback');
+    if(!fb)return;
+    document.getElementById('fallback-title').textContent='Buy '+pack.charAt(0).toUpperCase()+pack.slice(1)+' \u2014 '+price;
+    document.getElementById('fallback-usdc').textContent=price+' USDC';
+    fb.className='buy-fallback open';
+    trackBuyClick(pack,price,'fallback_modal');
+  }
+
+  /* close fallback */
+  var closeBtn=document.getElementById('fallback-close');
+  if(closeBtn){closeBtn.addEventListener('click',function(){
+    document.getElementById('buy-fallback').className='buy-fallback';
+  });}
+
+  /* close on backdrop click */
+  var fb=document.getElementById('buy-fallback');
+  if(fb){fb.addEventListener('click',function(e){
+    if(e.target===fb)fb.className='buy-fallback';
+  });}
+
+  /* email form in fallback */
+  var emailForm=document.getElementById('fallback-email-form');
+  if(emailForm){emailForm.addEventListener('submit',function(e){
+    e.preventDefault();
+    var emailInput=document.getElementById('fallback-email');
+    var note=document.getElementById('fallback-email-note');
+    var email=emailInput?emailInput.value.trim():'';
+    if(!email)return;
+    fetch('/v1/track',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({event:'purchase_request',meta:{email:email,source:'buy_page'}})}).catch(function(){});
+    fetch('/v1/waitlist',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:email})}).catch(function(){});
+    if(note)note.style.display='block';
+    emailForm.style.display='none';
+    showToast('Request sent! We\\'ll email you a payment link.',5000);
+  });}
+
+  /* pack buy buttons */
+  document.querySelectorAll('.pack-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var pack=btn.getAttribute('data-pack')||'';
+      var price=btn.getAttribute('data-price')||'';
+      var credits=btn.getAttribute('data-credits')||'';
+      trackBuyClick(pack,price,'buy_button');
+
+      if(stripeConfigured){
+        /* Try Stripe checkout */
+        btn.textContent='Redirecting\u2026';
+        btn.classList.add('loading');
+        fetch('/v1/stripe/checkout',{
+          method:'POST',
+          headers:{'content-type':'application/json'},
+          body:JSON.stringify({pack:pack})
+        }).then(function(r){
+          if(!r.ok)throw new Error('HTTP '+r.status);
+          return r.json();
+        }).then(function(d){
+          if(d.checkoutUrl){window.location=d.checkoutUrl;}
+          else{btn.textContent='Buy '+pack.charAt(0).toUpperCase()+pack.slice(1)+' \u2192';btn.classList.remove('loading');openFallback(pack,price,credits);}
+        }).catch(function(){
+          btn.textContent='Buy '+pack.charAt(0).toUpperCase()+pack.slice(1)+' \u2192';btn.classList.remove('loading');
+          openFallback(pack,price,credits);
+        });
+      } else {
+        /* No Stripe: show fallback with crypto + email options */
+        openFallback(pack,price,credits);
+      }
+    });
+  });
+
+  /* track page view */
+  try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'buy_page_view',meta:{}})],{type:'application/json'}));}catch(ex){}
+})();
+</script>
 </body>
 </html>`;
 }

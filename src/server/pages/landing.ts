@@ -188,8 +188,8 @@ ${topBar(bazaarCatalogUrl, 'landing')}
           <button type="button" class="quick-try-btn" data-url="https://example.com/">example.com</button>
           <button type="button" class="quick-try-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Wikipedia</button>
           <button type="button" class="quick-try-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">MDN Docs</button>
-          <button type="button" class="quick-try-btn" data-url="https://news.ycombinator.com/">Hacker News</button>
           <button type="button" class="quick-try-btn" data-url="https://github.com/shoutsid-lab/webcap">GitHub repo</button>
+          <button type="button" class="quick-try-btn" data-url="https://www.bbc.com/news">BBC News</button>
         </div>
       </form>
       <div id="preview-results" class="preview-results" hidden></div>
@@ -440,7 +440,24 @@ ${footer(bazaarCatalogUrl)}
       if(d.truncated)h+='<span class="pr-badge">preview</span>';
       h+='</div>';
       if(p.description)h+='<p class="pr-desc">'+esc(p.description)+'</p>';
-      /* --- UPGRADE CTA FIRST: Single action, not 3 steps --- */
+      /* --- preview data FIRST: let users see what they got --- */
+      var hCount=(p.headings||[]).length;
+      var lCount=(p.links||[]).length;
+      var wCount=p.wordCount||0;
+      if(p.headings&&p.headings.length){
+        h+='<div class="pr-section"><span class="pr-label">Headings ('+hCount+(d.truncated?' preview \u2014 more in full extract':'')+') '+'</span><ul>';
+        p.headings.slice(0,8).forEach(function(heading){h+='<li><span class="pr-h'+heading.level+'">H'+heading.level+'</span> '+esc(heading.text)+'</li>';});
+        h+='</ul></div>';
+      }
+      if(p.links&&p.links.length){
+        h+='<div class="pr-section"><span class="pr-label">Links ('+p.links.length+(d.truncated?' shown':'')+')</span>';
+        h+='<div class="pr-links">';
+        p.links.slice(0,6).forEach(function(link){h+='<a href="'+esc(link.href)+'" target="_blank" rel="noopener">'+esc(link.text||link.href)+'</a>';});
+        if(p.links.length>6)h+='<span class="pr-more">+'+(p.links.length-6)+' more</span>';
+        h+='</div></div>';
+      }
+      if(p.wordCount)h+='<div class="pr-section"><span class="pr-label">Words</span> '+p.wordCount+(d.truncated?' (truncated)':'')+'</div>';
+      /* --- UPGRADE CTA: now that users see their data, show the gap and CTA --- */
       var curlCmd='curl -X POST "'+base+'/v1/x402/extract" -H "content-type: application/json" -d \'{"urls":["'+url+'"]}\'';
       h+='<div class="pr-upgrade pr-upgrade-top">';
       h+='<div class="pr-upgrade-body">';
@@ -454,25 +471,22 @@ ${footer(bazaarCatalogUrl)}
       h+='</div>';
       h+='<div class="pr-copy-toast" id="copy-toast" hidden>\u2713 Copied! Paste in your terminal and run.</div>';
       h+='</div>';
-      /* --- AUTO-DEMO placeholder: full extract comparison loads here --- */
-      h+='<div class="pr-auto-demo" id="pr-auto-demo" style="margin-top:12px;padding:12px 16px;background:var(--panel-2);border:1px dashed var(--accent);border-radius:var(--r-m);display:flex;align-items:center;gap:10px">';
-      h+='<span class="pr-spinner" style="width:16px;height:16px;border-width:2px"></span>';
-      h+='<span style="font-size:13px;color:var(--muted)">Loading full extract sample\u2026</span>';
+      /* --- USER-SPECIFIC COMPARISON: show what they're missing --- */
+      h+='<div class="pr-auto-demo" id="pr-auto-demo" style="padding:16px 18px;background:rgba(37,99,235,.04);border:1px solid rgba(37,99,235,.15);border-radius:var(--r-m)">';
+      h+='<span class="pr-label" style="color:var(--accent);font-weight:700">\u{1F4CA} What you got vs what you\\'re missing</span>';
+      h+='<table style="width:100%;border-collapse:collapse;margin-top:10px;font-family:var(--mono);font-size:12px">';
+      h+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--faint);font-size:11px"></td><td style="padding:5px 10px;color:var(--faint);text-align:center;font-size:11px">Preview (free)</td><td style="padding:5px 10px;color:var(--accent);text-align:center;font-weight:700;font-size:11px">Full extract ($0.01)</td></tr>';
+      h+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Title</td><td style="padding:5px 10px;text-align:center">\u2713 '+esc((p.title||'').slice(0,30))+'</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713 '+esc((p.title||'').slice(0,30))+'</td></tr>';
+      h+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Headings</td><td style="padding:5px 10px;text-align:center">'+hCount+' shown</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">all of them</td></tr>';
+      h+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Links</td><td style="padding:5px 10px;text-align:center">'+lCount+' shown</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">all of them</td></tr>';
+      h+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Word count</td><td style="padding:5px 10px;text-align:center">'+wCount+'</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">full count</td></tr>';
+      h+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Full markdown</td><td style="padding:5px 10px;text-align:center">\u2717 truncated</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713 complete</td></tr>';
+      h+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Paragraphs</td><td style="padding:5px 10px;text-align:center">\u2717</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713 all</td></tr>';
+      h+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Images</td><td style="padding:5px 10px;text-align:center">\u2717</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713 all</td></tr>';
+      h+='<tr><td style="padding:5px 0;color:var(--muted)">AI classification</td><td style="padding:5px 10px;text-align:center">\u2717</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713 type + confidence</td></tr>';
+      h+='</table>';
+      h+='<p style="margin-top:10px;font-size:12px;color:var(--muted)">\u{1F4A1} One $0.01 payment gets you EVERYTHING: all headings, all links, full markdown, paragraphs, images, and AI classification. <strong>One payment covers up to 50 URLs.</strong></p>';
       h+='</div>';
-      /* --- preview data --- */
-      if(p.headings&&p.headings.length){
-        h+='<div class="pr-section"><span class="pr-label">Headings'+(d.truncated?' (preview \u2014 more in full extract)':'')+'</span><ul>';
-        p.headings.slice(0,8).forEach(function(heading){h+='<li><span class="pr-h'+heading.level+'">H'+heading.level+'</span> '+esc(heading.text)+'</li>';});
-        h+='</ul></div>';
-      }
-      if(p.links&&p.links.length){
-        h+='<div class="pr-section"><span class="pr-label">Links ('+p.links.length+(d.truncated?' shown':'')+')</span>';
-        h+='<div class="pr-links">';
-        p.links.slice(0,6).forEach(function(link){h+='<a href="'+esc(link.href)+'" target="_blank" rel="noopener">'+esc(link.text||link.href)+'</a>';});
-        if(p.links.length>6)h+='<span class="pr-more">+'+(p.links.length-6)+' more</span>';
-        h+='</div></div>';
-      }
-      if(p.wordCount)h+='<div class="pr-section"><span class="pr-label">Words</span> '+p.wordCount+(d.truncated?' (truncated)':'')+'</div>';
       /* --- secondary actions at bottom --- */
       h+='<div class="pr-bottom-actions">';
       h+='<a href="'+esc(base)+'/quickstart" class="pr-upgrade-link" data-track="quickstart_click">Quick start guide \u2197</a>';
@@ -485,7 +499,7 @@ ${footer(bazaarCatalogUrl)}
       h+='</form>';
       h+='<p class="email-note">No spam. Unsubscribe anytime.</p>';
       h+='</div>';
-      h+='<div class="pr-try-another"><button class="btn-sm pr-try-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Wikipedia</button> <button class="btn-sm pr-try-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">MDN Docs</button> <button class="btn-sm pr-try-btn" data-url="https://news.ycombinator.com/">Hacker News</button> <button class="btn-sm pr-try-btn" data-url="https://github.com/shoutsid-lab/webcap">GitHub repo</button></div>';
+      h+='<div class="pr-try-another"><button class="btn-sm pr-try-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Wikipedia</button> <button class="btn-sm pr-try-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">MDN Docs</button> <button class="btn-sm pr-try-btn" data-url="https://github.com/shoutsid-lab/webcap">GitHub repo</button> <button class="btn-sm pr-try-btn" data-url="https://www.bbc.com/news">BBC News</button></div>';
       if(results){results.innerHTML=h;results.scrollIntoView({behavior:'smooth',block:'start'});}
       /* --- primary copy button (big) --- */
       var mainCopyBtn=results?results.querySelector('.pr-copy-main'):null;
@@ -521,61 +535,8 @@ ${footer(bazaarCatalogUrl)}
       if(buyLink){buyLink.addEventListener('click',function(){
         try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'buy_click',meta:{url:url,source:'preview_results'}})],{type:'application/json'}));}catch(ex){}
       });}
-      /* --- See full output button + AUTO-DEMO on success --- */
-      var demoBtn=results?results.querySelector('.pr-demo-btn'):null;
-      var demoLoaded=false;
-      function showDemo(){
-        if(demoLoaded)return;demoLoaded=true;
-        if(demoBtn){demoBtn.textContent='Loading\u2026';demoBtn.disabled=true;}
-        fetch('/v1/demo').then(function(r){return r.json();}).then(function(demo){
-          var demoSection='<div class="pr-section" style="margin-top:16px;border-top:2px solid var(--accent);padding-top:16px">';
-          var r=demo.results&&demo.results[0]?demo.results[0]:null;
-          if(!r)return;
-          /* Structured demo output instead of raw JSON */
-          demoSection+='<span class="pr-label">\u{1F441} Full extract sample \u2014 what you get for $0.01</span>';
-          demoSection+='<div class="term" style="margin-top:8px"><div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">full extract: '+esc(r.title||'sample')+'</span></div>';
-          demoSection+='<pre style="overflow-x:auto;max-height:400px"><code>';
-          demoSection+='\u{1F3AF} Title: '+esc(r.title)+'\n';
-          demoSection+='\u{1F4DD} Description: '+esc((r.description||'').slice(0,200))+'\n';
-          demoSection+='\u{1F4D6} Word count: '+r.wordCount+'\n';
-          demoSection+='\u{1F4CA} Classification: '+(r.classification?r.classification.type+' ('+Math.round(r.classification.confidence*100)+'%)':'none')+'\n';
-          demoSection+='\n\u{1F4CB} Headings ('+(r.headings||[]).length+'):';
-          (r.headings||[]).forEach(function(h){demoSection+='\n  H'+h.level+': '+esc(h.text);});
-          demoSection+='\n\n\u{1F517} Links ('+(r.links||[]).length+'):';
-          (r.links||[]).slice(0,8).forEach(function(l){demoSection+='\n  \u2192 '+esc(l.text);});
-          if((r.links||[]).length>8)demoSection+='\n  ...+'+((r.links||[]).length-8)+' more';
-          demoSection+='\n\n\u{1F5BC} Images: '+(r.images||[]).length;
-          demoSection+='\n\n\u{1F4C4} Markdown (first 600 chars):\n'+esc((r.markdown||'').slice(0,600))+((r.markdown||'').length>600?'\n...+more':'');
-          demoSection+='</code></div></div>';
-          /* Side-by-side comparison table */
-          demoSection+='<div style="margin-top:12px;padding:14px 18px;background:rgba(37,99,235,.06);border:1px solid rgba(37,99,235,.2);border-radius:var(--r-m)">';
-          demoSection+='<span class="pr-label" style="color:var(--accent)">Preview vs Full extract</span>';
-          demoSection+='<table style="width:100%;border-collapse:collapse;margin-top:8px;font-family:var(--mono);font-size:12px">';
-          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--faint)"></td><td style="padding:6px 12px;color:var(--faint);text-align:center">Preview (free)</td><td style="padding:6px 12px;color:var(--accent);text-align:center;font-weight:700">Full ($0.01)</td></tr>';
-          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Title</td><td style="padding:6px 12px;text-align:center">\u2713</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">\u2713</td></tr>';
-          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Headings</td><td style="padding:6px 12px;text-align:center">\u22645</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.headings||[]).length+' all</td></tr>';
-          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Links</td><td style="padding:6px 12px;text-align:center">\u22646</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.links||[]).length+' all</td></tr>';
-          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Word count</td><td style="padding:6px 12px;text-align:center">truncated</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+r.wordCount+'</td></tr>';
-          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Full markdown</td><td style="padding:6px 12px;text-align:center">\u2717</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">\u2713</td></tr>';
-          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Paragraphs</td><td style="padding:6px 12px;text-align:center">\u2717</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.paragraphs||[]).length+'</td></tr>';
-          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Images</td><td style="padding:6px 12px;text-align:center">\u2717</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.images||[]).length+'</td></tr>';
-          demoSection+='<tr><td style="padding:6px 0;color:var(--muted)">AI classification</td><td style="padding:6px 12px;text-align:center">\u2717</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.classification?r.classification.type:'\u2717')+'</td></tr>';
-          demoSection+='</table></div>';
-          if(results){
-            var autoDemoEl=results.querySelector('#pr-auto-demo');
-            if(autoDemoEl){autoDemoEl.outerHTML=demoSection;}
-            else{var actionsDiv=results.querySelector('.pr-upgrade-actions');if(actionsDiv){actionsDiv.insertAdjacentHTML('afterend',demoSection);}}
-          }
-          if(demoBtn){demoBtn.textContent='\u2713 Shown below';demoBtn.style.background='var(--ok)';demoBtn.style.color='white';}
-          try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'demo_view',meta:{url:url,source:'preview_auto'}})],{type:'application/json'}));}catch(ex){}
-        }).catch(function(){if(demoBtn){demoBtn.textContent='Error \u2014 try again';demoBtn.disabled=false;}demoLoaded=false;});
-      }
-      if(demoBtn){demoBtn.addEventListener('click',function(){
-        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'demo_view',meta:{url:url,source:'preview_results'}})],{type:'application/json'}));}catch(ex){}
-        showDemo();
-      });}
-      /* --- AUTO-DEMO: fetch full extract sample 800ms after preview success --- */
-      setTimeout(function(){showDemo();},800);
+      /* --- comparison table is now inline (built above) --- */
+      try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'demo_view',meta:{url:url,source:'preview_inline',headings:hCount,links:lCount,words:wCount}})],{type:'application/json'}));}catch(ex){}
       /* email capture */
       var emailForm=results?results.querySelector('#email-capture-form'):null;
       if(emailForm){emailForm.addEventListener('submit',function(e){
@@ -616,14 +577,14 @@ ${footer(bazaarCatalogUrl)}
         friendlyMsg='DNS resolution failed';
         hint='<p class="pr-hint">The domain couldn\'t be resolved. Check for typos in the URL.</p>';
       }
-      var retryBtn='<button class="btn-sm pr-retry-btn" data-url="https://example.com/">Try example.com</button> <button class="btn-sm pr-retry-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Try Wikipedia</button> <button class="btn-sm pr-retry-btn" data-url="'+url+'">Retry this URL</button>';
+      var retryBtn='<button class="btn-sm pr-retry-btn" data-url="https://example.com/">Try example.com</button> <button class="btn-sm pr-retry-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Try Wikipedia</button> <button class="btn-sm pr-retry-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">Try MDN</button> <button class="btn-sm pr-retry-btn" data-url="'+url+'">Retry this URL</button>';
       /* --- upgrade CTA on error: still show the value even when preview fails --- */
       var errCta='';
-      var errCurlCmd='curl -X POST "'+base+'/v1/x402/capture" -H "content-type: application/json" -d \'{"url":"'+url+'"}\'';
+      var errCurlCmd='curl -X POST "'+base+'/v1/x402/extract" -H "content-type: application/json" -d \'{"urls":["'+url+'"]}\'';
       errCta+='<div class="pr-upgrade">';
       errCta+='<div class="pr-upgrade-body">';
-      errCta+='<div class="pr-upgrade-title"><span class="pr-upgrade-icon">\u{1F513}</span> '+(friendlyMsg==='Capture failed'?'Browser capture handles this':'The full API handles this')+' \u2014 $0.001</div>';
-      errCta+='<p style="margin:4px 0 8px;font-size:12px;color:var(--muted)">Pay with x402 crypto (USDC). No accounts needed.</p>';
+      errCta+='<div class="pr-upgrade-title"><span class="pr-upgrade-icon">\u{1F513}</span> Get the full extract \u2014 just $0.01</div>';
+      errCta+='<p style="margin:4px 0 8px;font-size:12px;color:var(--muted)">Full markdown, all headings & links, images, paragraphs, and AI classification. <strong>One payment covers up to 50 URLs.</strong> No accounts needed.</p>';
       errCta+='</div>';
       errCta+='<div class="pr-upgrade-actions">';
       errCta+='<button class="pr-upgrade-btn pr-copy-main" data-curl="'+esc(errCurlCmd)+'" title="Copy curl command to clipboard">\u{1F4CB} Copy & run in terminal</button>';
@@ -632,10 +593,20 @@ ${footer(bazaarCatalogUrl)}
       errCta+='</div>';
       errCta+='<div class="pr-copy-toast" id="copy-toast" hidden>\u2713 Copied! Paste in your terminal and run.</div>';
       errCta+='</div>';
-      /* --- AUTO-DEMO placeholder on error state --- */
-      errCta+='<div class="pr-auto-demo" id="pr-auto-demo" style="margin-top:12px;padding:12px 16px;background:var(--panel-2);border:1px dashed var(--accent);border-radius:var(--r-m);display:flex;align-items:center;gap:10px">';
-      errCta+='<span class="pr-spinner" style="width:16px;height:16px;border-width:2px"></span>';
-      errCta+='<span style="font-size:13px;color:var(--muted)">Loading full extract sample\u2026</span>';
+      /* --- STATIC COMPARISON on error: show what full extract offers --- */
+      errCta+='<div class="pr-auto-demo" id="pr-auto-demo" style="margin-top:16px;padding:16px 18px;background:rgba(37,99,235,.04);border:1px solid rgba(37,99,235,.15);border-radius:var(--r-m)">';
+      errCta+='<span class="pr-label" style="color:var(--accent);font-weight:700">\u{1F4CA} What the full extract gives you</span>';
+      errCta+='<table style="width:100%;border-collapse:collapse;margin-top:10px;font-family:var(--mono);font-size:12px">';
+      errCta+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Feature</td><td style="padding:5px 10px;color:var(--accent);text-align:center;font-weight:700">$0.01 per batch</td></tr>';
+      errCta+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Title + description</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713</td></tr>';
+      errCta+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">All headings (H1-H6)</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713</td></tr>';
+      errCta+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">All links with text</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713</td></tr>';
+      errCta+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Full markdown</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713</td></tr>';
+      errCta+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Paragraphs</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713</td></tr>';
+      errCta+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Images</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713</td></tr>';
+      errCta+='<tr><td style="padding:5px 0;color:var(--muted)">AI classification</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713</td></tr>';
+      errCta+='</table>';
+      errCta+='<p style="margin-top:10px;font-size:12px;color:var(--muted)">\u{1F4A1} Browser-level capture handles blocking sites. <strong>Batch up to 50 URLs per payment.</strong></p>';
       errCta+='</div>';
       errCta+='<div class="pr-email-capture">';
       errCta+='<p>Not ready to pay? Get product updates:</p>';
@@ -645,7 +616,7 @@ ${footer(bazaarCatalogUrl)}
       errCta+='</form>';
       errCta+='<p class="email-note">No spam. Unsubscribe anytime.</p>';
       errCta+='</div>';
-      errCta+='<div class="pr-try-another"><button class="btn-sm pr-try-btn" data-url="https://example.com/">Try example.com</button> <button class="btn-sm pr-try-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Try Wikipedia</button> <button class="btn-sm pr-try-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">Try MDN</button></div>';
+      errCta+='<div class="pr-try-another"><button class="btn-sm pr-try-btn" data-url="https://example.com/">Try example.com</button> <button class="btn-sm pr-try-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Try Wikipedia</button> <button class="btn-sm pr-try-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">Try MDN</button> <button class="btn-sm pr-try-btn" data-url="https://www.bbc.com/news">Try BBC News</button></div>';
       /* Put the upgrade CTA FIRST — above the error details — so users see the solution before the problem */
       if(results){results.innerHTML=errCta+'<div class="pr-error"><span class="pr-error-icon">\u26A0\uFE0F</span> <strong>'+esc(friendlyMsg)+'</strong>: '+esc(errMsg)+' '+hint+'<div class="pr-error-actions">'+retryBtn+'<a href="/v1/extract/preview?url='+encodeURIComponent(url)+'" target="_blank" class="pr-error-link">View raw JSON \u2197</a></div></div>';results.scrollIntoView({behavior:'smooth',block:'start'});}
       var retryEls=results?results.querySelectorAll('.pr-retry-btn'):null;
@@ -687,47 +658,7 @@ ${footer(bazaarCatalogUrl)}
       if(errBuyLink){errBuyLink.addEventListener('click',function(){
         try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'buy_click',meta:{url:url,source:'preview_error'}})],{type:'application/json'}));}catch(ex){}
       });}
-      /* --- See full output button on error state --- */
-      var errDemoBtn=results?results.querySelector('.pr-demo-btn'):null;
-      if(errDemoBtn){errDemoBtn.addEventListener('click',function(){
-        errDemoBtn.textContent='Loading\u2026';errDemoBtn.disabled=true;
-        fetch('/v1/demo').then(function(r){return r.json();}).then(function(demo){
-          var r=demo.results&&demo.results[0]?demo.results[0]:null;
-          if(!r)return;
-          var demoSection='<div class="pr-section" style="margin-top:16px;border-top:2px solid var(--accent);padding-top:16px">';
-          demoSection+='<span class="pr-label">\u{1F441} Full extract sample \u2014 what you get for $0.01</span>';
-          demoSection+='<div class="term" style="margin-top:8px"><div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">full extract: '+esc(r.title||'sample')+'</span></div>';
-          demoSection+='<pre style="overflow-x:auto;max-height:400px"><code>';
-          demoSection+='\u{1F3AF} Title: '+esc(r.title)+'\n';
-          demoSection+='\u{1F4DD} Description: '+esc((r.description||'').slice(0,200))+'\n';
-          demoSection+='\u{1F4D6} Word count: '+r.wordCount+'\n';
-          demoSection+='\u{1F4CA} Classification: '+(r.classification?r.classification.type+' ('+Math.round(r.classification.confidence*100)+'%)':'none')+'\n';
-          demoSection+='\n\u{1F4CB} Headings ('+(r.headings||[]).length+'):';
-          (r.headings||[]).forEach(function(h){demoSection+='\n  H'+h.level+': '+esc(h.text);});
-          demoSection+='\n\n\u{1F517} Links ('+(r.links||[]).length+'):';
-          (r.links||[]).slice(0,8).forEach(function(l){demoSection+='\n  \u2192 '+esc(l.text);});
-          if((r.links||[]).length>8)demoSection+='\n  ...+'+((r.links||[]).length-8)+' more';
-          demoSection+='\n\n\u{1F5BC} Images: '+(r.images||[]).length;
-          demoSection+='</code></div></div>';
-          /* Side-by-side comparison */
-          demoSection+='<div style="margin-top:12px;padding:14px 18px;background:rgba(37,99,235,.06);border:1px solid rgba(37,99,235,.2);border-radius:var(--r-m)">';
-          demoSection+='<span class="pr-label" style="color:var(--accent)">Preview vs Full extract</span>';
-          demoSection+='<table style="width:100%;border-collapse:collapse;margin-top:8px;font-family:var(--mono);font-size:12px">';
-          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--faint)"></td><td style="padding:6px 12px;color:var(--faint);text-align:center">Preview (free)</td><td style="padding:6px 12px;color:var(--accent);text-align:center;font-weight:700">Full ($0.01)</td></tr>';
-          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Links</td><td style="padding:6px 12px;text-align:center">\u22646</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.links||[]).length+' all</td></tr>';
-          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Full markdown</td><td style="padding:6px 12px;text-align:center">\u2717</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">\u2713</td></tr>';
-          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Images</td><td style="padding:6px 12px;text-align:center">\u2717</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.images||[]).length+'</td></tr>';
-          demoSection+='<tr><td style="padding:6px 0;color:var(--muted)">AI classification</td><td style="padding:6px 12px;text-align:center">\u2717</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.classification?r.classification.type:'\u2717')+'</td></tr>';
-          demoSection+='</table></div>';
-          if(results){
-            var autoDemoEl=results.querySelector('#pr-auto-demo');
-            if(autoDemoEl){autoDemoEl.outerHTML=demoSection;}
-            else{var actionsDiv=results.querySelector('.pr-upgrade-actions');if(actionsDiv){actionsDiv.insertAdjacentHTML('afterend',demoSection);}}
-          }
-          errDemoBtn.textContent='\u2713 Shown below';errDemoBtn.style.background='var(--ok)';errDemoBtn.style.color='white';
-        }).catch(function(){errDemoBtn.textContent='Error \u2014 try again';errDemoBtn.disabled=false;});
-        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'demo_view',meta:{url:url,source:'preview_error'}})],{type:'application/json'}));}catch(ex){}
-      });}
+      /* --- comparison table is now inline (built above) --- */
       /* email capture on error state */
       var errEmailForm=results?results.querySelector('#email-capture-form'):null;
       if(errEmailForm){errEmailForm.addEventListener('submit',function(e){
