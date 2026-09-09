@@ -86,12 +86,12 @@ console.log(res.data.artifact.url); <span class="c">// 200 \u2014 paid, settled,
 <meta property="og:type" content="website">
 <meta property="og:url" content="${base}">
 <meta property="og:title" content="webcap \u2014 pay-per-call web capture API (x402 USDC)">
-<meta property="og:description" content="Screenshot any URL. Pay per call, on-chain. PNG/JPEG/PDF capture, structured extraction, and scheduled monitoring with change alerts. x402 USDC micropayments on Base mainnet.">
+<meta property="og:description" content="Screenshot any URL. Pay per call, on-chain. PNG/JPEG/PDF capture, structured extraction, and scheduled monitoring with change alerts. ${copy.settlement}.">
 <meta property="og:image" content="${base}/icon.png">
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="webcap \u2014 pay-per-call web capture API (x402 USDC)">
-<meta name="twitter:description" content="Screenshot any URL. Pay per call, on-chain. PNG/JPEG/PDF capture, structured extraction, and scheduled monitoring with change alerts.">
+<meta name="twitter:description" content="Screenshot any URL. Pay per call, on-chain. PNG/JPEG/PDF capture, structured extraction, and scheduled monitoring with change alerts. ${copy.settlement}.">
 <meta name="twitter:image" content="${base}/icon.png">
 <link rel="canonical" href="${base}">
 <link rel="icon" href="/icon.png">
@@ -100,7 +100,7 @@ console.log(res.data.artifact.url); <span class="c">// 200 \u2014 paid, settled,
   "@context": "https://schema.org",
   "@type": "WebAPI",
   "name": "webcap",
-  "description": "Pay-per-call web capture API: screenshots (PNG/JPEG/PDF), structured extraction, and scheduled monitoring with change alerts. x402 USDC micropayments on Base mainnet.",
+  "description": "Pay-per-call web capture API: screenshots (PNG/JPEG/PDF), structured extraction, and scheduled monitoring with change alerts. x402 USDC micropayments ${copy.settlement}.",
   "url": "${base}",
   "documentation": "${base}/openapi.json",
   "provider": {

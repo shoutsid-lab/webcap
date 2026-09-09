@@ -22,6 +22,7 @@ import {
   type WebcapConfig,
 } from '../config.js';
 import { accountPaths } from './openapi/paths-accounts.js';
+import { billingPaths } from './openapi/paths-billing.js';
 import { freePaths } from './openapi/paths-free.js';
 import { jobsPaths } from './openapi/paths-jobs.js';
 import { mlPaths } from './openapi/paths-ml.js';
@@ -95,6 +96,7 @@ export async function openapiDocument(config: WebcapConfig): Promise<OpenapiDocu
       ...freePaths(ctx),
       ...webPaths(config),
       ...accountPaths(config, ctx),
+      ...billingPaths(ctx),
       ...jobsPaths(config, ctx),
     },
     components: {
