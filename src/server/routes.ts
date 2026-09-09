@@ -20,6 +20,7 @@ import {
 import { makeRevenueRepo } from '../db/revenue.js';
 import { recordHit } from '../db/hits.js';
 import { CaptureError } from '../capture/errors.js';
+import { previewFallback } from '../capture/preview-fallback.js';
 import { HttpError, unprocessable } from '../util/errors.js';
 import { RateLimiter, rejectRateLimited } from '../util/ratelimit.js';
 import { extractPage, storeArtifact } from '../extract/service.js';
@@ -257,6 +258,8 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
   app.get('/v1/extract/preview', async (req, reply) => {
     const rawUrl = isRecord(req.query) ? req.query.url : undefined;
     if (typeof rawUrl !== 'string') throw unprocessable('url query parameter is required');
+    // Validate URL once up front so both the primary path and fallback share it.
+    const normalizedUrl = validatedUrl(rawUrl, allowHosts);
     // Key on the actual peer IP only: behind the ngrok tunnel req.ip is the
     // tunnel peer, while X-Forwarded-For is attacker-controlled (spoofing it
     // previously minted an unlimited free-capture budget per header value).
@@ -293,12 +296,13 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           model: config.modelName,
         };
         const extractResult = await extractPage({
-          url: validatedUrl(rawUrl, allowHosts),
+          url: normalizedUrl,
           captureStructured: deps.captureStructured,
           schema: undefined, // no structured schema for preview; model adds extracted on top
           model,
-          modelTimeoutMs: config.modelTimeoutMs ?? 30_000,
+          modelTimeoutMs: 15_000, // 15s model response for preview — keeps total under 35s client budget
           logger: pinoServiceLogger(req.log),
+          captureOptions: { timeoutMs: 15_000 }, // 15s browser + 2×8s fallback = 31s total, under 35s client AbortController
         });
         // Build mutable structure from extractResult
         structure = {
@@ -343,7 +347,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           }
         }
       } else {
-        const captured = await deps.captureStructured({ url: validatedUrl(rawUrl, allowHosts), options: { includeHtml: false } });
+        const captured = await deps.captureStructured({ url: normalizedUrl, options: { timeoutMs: 15_000, includeHtml: false } });
         structure = {
           title: captured.structure.title,
           description: captured.structure.description,
@@ -356,8 +360,27 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         };
       }
     } catch (err) {
-      if (err instanceof CaptureError) throw new HttpError(502, 'capture_failed', err.message);
-      throw err;
+      // Browser capture failed — try the lightweight HTTP-only fallback
+      // instead of immediately returning a 502. This gives a degraded but
+      // functional result for pages that don't need JS rendering.
+      try {
+        const fallback = await previewFallback(normalizedUrl);
+        structure = {
+          title: fallback.title,
+          description: fallback.description,
+          headings: [...fallback.headings],
+          paragraphs: [...fallback.paragraphs],
+          links: [...fallback.links],
+          images: [...fallback.images],
+          wordCount: fallback.wordCount,
+          markdown: fallback.markdown,
+        };
+      } catch (fallbackErr) {
+        // Both browser and fallback failed — return the best error we have
+        if (err instanceof CaptureError) throw new HttpError(502, 'capture_failed', err.message);
+        if (fallbackErr instanceof CaptureError) throw new HttpError(502, 'capture_failed', fallbackErr.message);
+        throw new HttpError(502, 'capture_failed', `capture failed for ${rawUrl}: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
 
     // ML Classification: when model is configured, classify the page type
@@ -372,7 +395,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           allowRemoteEndpoint: true,
         });
         // Capture screenshot for classification
-        const captureResult = await deps.capture({ url: validatedUrl(rawUrl, allowHosts), format: 'jpeg' });
+        const captureResult = await deps.capture({ url: normalizedUrl, format: 'jpeg' });
         if (validateImageSignature(captureResult.buffer, 'image/jpeg')) {
           const exchange = await adapter.analyze({
             imageBytes: captureResult.buffer,
@@ -410,6 +433,54 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         howToPay: 'HTTP 402 -> sign a gasless EIP-3009 USDC transferWithAuthorization -> retry with the PAYMENT-SIGNATURE header (x402 v2 exact scheme)',
         guide: `${config.publicBaseUrl}/skill.md`,
       },
+    };
+  });
+
+  /**
+   * GET /v1/demo — returns a sample full extract response so users can see
+   * the actual output format before paying. No auth, no rate limit.
+   */
+  app.get('/v1/demo', async () => {
+    return {
+      url: 'https://news.ycombinator.com/',
+      results: [
+        {
+          url: 'https://news.ycombinator.com/',
+          title: 'Hacker News',
+          description: 'Hacker News is a social news website focusing on computer science and entrepreneurship. It is run by Y Combinator.',
+          headings: [
+            { level: 1, text: 'Hacker News' },
+            { level: 2, text: 'New | Past | Comments | Ask | Show | Jobs | Submit' },
+            { level: 3, text: 'Sitewide Links' },
+          ],
+          paragraphs: [
+            'Welcome to Hacker News. This is a demo of the full extract output \u2014 showing what you get when you pay $0.01 for a complete structured extraction.',
+            'The free preview gives you titles, a few headings, and truncated markdown. The full extract gives you EVERYTHING: all paragraphs, all links with text, all images, full markdown, and optional AI classification.',
+            'Compare this to the free preview. Notice how much more data you get \u2014 complete text content, every navigation link, word count, and structured classification.',
+            'This is perfect for content monitoring, competitive analysis, SEO audits, research automation, and building data pipelines. All from a single API call.',
+          ],
+          links: [
+            { href: 'https://news.ycombinator.com/newest', text: 'new' },
+            { href: 'https://news.ycombinator.com/front', text: 'past' },
+            { href: 'https://news.ycombinator.com/newcomments', text: 'comments' },
+            { href: 'https://news.ycombinator.com/ask', text: 'ask' },
+            { href: 'https://news.ycombinator.com/show', text: 'show' },
+            { href: 'https://news.ycombinator.com/jobs', text: 'jobs' },
+            { href: 'https://news.ycombinator.com/submit', text: 'submit' },
+            { href: 'https://www.ycombinator.com/apply/', text: 'Y Combinator' },
+            { href: 'https://www.ycombinator.com/legal/', text: 'Legal' },
+            { href: 'https://www.ycombinator.com/faq/', text: 'FAQ' },
+          ],
+          images: [
+            { src: 'https://news.ycombinator.com/y18.svg', alt: 'Hacker News logo' },
+          ],
+          wordCount: 2847,
+          markdown: '# Hacker News\n\n## New | Past | Comments | Ask | Show | Jobs | Submit\n\n1. **Show HN: I built a tool that extracts structured data from any URL** (github.com/example)\n   - 42 points | 28 comments | 3 hours ago\n\n2. **The Rise of Web APIs in 2026** (techcrunch.com)\n   - 187 points | 142 comments | 5 hours ago\n\n3. **Ask HN: What tools do you use for web scraping?** (news.ycombinator.com)\n   - 89 points | 67 comments | 2 hours ago\n\n---\n\n## Complete Text Content\n\nWelcome to Hacker News, a community-focused platform where developers and entrepreneurs discuss technology, startups, and computer science. Every submission is voted on by the community, with the most interesting content rising to the top.\n\nThe site features discussions about software development, computer science, technology, and entrepreneurship. Popular topics include programming languages, open source projects, startups, funding, and emerging technologies.\n\nHacker News has been a cornerstone of the tech community since its launch, serving as a primary discovery channel for new tools, libraries, and services.',
+          classification: { type: 'news_aggregator', confidence: 0.97 },
+        },
+      ],
+      _demo: true,
+      _note: 'Sample full extract for Hacker News. The free preview would only show: title, 1 heading, 1 link, and ~200 chars of truncated markdown.',
     };
   });
 

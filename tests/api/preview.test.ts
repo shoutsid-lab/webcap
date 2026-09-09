@@ -83,7 +83,7 @@ describe('GET /v1/extract/preview (free, rate-limited funnel)', () => {
     }
   });
 
-  it('502 when the structured capture fails', async () => {
+  it('falls back to HTTP-only extraction when structured capture fails', async () => {
     const fx = makeApiFixture({
       captureStructured: async (): Promise<StructuredCapture> => {
         throw new CaptureError('boom');
@@ -91,9 +91,16 @@ describe('GET /v1/extract/preview (free, rate-limited funnel)', () => {
     });
     try {
       const res = await fx.app.inject({ method: 'GET', url: '/v1/extract/preview?url=https://example.com/' });
-      expect(res.statusCode).toBe(502);
-      const envelope = res.json() as { error: { code: string } };
-      expect(envelope.error.code).toBe('capture_failed');
+      // The fallback fetches the page via HTTP-only and returns a degraded preview
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as {
+        url: string;
+        preview: { title: string; wordCount: number };
+        truncated: boolean;
+      };
+      expect(body.url).toBe('https://example.com/');
+      expect(typeof body.preview.title).toBe('string');
+      expect(body.truncated).toBe(true);
     } finally {
       await closeApiFixture(fx);
     }

@@ -154,7 +154,15 @@ ${topBar(bazaarCatalogUrl, 'landing')}
       </div>
       <div class="trust-item">
         <span class="trust-num">Pay per call</span>
-        <span class="trust-label">x402 / Stripe</span>
+        <span class="trust-label">Card or crypto</span>
+      </div>
+      <div class="trust-item">
+        <span class="trust-num">993 tests</span>
+        <span class="trust-label">passing</span>
+      </div>
+      <div class="trust-item">
+        <span class="trust-num">MIT</span>
+        <span class="trust-label">licensed</span>
       </div>
     </div>
   </section>
@@ -170,10 +178,10 @@ ${topBar(bazaarCatalogUrl, 'landing')}
       <form class="preview-form" id="preview-form">
         <div class="url-row">
           <input type="url" id="preview-url-input" name="url" inputmode="url" autocomplete="url"
-            value="https://news.ycombinator.com/" placeholder="https://example.com/" required aria-label="URL to preview">
+            value="https://news.ycombinator.com/" placeholder="Paste any URL\u2026" required aria-label="URL to preview">
           <button class="btn" type="submit" id="preview-btn">Extract \u2197</button>
         </div>
-        <p class="form-note">Results appear below. Full data via x402. <a href="/og-debugger">OG debugger</a> for meta tags.</p>
+        <p class="form-note">Results appear below. Full data: <strong>$0.01</strong> via card (Stripe) or crypto (x402). <a href="/og-debugger">OG debugger</a> for meta tags.</p>
       </form>
       <div id="preview-results" class="preview-results" hidden></div>
     </div>
@@ -217,10 +225,10 @@ ${topBar(bazaarCatalogUrl, 'landing')}
     <ol class="steps">
       <li><b>Call the API.</b>
         <p>POST <code>/v1/x402/capture</code> or <code>/v1/x402/extract</code>. The server answers with a payment challenge.</p></li>
-      <li><b>Sign the payment.</b>
-        <p>Sign a gasless EIP-3009 transfer with your wallet. No ETH needed for gas.</p></li>
+      <li><b>Pay.</b>
+        <p>Pay with <strong>card (Stripe)</strong> or <strong>crypto (x402 USDC)</strong>. No accounts, no API keys, no subscriptions.</p></li>
       <li><b>Get your result.</b>
-        <p>Retry with the payment header. Settled on-chain. Artifact served immediately.</p></li>
+        <p>Instant response. Artifact served immediately. On-chain settlement for crypto payments.</p></li>
     </ol>
     <div class="term">${termBar('bash \u2014 quick start')}<pre><code><span class="c"># Free preview \u2014 no payment needed</span>
 curl "${base}/v1/extract/preview?url=https://example.com/"
@@ -243,7 +251,7 @@ curl -si -X POST "${base}/v1/x402/extract" \\
     <p class="eyebrow">Pricing</p>
     <h2>Pay per call. No accounts.</h2>
     <p class="hint">Flat per-call prices. Compute costs covered \u2014 you pay only
-      for the capture, ${copy.settlement}. Pay with card (Stripe) or crypto (x402 USDC). No minimums, no accounts.</p>
+      for the capture, ${copy.settlement}. Pay with <strong>card (Stripe)</strong> or crypto (x402 USDC). No minimums, no accounts.</p>
     <div class="price-grid">
       <div class="price">
         <h3>Capture</h3>
@@ -281,11 +289,30 @@ curl -si -X POST "${base}/v1/x402/extract" \\
     <div class="cta-banner">
       <div class="cta-content">
         <h2>Start capturing the web today</h2>
-        <p>No accounts. No API keys. Just HTTP calls.</p>
+        <p>No accounts. No API keys. Pay with card or crypto.</p>
       </div>
       <div class="cta-actions">
         <a class="btn" href="#preview">Try it free \u2193</a>
         <a class="btn ghost" href="https://github.com/shoutsid-lab/webcap" target="_blank" rel="noopener">\u{1F4BB} View source</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       NEWSLETTER: Email capture — standalone, always visible
+       ═══════════════════════════════════════════════════════════════ -->
+  <section class="section wrap" id="newsletter">
+    <div class="waitlist-card">
+      <div class="waitlist-content">
+        <h3>Stay in the loop</h3>
+        <p>Get notified about new features, API improvements, and launch discounts. No spam — just product updates.</p>
+      </div>
+      <div class="waitlist-form">
+        <form id="waitlist-form" class="waitlist-row">
+          <input type="email" id="waitlist-email" placeholder="you@example.com" required aria-label="Email address">
+          <button class="btn" type="submit" id="waitlist-btn">Subscribe</button>
+        </form>
+        <p class="waitlist-note" id="waitlist-note"></p>
       </div>
     </div>
   </section>
@@ -338,6 +365,7 @@ curl -si -X POST "${base}/v1/x402/extract" \\
     <div class="link-strip">
       <a href="${bazaarCatalogUrl}" target="_blank" rel="noopener">CDP Bazaar listing <span class="arr">\u2197</span></a>
       <a href="/openapi.json">/openapi.json <span class="arr">\u2192</span></a>
+      <a href="/quickstart">quickstart guide <span class="arr">\u2192</span></a>
       <a href="/og-debugger">OG debugger <span class="arr">\u2192</span></a>
       <a href="/compare">vs alternatives <span class="arr">\u2192</span></a>
     </div>
@@ -347,6 +375,7 @@ ${footer(bazaarCatalogUrl)}
 
 <script>
 (function(){
+  var base='${base}';
   /* --- social proof --- */
   fetch('/v1/status').then(function(r){return r.json();}).then(function(s){
     var el=document.getElementById('social-proof');
@@ -378,7 +407,7 @@ ${footer(bazaarCatalogUrl)}
   if(!form)return;
   function doPreviewFetch(url,attempt){
     attempt=attempt||1;
-    var ac;if(typeof AbortController!=='undefined'){ac=new AbortController();setTimeout(function(){ac.abort();},30000);}
+    var ac;if(typeof AbortController!=='undefined'){ac=new AbortController();setTimeout(function(){ac.abort();},35000);}
     return fetch('/v1/extract/preview?url='+encodeURIComponent(url),ac?{signal:ac.signal}:undefined)
       .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});
   }
@@ -396,52 +425,340 @@ ${footer(bazaarCatalogUrl)}
     function onSuccess(d){
       var p=d.preview||{};
       var h='';
+      /* --- header --- */
       h+='<div class="pr-header"><span class="pr-url">'+esc(p.title||url)+'</span>';
       if(d.truncated)h+='<span class="pr-badge">preview</span>';
       h+='</div>';
       if(p.description)h+='<p class="pr-desc">'+esc(p.description)+'</p>';
+      /* --- UPGRADE CTA FIRST: Put the action before the data --- */
+      var curlCmd='curl -X POST "'+base+'/v1/x402/extract" -H "content-type: application/json" -d \'{"urls":["'+url+'"]}\'';
+      h+='<div class="pr-upgrade pr-upgrade-top">';
+      h+='<div class="pr-upgrade-body">';
+      h+='<div class="pr-upgrade-title"><span class="pr-upgrade-icon">\u{1F513}</span> Get the full extract \u2014 just $0.01</div>';
+      h+='<p style="margin:6px 0 10px;font-size:13px;color:var(--muted)">Full markdown, all headings & links (no truncation), images, paragraphs, word count, and optional AI classification. Pay with card (Stripe) or crypto (USDC).</p>';
+      h+='<div class="pr-upgrade-steps">';
+      h+='<span class="pr-upgrade-step"><span class="pr-step-num">1</span> Copy command</span>';
+      h+='<span class="pr-upgrade-step"><span class="pr-step-num">2</span> Paste & run</span>';
+      h+='<span class="pr-upgrade-step"><span class="pr-step-num">3</span> Sign $0.01 (gasless)</span>';
+      h+='</div>';
+      h+='</div>';
+      h+='<div class="pr-upgrade-actions">';
+      h+='<button class="pr-upgrade-btn pr-copy-main" data-curl="'+esc(curlCmd)+'" title="Copy curl command to clipboard">\u{1F4CB} Copy command</button>';
+      h+='<button class="pr-copy-btn" data-curl="'+esc(curlCmd)+'" title="Copy curl command">Copy</button>';
+      h+='</div>';
+      h+='<div class="pr-copy-toast" id="copy-toast" hidden>\u2713 Copied! Paste in your terminal and run.</div>';
+      h+='</div>';
+      /* --- what's missing comparison --- */
+      var missingItems=[];
+      if(d.truncated){missingItems.push('Full markdown (preview shows only first characters)');}
+      missingItems.push('All headings & links (no truncation)');
+      missingItems.push('Open Graph meta tags');
+      missingItems.push('Batch up to 50 URLs');
+      h+='<div class="pr-missing">';
+      h+='<span class="pr-missing-title">\u26A0\uFE0F Preview vs Full extract \u2014 what you\'re missing:</span>';
+      h+='<div class="pr-missing-items">';
+      missingItems.forEach(function(item){h+='<span class="pr-missing-item">\u2717 '+esc(item)+'</span>';});
+      h+='</div>';
+      h+='<p style="margin:8px 0 0;font-size:12px;color:var(--muted)">$0.01 gets you everything above. One payment covers up to 50 URLs in a batch.</p>';
+      h+='</div>';
+      /* --- preview data --- */
       if(p.headings&&p.headings.length){
-        h+='<div class="pr-section"><span class="pr-label">Headings</span><ul>';
+        h+='<div class="pr-section"><span class="pr-label">Headings'+(d.truncated?' (preview \u2014 more in full extract)':'')+'</span><ul>';
         p.headings.slice(0,8).forEach(function(heading){h+='<li><span class="pr-h'+heading.level+'">H'+heading.level+'</span> '+esc(heading.text)+'</li>';});
         h+='</ul></div>';
       }
       if(p.links&&p.links.length){
-        h+='<div class="pr-section"><span class="pr-label">Links ('+p.links.length+')</span>';
+        h+='<div class="pr-section"><span class="pr-label">Links ('+p.links.length+(d.truncated?' shown':'')+')</span>';
         h+='<div class="pr-links">';
         p.links.slice(0,6).forEach(function(link){h+='<a href="'+esc(link.href)+'" target="_blank" rel="noopener">'+esc(link.text||link.href)+'</a>';});
         if(p.links.length>6)h+='<span class="pr-more">+'+(p.links.length-6)+' more</span>';
         h+='</div></div>';
       }
-      if(p.wordCount)h+='<div class="pr-section"><span class="pr-label">Words</span> '+p.wordCount+'</div>';
-      h+='<div class="pr-upgrade">';
-      h+='<div><span class="pr-upgrade-icon">\u2191</span> Free preview is truncated. Full extract: $0.01/batch via x402 USDC.</div>';
-      h+='<a href="#pricing" class="pr-upgrade-btn" data-track="upgrade_click">Get full extract \u2192</a>';
+      if(p.wordCount)h+='<div class="pr-section"><span class="pr-label">Words</span> '+p.wordCount+(d.truncated?' (truncated)':'')+'</div>';
+      /* --- secondary actions at bottom --- */
+      h+='<div class="pr-bottom-actions">';
+      h+='<button class="pr-upgrade-btn pr-demo-btn" title="See what the full extract looks like">\u{1F441} See full output</button>';
+      h+='<a href="'+esc(base)+'/quickstart" class="pr-upgrade-link" data-track="quickstart_click">Quick start guide \u2197</a>';
       h+='</div>';
-      if(results)results.innerHTML=h;
-      /* attach click tracking to the upgrade button */
-      var upgradeBtn=results?results.querySelector('.pr-upgrade-btn'):null;
-      if(upgradeBtn){upgradeBtn.addEventListener('click',function(){
+      h+='<div class="pr-email-capture">';
+      h+='<p>Not ready to pay? Get product updates:</p>';
+      h+='<form class="email-form" id="email-capture-form">';
+      h+='<input type="email" placeholder="you@example.com" required aria-label="Email for updates">';
+      h+='<button type="submit" class="btn-sm">Subscribe</button>';
+      h+='</form>';
+      h+='<p class="email-note">No spam. Unsubscribe anytime.</p>';
+      h+='</div>';
+      h+='<div class="pr-try-another"><button class="btn-sm pr-try-btn" data-url="https://github.com/shoutsid-lab/webcap">Try GitHub repo</button> <button class="btn-sm pr-try-btn" data-url="https://news.ycombinator.com/">Try Hacker News</button></div>';
+      if(results){results.innerHTML=h;results.scrollIntoView({behavior:'smooth',block:'start'});}
+      /* --- primary copy button (big) --- */
+      var mainCopyBtn=results?results.querySelector('.pr-copy-main'):null;
+      if(mainCopyBtn){mainCopyBtn.addEventListener('click',function(){
+        var curl=mainCopyBtn.getAttribute('data-curl')||'';
+        if(navigator.clipboard){navigator.clipboard.writeText(curl).then(function(){
+          mainCopyBtn.textContent='\u2713 Copied!';setTimeout(function(){mainCopyBtn.textContent='\u{1F4CB} Copy command';},3000);
+          var toast=results?results.querySelector('#copy-toast'):null;
+          if(toast){toast.hidden=false;setTimeout(function(){toast.hidden=true;},5000);}
+        });}
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'curl_copy',meta:{url:url,source:'preview_success'}})],{type:'application/json'}));}catch(ex){}
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_results_copy'}})],{type:'application/json'}));}catch(ex){}
+      });}
+      /* --- secondary copy button (small) --- */
+      var copyBtn=results?results.querySelector('.pr-copy-btn'):null;
+      if(copyBtn){copyBtn.addEventListener('click',function(){
+        var curl=copyBtn.getAttribute('data-curl')||'';
+        if(navigator.clipboard){navigator.clipboard.writeText(curl).then(function(){
+          copyBtn.textContent='Copied!';setTimeout(function(){copyBtn.textContent='Copy';},2000);
+          var toast=results?results.querySelector('#copy-toast'):null;
+          if(toast){toast.hidden=false;setTimeout(function(){toast.hidden=true;},5000);}
+        });}
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'curl_copy',meta:{url:url,source:'preview_success'}})],{type:'application/json'}));}catch(ex){}
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_results_copy'}})],{type:'application/json'}));}catch(ex){}
+      });}
+      /* --- api docs link tracking --- */
+      var docsLink=results?results.querySelector('.pr-upgrade-link'):null;
+      if(docsLink){docsLink.addEventListener('click',function(){
         try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_results'}})],{type:'application/json'}));}catch(ex){}
       });}
+      /* --- See full output button --- */
+      var demoBtn=results?results.querySelector('.pr-demo-btn'):null;
+      if(demoBtn){demoBtn.addEventListener('click',function(){
+        demoBtn.textContent='Loading\u2026';demoBtn.disabled=true;
+        fetch('/v1/demo').then(function(r){return r.json();}).then(function(demo){
+          var demoSection='<div class="pr-section" style="margin-top:16px;border-top:2px solid var(--accent);padding-top:16px">';
+          var r=demo.results&&demo.results[0]?demo.results[0]:null;
+          if(!r)return;
+          /* Structured demo output instead of raw JSON */
+          demoSection+='<span class="pr-label">\u{1F441} Full extract sample \u2014 what you get for $0.01</span>';
+          demoSection+='<div class="term" style="margin-top:8px"><div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">full extract: '+esc(r.title||'sample')+'</span></div>';
+          demoSection+='<pre style="overflow-x:auto;max-height:400px"><code>';
+          demoSection+='\u{1F3AF} Title: '+esc(r.title)+'\n';
+          demoSection+='\u{1F4DD} Description: '+esc((r.description||'').slice(0,200))+'\n';
+          demoSection+='\u{1F4D6} Word count: '+r.wordCount+'\n';
+          demoSection+='\u{1F4CA} Classification: '+(r.classification?r.classification.type+' ('+Math.round(r.classification.confidence*100)+'%)':'none')+'\n';
+          demoSection+='\n\u{1F4CB} Headings ('+(r.headings||[]).length+'):';
+          (r.headings||[]).forEach(function(h){demoSection+='\n  H'+h.level+': '+esc(h.text);});
+          demoSection+='\n\n\u{1F517} Links ('+(r.links||[]).length+'):';
+          (r.links||[]).slice(0,8).forEach(function(l){demoSection+='\n  \u2192 '+esc(l.text);});
+          if((r.links||[]).length>8)demoSection+='\n  ...+'+((r.links||[]).length-8)+' more';
+          demoSection+='\n\n\u{1F5BC} Images: '+(r.images||[]).length;
+          demoSection+='\n\n\u{1F4C4} Markdown (first 600 chars):\n'+esc((r.markdown||'').slice(0,600))+((r.markdown||'').length>600?'\n...+more':'');
+          demoSection+='</code></div></div>';
+          /* Side-by-side comparison table */
+          demoSection+='<div style="margin-top:12px;padding:14px 18px;background:rgba(37,99,235,.06);border:1px solid rgba(37,99,235,.2);border-radius:var(--r-m)">';
+          demoSection+='<span class="pr-label" style="color:var(--accent)">Preview vs Full extract</span>';
+          demoSection+='<table style="width:100%;border-collapse:collapse;margin-top:8px;font-family:var(--mono);font-size:12px">';
+          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--faint)"></td><td style="padding:6px 12px;color:var(--faint);text-align:center">Preview (free)</td><td style="padding:6px 12px;color:var(--accent);text-align:center;font-weight:700">Full ($0.01)</td></tr>';
+          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Title</td><td style="padding:6px 12px;text-align:center">\u2713</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">\u2713</td></tr>';
+          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Headings</td><td style="padding:6px 12px;text-align:center">\u22645</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.headings||[]).length+' all</td></tr>';
+          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Links</td><td style="padding:6px 12px;text-align:center">\u22646</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.links||[]).length+' all</td></tr>';
+          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Word count</td><td style="padding:6px 12px;text-align:center">truncated</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+r.wordCount+'</td></tr>';
+          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Full markdown</td><td style="padding:6px 12px;text-align:center">\u2717</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">\u2713</td></tr>';
+          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Paragraphs</td><td style="padding:6px 12px;text-align:center">\u2717</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.paragraphs||[]).length+'</td></tr>';
+          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Images</td><td style="padding:6px 12px;text-align:center">\u2717</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.images||[]).length+'</td></tr>';
+          demoSection+='<tr><td style="padding:6px 0;color:var(--muted)">AI classification</td><td style="padding:6px 12px;text-align:center">\u2717</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.classification?r.classification.type:'\u2717')+'</td></tr>';
+          demoSection+='</table></div>';
+          if(results){var actionsDiv=results.querySelector('.pr-upgrade-actions');if(actionsDiv){actionsDiv.insertAdjacentHTML('afterend',demoSection);}}
+          demoBtn.textContent='\u2713 Shown below';demoBtn.style.background='var(--ok)';demoBtn.style.color='white';
+        }).catch(function(){demoBtn.textContent='Error \u2014 try again';demoBtn.disabled=false;});
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'demo_view',meta:{url:url,source:'preview_results'}})],{type:'application/json'}));}catch(ex){}
+      });}
+      /* email capture */
+      var emailForm=results?results.querySelector('#email-capture-form'):null;
+      if(emailForm){emailForm.addEventListener('submit',function(e){
+        e.preventDefault();
+        var emailInput=emailForm.querySelector('input[type="email"]');
+        var email=emailInput?emailInput.value.trim():'';
+        if(!email)return;
+        fetch('/v1/track',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({event:'email_subscribe',meta:{email:email,url:url}})}).catch(function(){});
+        emailForm.innerHTML='<p style="color:var(--ok);font-weight:600">\u2713 Subscribed! Check your inbox.</p>';
+      });}
+      /* --- try another URL buttons --- */
+      var tryBtns=results?results.querySelectorAll('.pr-try-btn'):null;
+      if(tryBtns){tryBtns.forEach(function(btn){btn.addEventListener('click',function(){
+        var tryUrl=btn.getAttribute('data-url')||'';
+        var input2=document.getElementById('preview-url-input');
+        if(input2&&tryUrl)input2.value=tryUrl;
+        form.dispatchEvent(new Event('submit'));
+      });});}
       try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'preview_result_success',meta:{url:url,wordCount:p.wordCount||0,headingCount:(p.headings||[]).length,linkCount:(p.links||[]).length}})],{type:'application/json'}));}catch(ex){}
     }
     function onFail(err){
       var errMsg=String(err);
       var hint='';
+      var friendlyMsg='Preview failed';
       if(errMsg.indexOf('Failed to fetch')!==-1||errMsg.indexOf('AbortError')!==-1){
-        hint='<p class="pr-hint">Network error \u2014 try opening the <a href="/v1/extract/preview?url='+encodeURIComponent(url)+'" target="_blank">raw JSON endpoint</a> directly.</p>';
+        friendlyMsg='Request timed out';
+        hint='<p class="pr-hint">The site took too long to respond. This can happen with heavy pages or sites that block automated requests. Try a simpler URL, or use the paid API for reliable capture.</p>';
+      }else if(errMsg.indexOf('429')!==-1||errMsg.indexOf('rate')!==-1){
+        friendlyMsg='Rate limited';
+        hint='<p class="pr-hint">Too many requests. Wait a minute and try again, or use the paid API for unlimited access.</p>';
+      }else if(errMsg.indexOf('404')!==-1||errMsg.indexOf('not found')!==-1){
+        friendlyMsg='URL not found';
+        hint='<p class="pr-hint">The page doesn\'t exist. Check the URL and try again. Make sure it starts with <code>https://</code>.</p>';
+      }else if(errMsg.indexOf('502')!==-1){
+        friendlyMsg='Site blocked capture';
+        hint='<p class="pr-hint">This site blocks automated requests. The paid API uses advanced browser-level capture that handles most blocking. Try it with the full extract.</p>';
+      }else if(errMsg.indexOf('network')!==-1||errMsg.indexOf('ENOTFOUND')!==-1){
+        friendlyMsg='DNS resolution failed';
+        hint='<p class="pr-hint">The domain couldn\'t be resolved. Check for typos in the URL.</p>';
       }
-      if(results)results.innerHTML='<div class="pr-error">Preview failed: '+esc(errMsg)+' '+hint+'<a href="/v1/extract/preview?url='+encodeURIComponent(url)+'" target="_blank">Open raw JSON \u2197</a></div>';
-      try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'preview_result_error',meta:{url:url,error:errMsg}})],{type:'application/json'}));}catch(ex){}
+      var retryBtn='<button class="btn-sm pr-retry-btn" data-url="https://example.com/">Try example.com \u2197</button> <button class="btn-sm pr-retry-btn" data-url="'+url+'">Retry this URL</button>';
+      /* --- upgrade CTA on error: still show the value even when preview fails --- */
+      var errCta='';
+      var errCurlCmd='curl -X POST "'+base+'/v1/x402/capture" -H "content-type: application/json" -d \'{"url":"'+url+'"}\'';
+      errCta+='<div class="pr-upgrade">';
+      errCta+='<div class="pr-upgrade-body">';
+      errCta+='<div class="pr-upgrade-title"><span class="pr-upgrade-icon">\u{1F513}</span> '+(friendlyMsg==='Capture failed'?'Browser capture handles this':'The full API handles this')+' \u2014 $0.001</div>';
+      errCta+='<p style="margin:4px 0 8px;font-size:12px;color:var(--muted)">Pay with card (Stripe) or crypto (USDC). No accounts needed.</p>';
+      errCta+='<div class="pr-upgrade-steps">';
+      errCta+='<span class="pr-upgrade-step"><span class="pr-step-num">1</span> Copy the command</span>';
+      errCta+='<span class="pr-upgrade-step"><span class="pr-step-num">2</span> Paste in your terminal & run</span>';
+      errCta+='<span class="pr-upgrade-step"><span class="pr-step-num">3</span> Sign the $0.001 USDC payment (gasless)</span>';
+      errCta+='</div>';
+      errCta+='<div class="pr-upgrade-features">';
+      errCta+='<span class="pr-upgrade-feature">\u2713 Browser-level capture (handles blocked sites)</span>';
+      errCta+='<span class="pr-upgrade-feature">\u2713 Full structured extraction</span>';
+      errCta+='<span class="pr-upgrade-feature">\u2713 Batch up to 50 URLs</span>';
+      errCta+='<span class="pr-upgrade-feature">\u2713 PNG / JPEG / PDF screenshots</span>';
+      errCta+='</div>';
+      errCta+='</div>';
+      errCta+='<div class="pr-upgrade-actions">';
+      errCta+='<button class="pr-upgrade-btn pr-copy-main" data-curl="'+esc(errCurlCmd)+'" title="Copy curl command to clipboard">\u{1F4CB} Copy command</button>';
+      errCta+='<button class="pr-copy-btn" data-curl="'+esc(errCurlCmd)+'" title="Copy curl command">Copy</button>';
+      errCta+='<button class="pr-upgrade-btn pr-demo-btn" title="See what the full extract looks like">\u{1F441} See full output</button>';
+      errCta+='<a href="'+esc(base)+'/openapi.json" target="_blank" class="pr-upgrade-link" data-track="upgrade_click">API docs \u2197</a>';
+      errCta+='<a href="'+esc(base)+'/quickstart" class="pr-upgrade-link" data-track="quickstart_click">Quick start guide \u2197</a>';
+      errCta+='</div>';
+      errCta+='<div class="pr-copy-toast" id="copy-toast" hidden>\u2713 Copied! Paste in your terminal and run.</div>';
+      errCta+='</div>';
+      errCta+='<div class="pr-email-capture">';
+      errCta+='<p>Not ready to pay? Get product updates:</p>';
+      errCta+='<form class="email-form" id="email-capture-form">';
+      errCta+='<input type="email" placeholder="you@example.com" required aria-label="Email for updates">';
+      errCta+='<button type="submit" class="btn-sm">Subscribe</button>';
+      errCta+='</form>';
+      errCta+='<p class="email-note">No spam. Unsubscribe anytime.</p>';
+      errCta+='</div>';
+      errCta+='<div class="pr-try-another"><button class="btn-sm pr-try-btn" data-url="https://github.com/shoutsid-lab/webcap">Try GitHub</button> <button class="btn-sm pr-try-btn" data-url="https://news.ycombinator.com/">Try HN</button> <button class="btn-sm pr-try-btn" data-url="https://example.com/">Try example.com</button></div>';
+      /* Put the upgrade CTA FIRST — above the error details — so users see the solution before the problem */
+      if(results){results.innerHTML=errCta+'<div class="pr-error"><span class="pr-error-icon">\u26A0\uFE0F</span> <strong>'+esc(friendlyMsg)+'</strong>: '+esc(errMsg)+' '+hint+'<div class="pr-error-actions">'+retryBtn+'<a href="/v1/extract/preview?url='+encodeURIComponent(url)+'" target="_blank" class="pr-error-link">View raw JSON \u2197</a></div></div>';results.scrollIntoView({behavior:'smooth',block:'start'});}
+      var retryEls=results?results.querySelectorAll('.pr-retry-btn'):null;
+      if(retryEls){retryEls.forEach(function(el){el.addEventListener('click',function(){
+        var tryUrl=el.getAttribute('data-url')||'https://example.com/';
+        var input2=document.getElementById('preview-url-input');
+        if(input2)input2.value=tryUrl;
+        form.dispatchEvent(new Event('submit'));
+      });});}
+      /* --- primary copy button (big) on error state --- */
+      var errMainCopyBtn=results?results.querySelector('.pr-copy-main'):null;
+      if(errMainCopyBtn){errMainCopyBtn.addEventListener('click',function(){
+        var curl=errMainCopyBtn.getAttribute('data-curl')||'';
+        if(navigator.clipboard){navigator.clipboard.writeText(curl).then(function(){
+          errMainCopyBtn.textContent='\u2713 Copied!';setTimeout(function(){errMainCopyBtn.textContent='\u{1F4CB} Copy command';},3000);
+          var toast=results?results.querySelector('#copy-toast'):null;
+          if(toast){toast.hidden=false;setTimeout(function(){toast.hidden=true;},5000);}
+        });}
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'curl_copy',meta:{url:url,source:'preview_error'}})],{type:'application/json'}));}catch(ex){}
+      });}
+      /* --- secondary copy button (small) on error state --- */
+      var errCopyBtn=results?results.querySelector('.pr-copy-btn'):null;
+      if(errCopyBtn){errCopyBtn.addEventListener('click',function(){
+        var curl=errCopyBtn.getAttribute('data-curl')||'';
+        if(navigator.clipboard){navigator.clipboard.writeText(curl).then(function(){
+          errCopyBtn.textContent='Copied!';setTimeout(function(){errCopyBtn.textContent='Copy';},2000);
+          var toast=results?results.querySelector('#copy-toast'):null;
+          if(toast){toast.hidden=false;setTimeout(function(){toast.hidden=true;},5000);}
+        });}
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'curl_copy',meta:{url:url,source:'preview_error'}})],{type:'application/json'}));}catch(ex){}
+      });}
+      /* --- api docs link tracking on error state --- */
+      var errDocsLink=results?results.querySelector('.pr-upgrade-link'):null;
+      if(errDocsLink){errDocsLink.addEventListener('click',function(){
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_error'}})],{type:'application/json'}));}catch(ex){}
+      });}
+      /* --- See full output button on error state --- */
+      var errDemoBtn=results?results.querySelector('.pr-demo-btn'):null;
+      if(errDemoBtn){errDemoBtn.addEventListener('click',function(){
+        errDemoBtn.textContent='Loading\u2026';errDemoBtn.disabled=true;
+        fetch('/v1/demo').then(function(r){return r.json();}).then(function(demo){
+          var r=demo.results&&demo.results[0]?demo.results[0]:null;
+          if(!r)return;
+          var demoSection='<div class="pr-section" style="margin-top:16px;border-top:2px solid var(--accent);padding-top:16px">';
+          demoSection+='<span class="pr-label">\u{1F441} Full extract sample \u2014 what you get for $0.01</span>';
+          demoSection+='<div class="term" style="margin-top:8px"><div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">full extract: '+esc(r.title||'sample')+'</span></div>';
+          demoSection+='<pre style="overflow-x:auto;max-height:400px"><code>';
+          demoSection+='\u{1F3AF} Title: '+esc(r.title)+'\n';
+          demoSection+='\u{1F4DD} Description: '+esc((r.description||'').slice(0,200))+'\n';
+          demoSection+='\u{1F4D6} Word count: '+r.wordCount+'\n';
+          demoSection+='\u{1F4CA} Classification: '+(r.classification?r.classification.type+' ('+Math.round(r.classification.confidence*100)+'%)':'none')+'\n';
+          demoSection+='\n\u{1F4CB} Headings ('+(r.headings||[]).length+'):';
+          (r.headings||[]).forEach(function(h){demoSection+='\n  H'+h.level+': '+esc(h.text);});
+          demoSection+='\n\n\u{1F517} Links ('+(r.links||[]).length+'):';
+          (r.links||[]).slice(0,8).forEach(function(l){demoSection+='\n  \u2192 '+esc(l.text);});
+          if((r.links||[]).length>8)demoSection+='\n  ...+'+((r.links||[]).length-8)+' more';
+          demoSection+='\n\n\u{1F5BC} Images: '+(r.images||[]).length;
+          demoSection+='</code></div></div>';
+          /* Side-by-side comparison */
+          demoSection+='<div style="margin-top:12px;padding:14px 18px;background:rgba(37,99,235,.06);border:1px solid rgba(37,99,235,.2);border-radius:var(--r-m)">';
+          demoSection+='<span class="pr-label" style="color:var(--accent)">Preview vs Full extract</span>';
+          demoSection+='<table style="width:100%;border-collapse:collapse;margin-top:8px;font-family:var(--mono);font-size:12px">';
+          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--faint)"></td><td style="padding:6px 12px;color:var(--faint);text-align:center">Preview (free)</td><td style="padding:6px 12px;color:var(--accent);text-align:center;font-weight:700">Full ($0.01)</td></tr>';
+          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Links</td><td style="padding:6px 12px;text-align:center">\u22646</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.links||[]).length+' all</td></tr>';
+          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Full markdown</td><td style="padding:6px 12px;text-align:center">\u2717</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">\u2713</td></tr>';
+          demoSection+='<tr style="border-bottom:1px solid var(--line-soft)"><td style="padding:6px 0;color:var(--muted)">Images</td><td style="padding:6px 12px;text-align:center">\u2717</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.images||[]).length+'</td></tr>';
+          demoSection+='<tr><td style="padding:6px 0;color:var(--muted)">AI classification</td><td style="padding:6px 12px;text-align:center">\u2717</td><td style="padding:6px 12px;text-align:center;color:var(--ok)">'+(r.classification?r.classification.type:'\u2717')+'</td></tr>';
+          demoSection+='</table></div>';
+          if(results){var actionsDiv=results.querySelector('.pr-upgrade-actions');if(actionsDiv){actionsDiv.insertAdjacentHTML('afterend',demoSection);}}
+          errDemoBtn.textContent='\u2713 Shown below';errDemoBtn.style.background='var(--ok)';errDemoBtn.style.color='white';
+        }).catch(function(){errDemoBtn.textContent='Error \u2014 try again';errDemoBtn.disabled=false;});
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'demo_view',meta:{url:url,source:'preview_error'}})],{type:'application/json'}));}catch(ex){}
+      });}
+      /* email capture on error state */
+      var errEmailForm=results?results.querySelector('#email-capture-form'):null;
+      if(errEmailForm){errEmailForm.addEventListener('submit',function(e){
+        e.preventDefault();
+        var emailInput=errEmailForm.querySelector('input[type="email"]');
+        var email=emailInput?emailInput.value.trim():'';
+        if(!email)return;
+        fetch('/v1/track',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({event:'email_subscribe',meta:{email:email,url:url,source:'preview_error'}})}).catch(function(){});
+        errEmailForm.innerHTML='<p style="color:var(--ok);font-weight:600">\u2713 Subscribed! Check your inbox.</p>';
+      });}
+      /* --- try another URL buttons on error state --- */
+      var errTryBtns=results?results.querySelectorAll('.pr-try-btn'):null;
+      if(errTryBtns){errTryBtns.forEach(function(btn){btn.addEventListener('click',function(){
+        var tryUrl=btn.getAttribute('data-url')||'';
+        var input2=document.getElementById('preview-url-input');
+        if(input2&&tryUrl)input2.value=tryUrl;
+        form.dispatchEvent(new Event('submit'));
+      });});}
+      /* classify error type for analytics */
+      var errorType='other';
+      if(errMsg.indexOf('502')!==-1)errorType='capture_failed';
+      else if(errMsg.indexOf('429')!==-1||errMsg.indexOf('rate')!==-1)errorType='rate_limited';
+      else if(errMsg.indexOf('Failed to fetch')!==-1||errMsg.indexOf('AbortError')!==-1)errorType='network_timeout';
+      else if(errMsg.indexOf('404')!==-1||errMsg.indexOf('not found')!==-1)errorType='not_found';
+      else if(errMsg.indexOf('422')!==-1)errorType='invalid_url';
+      else if(errMsg.indexOf('403')!==-1)errorType='blocked';
+      else if(errMsg.indexOf('ENOTFOUND')!==-1||err.name==='TypeError')errorType='dns_error';
+      try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'preview_result_error',meta:{url:url,error:errMsg,errorType:errorType}})],{type:'application/json'}));}catch(ex){}
     }
     doPreviewFetch(url,1)
       .then(function(d){onSuccess(d);})
       .catch(function(err){
-        /* Retry once on network error (e.g. ngrok tunnel hiccup) */
-        if(String(err).indexOf('Failed to fetch')!==-1||String(err).indexOf('AbortError')!==-1){
-          return new Promise(function(resolve){setTimeout(resolve,800);}).then(function(){
+        /* Retry twice on transient errors: network hiccups, 502 (server may fallback on retry) */
+        var e=String(err);
+        if(e.indexOf('Failed to fetch')!==-1||e.indexOf('AbortError')!==-1||e.indexOf('502')!==-1){
+          return new Promise(function(resolve){setTimeout(resolve,1000);}).then(function(){
             return doPreviewFetch(url,2);
-          }).then(function(d){onSuccess(d);}).catch(function(err2){onFail(err2);});
+          }).then(function(d){onSuccess(d);}).catch(function(err2){
+            var e2=String(err2);
+            if(e2.indexOf('Failed to fetch')!==-1||e2.indexOf('AbortError')!==-1||e2.indexOf('502')!==-1){
+              return new Promise(function(resolve){setTimeout(resolve,2000);}).then(function(){
+                return doPreviewFetch(url,3);
+              }).then(function(d){onSuccess(d);}).catch(function(err3){onFail(err3);});
+            }
+            onFail(err2);
+          });
         }
         onFail(err);
       })
@@ -451,12 +768,44 @@ ${footer(bazaarCatalogUrl)}
   });
   function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
+  /* --- waitlist form --- */
+  var wlForm=document.getElementById('waitlist-form');
+  var wlNote=document.getElementById('waitlist-note');
+  if(wlForm){wlForm.addEventListener('submit',function(e){
+    e.preventDefault();
+    var emailInput=document.getElementById('waitlist-email');
+    var btn=document.getElementById('waitlist-btn');
+    var email=emailInput?emailInput.value.trim():'';
+    if(!email)return;
+    if(btn){btn.disabled=true;btn.textContent='Joining\u2026';}
+    fetch('/v1/waitlist',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:email})})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(wlNote){wlNote.className='waitlist-note success';wlNote.textContent='\u2713 You\'re on the list! Check your inbox for a welcome email.';}
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'email_subscribe',meta:{email:email,source:'landing_newsletter'}})],{type:'application/json'}));}catch(ex){}
+      })
+      .catch(function(){
+        if(wlNote){wlNote.className='waitlist-note error';wlNote.textContent='Something went wrong. Please try again.';}
+      })
+      .finally(function(){
+        if(btn){btn.disabled=false;btn.textContent='Subscribe';}
+      });
+  });}
+
   /* --- CTA click tracking --- */
   document.querySelectorAll('.btn').forEach(function(btn){
     btn.addEventListener('click',function(){
       try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'cta_click',meta:{text:btn.textContent||'',href:btn.getAttribute('href')||''}})],{type:'application/json'}));}catch(ex){}
     });
   });
+
+  /* --- Auto-run preview on page load --- */
+  setTimeout(function(){
+    if(form&&!sessionStorage.getItem('preview_ran')){
+      sessionStorage.setItem('preview_ran','1');
+      form.dispatchEvent(new Event('submit'));
+    }
+  },800);
 })();
 </script>
 </body>

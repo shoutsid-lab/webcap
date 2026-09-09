@@ -62,7 +62,7 @@ ${topBar(bazaarCatalogUrl)}
           <th>webcap</th>
           <td class="col-webcap">${esc(capturePrice)}/call</td>
           <td class="col-webcap">${esc(extractPrice)}/batch</td>
-          <td class="col-webcap">x402 USDC (gasless)</td>
+          <td class="col-webcap">x402 USDC (gasless) / Stripe</td>
           <td class="col-webcap">None</td>
           <td class="col-webcap">\u2713 Instant</td>
         </tr>
@@ -128,7 +128,7 @@ ${topBar(bazaarCatalogUrl)}
       </div>
       <div class="price">
         <h3>No accounts or API keys</h3>
-        <p>Connect your USDC wallet and start calling. No sign-up forms, no email verification, no API key management.</p>
+        <p>Connect your USDC wallet or pay with card (Stripe) and start calling. No sign-up forms, no email verification, no API key management.</p>
       </div>
       <div class="price">
         <h3>On-chain settlement</h3>
@@ -165,7 +165,7 @@ ${topBar(bazaarCatalogUrl)}
     <div class="cta-banner">
       <div class="cta-content">
         <h2>Start capturing today</h2>
-        <p>No accounts. No API keys. Just HTTP calls with x402.</p>
+        <p>No accounts. No API keys. Just HTTP calls with card or crypto.</p>
       </div>
       <div class="cta-actions">
         <a class="btn" href="https://github.com/shoutsid-lab/webcap" target="_blank" rel="noopener">\u{1F4BB} GitHub</a>
