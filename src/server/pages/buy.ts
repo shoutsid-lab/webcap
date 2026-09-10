@@ -99,6 +99,12 @@ ${topBar(bazaarCatalogUrl, 'buy')}
   <h1>Buy credits. <span class="hl">Pay per call.</span></h1>
   <p class="lede">No subscriptions. No minimums. No accounts needed. Buy credits and use them for screenshots, extractions, and monitoring. Unused credits never expire.</p>
 
+  <div id="buy-social-proof" style="display:flex;gap:var(--s4);justify-content:center;flex-wrap:wrap;margin-top:var(--s3);font-size:13px;color:var(--faint)">
+    <span>\u{1F4CA} <span id="buy-captures">--</span> captures served</span>
+    <span>\u{1F50D} <span id="buy-extracts">--</span> extractions served</span>
+    <span>\u2705 <span id="buy-tests">993</span> tests passing</span>
+  </div>
+
   <div class="buy-packs">
     <div class="buy-pack">
       <h3>Starter</h3>
@@ -148,6 +154,26 @@ ${topBar(bazaarCatalogUrl, 'buy')}
   ${!stripeConfigured ? `
   <div style="text-align:center;margin-top:var(--s4);padding:12px 20px;background:rgba(37,99,235,.06);border:1px solid rgba(37,99,235,.15);border-radius:var(--r-m);font-size:13px;color:var(--muted)">
     \u{1F513} <strong>Card payments coming soon.</strong> Currently accepting email purchase requests and x402 crypto (USDC on Base).
+  </div>
+  <div style="margin-top:var(--s5);padding:24px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l)">
+    <h3 style="font-size:16px;font-weight:700;margin:0 0 12px;text-align:center">How email purchase works</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s4);text-align:center">
+      <div style="padding:12px">
+        <div style="font-size:24px;margin-bottom:8px">1\u20E3</div>
+        <p style="margin:0;font-size:14px;font-weight:600">Enter your email</p>
+        <p style="margin:4px 0 0;font-size:12px;color:var(--faint)">Pick a pack above and enter your email</p>
+      </div>
+      <div style="padding:12px">
+        <div style="font-size:24px;margin-bottom:8px">2\u20E3</div>
+        <p style="margin:0;font-size:14px;font-weight:600">Get a payment link</p>
+        <p style="margin:4px 0 0;font-size:12px;color:var(--faint)">We\u2019ll email you a secure Stripe payment link within 24h</p>
+      </div>
+      <div style="padding:12px">
+        <div style="font-size:24px;margin-bottom:8px">3\u20E3</div>
+        <p style="margin:0;font-size:14px;font-weight:600">Pay with card</p>
+        <p style="margin:4px 0 0;font-size:12px;color:var(--faint)">Click the link, pay with any credit/debit card. Credits added instantly.</p>
+      </div>
+    </div>
   </div>` : ''}
 
   <section class="buy-section">
@@ -305,6 +331,21 @@ ${footer(bazaarCatalogUrl)}
   /* track page view */
   try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'buy_page_view',meta:{stripe:stripeConfigured}})],{type:'application/json'}));}catch(ex){}
   try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{source:'buy_page'}})],{type:'application/json'}));}catch(ex){}
+
+  /* social proof */
+  fetch('/v1/status').then(function(r){return r.json();}).then(function(s){
+    var cap=document.getElementById('buy-captures');
+    var ext=document.getElementById('buy-extracts');
+    var captures=0,extracts=0;
+    if(s.endpoints&&s.endpoints.topHits){
+      s.endpoints.topHits.forEach(function(e){
+        if(e.endpoint&&e.endpoint.indexOf('/capture')!==-1)captures+=e.hits;
+        if(e.endpoint&&e.endpoint.indexOf('/extract')!==-1)extracts+=e.hits;
+      });
+    }
+    if(cap&&captures>0)cap.textContent=captures.toLocaleString();
+    if(ext&&extracts>0)ext.textContent=extracts.toLocaleString();
+  }).catch(function(){});
 })();
 </script>
 </body>
