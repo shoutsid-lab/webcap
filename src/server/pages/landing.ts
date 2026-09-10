@@ -457,7 +457,7 @@ ${footer(bazaarCatalogUrl)}
         h+='</div></div>';
       }
       if(p.wordCount)h+='<div class="pr-section"><span class="pr-label">Words</span> '+p.wordCount+(d.truncated?' (truncated)':'')+'</div>';
-      /* --- UPGRADE CTA: copy-on-click + step-by-step guide --- */
+      /* --- UPGRADE CTA: card-first + crypto fallback --- */
       var curlCmd='curl -X POST "'+base+'/v1/x402/extract" -H "content-type: application/json" -d \'{"urls":["'+url+'"]}\'';
       h+='<div class="pr-upgrade pr-upgrade-top">';
       h+='<div class="pr-upgrade-body">';
@@ -465,8 +465,8 @@ ${footer(bazaarCatalogUrl)}
       h+='<p style="margin:6px 0 10px;font-size:13px;color:var(--muted)">Get ALL '+hCount+' headings, ALL '+lCount+' links, full markdown, paragraphs, images, and AI classification. <strong>Batch up to 50 URLs per payment.</strong></p>';
       h+='</div>';
       h+='<div class="pr-upgrade-actions">';
-      h+='<button class="pr-upgrade-btn pr-pay-now" id="pr-pay-now" data-curl="'+esc(curlCmd)+'" data-track="upgrade_click">\u{1F513} Pay $0.01 &amp; get full extract</button>';
-      h+='<button class="pr-upgrade-btn pr-copy-main" data-curl="'+esc(curlCmd)+'" title="Copy curl command to clipboard">\u{1F4CB} Copy curl</button>';
+      h+='<a href="'+esc(base)+'/buy" class="pr-upgrade-btn pr-pay-now" style="display:inline-block;text-decoration:none;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;cursor:pointer;text-align:center">\u{1F4B3} Buy credits with card \u2192</a>';
+      h+='<button class="pr-upgrade-btn pr-copy-main" data-curl="'+esc(curlCmd)+'" title="Copy curl command to clipboard">\u{1F4CB} Or pay with crypto (curl)</button>';
       h+='</div>';
       h+='<div class="pr-copy-toast" id="copy-toast" hidden>\u2713 Copied! Paste in your terminal and run.</div>';
       h+='<div class="pr-pay-instructions" id="pr-pay-instructions" hidden>';
@@ -484,7 +484,6 @@ ${footer(bazaarCatalogUrl)}
       h+='</div>';
       h+='<div style="position:relative"><pre style="background:var(--bg);padding:12px 16px;border-radius:var(--r-s);font-size:12px;overflow-x:auto;margin:0;border:1px solid var(--line)"><code>'+esc(curlCmd)+'</code></pre>';
       h+='<button class="pr-copy-btn" style="position:absolute;top:8px;right:8px;padding:4px 10px;font-size:11px" data-curl="'+esc(curlCmd)+'">Copy</button></div>';
-      h+='<p style="margin:12px 0 0;font-size:12px;color:var(--faint)">Don\u2019t have a USDC wallet? <a href="'+esc(base)+'/buy" style="color:var(--accent);font-weight:600">Buy credit packs with card \u2192</a></p>';
       h+='</div></div>';
       /* --- USER-SPECIFIC COMPARISON: show what they're missing --- */
       h+='<div class="pr-auto-demo" id="pr-auto-demo" style="padding:16px 18px;background:rgba(37,99,235,.04);border:1px solid rgba(37,99,235,.15);border-radius:var(--r-m)">';
@@ -607,7 +606,7 @@ ${footer(bazaarCatalogUrl)}
         hint='<p class="pr-hint">The domain couldn\'t be resolved. Check for typos in the URL.</p>';
       }
       var retryBtn='<button class="btn-sm pr-retry-btn" data-url="https://example.com/">Try example.com</button> <button class="btn-sm pr-retry-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Try Wikipedia</button> <button class="btn-sm pr-retry-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">Try MDN</button> <button class="btn-sm pr-retry-btn" data-url="'+url+'">Retry this URL</button>';
-      /* --- upgrade CTA on error: copy-on-click + step-by-step guide --- */
+      /* --- upgrade CTA on error: card-first + crypto fallback --- */
       var errCta='';
       var errCurlCmd='curl -X POST "'+base+'/v1/x402/extract" -H "content-type: application/json" -d \'{"urls":["'+url+'"]}\'';
       errCta+='<div class="pr-upgrade">';
@@ -616,8 +615,8 @@ ${footer(bazaarCatalogUrl)}
       errCta+='<p style="margin:4px 0 8px;font-size:12px;color:var(--muted)">Full markdown, all headings & links, images, paragraphs, and AI classification. <strong>Batch up to 50 URLs per payment.</strong> No accounts needed.</p>';
       errCta+='</div>';
       errCta+='<div class="pr-upgrade-actions">';
-      errCta+='<button class="pr-upgrade-btn pr-pay-now" id="pr-pay-now" data-curl="'+esc(errCurlCmd)+'" data-track="upgrade_click">\u{1F513} Pay $0.01 &amp; get full extract</button>';
-      errCta+='<button class="pr-upgrade-btn pr-copy-main" data-curl="'+esc(errCurlCmd)+'" title="Copy curl command to clipboard">\u{1F4CB} Copy curl</button>';
+      errCta+='<a href="'+esc(base)+'/buy" class="pr-upgrade-btn pr-pay-now" style="display:inline-block;text-decoration:none;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;cursor:pointer;text-align:center">\u{1F4B3} Buy credits with card \u2192</a>';
+      errCta+='<button class="pr-upgrade-btn pr-copy-main" data-curl="'+esc(errCurlCmd)+'" title="Copy curl command to clipboard">\u{1F4CB} Or pay with crypto (curl)</button>';
       errCta+='</div>';
       errCta+='<div class="pr-copy-toast" id="copy-toast" hidden>\u2713 Copied! Paste in your terminal and run.</div>';
       errCta+='<div class="pr-pay-instructions" id="pr-pay-instructions" hidden>';
@@ -635,7 +634,6 @@ ${footer(bazaarCatalogUrl)}
       errCta+='</div>';
       errCta+='<div style="position:relative"><pre style="background:var(--bg);padding:12px 16px;border-radius:var(--r-s);font-size:12px;overflow-x:auto;margin:0;border:1px solid var(--line)"><code>'+esc(errCurlCmd)+'</code></pre>';
       errCta+='<button class="pr-copy-btn" style="position:absolute;top:8px;right:8px;padding:4px 10px;font-size:11px" data-curl="'+esc(errCurlCmd)+'">Copy</button></div>';
-      errCta+='<p style="margin:12px 0 0;font-size:12px;color:var(--faint)">Don\u2019t have a USDC wallet? <a href="'+esc(base)+'/buy" style="color:var(--accent);font-weight:600">Buy credit packs with card \u2192</a></p>';
       errCta+='</div></div>';
       /* --- STATIC COMPARISON on error: show what full extract offers --- */
       errCta+='<div class="pr-auto-demo" id="pr-auto-demo" style="margin-top:16px;padding:16px 18px;background:rgba(37,99,235,.04);border:1px solid rgba(37,99,235,.15);border-radius:var(--r-m)">';

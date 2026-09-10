@@ -193,6 +193,57 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
         security: [],
       },
     },
+    '/v1/stripe/checkout': {
+      post: {
+        tags: ['discovery'],
+        summary: 'Create a Stripe Checkout session for credit pack purchase',
+        description:
+          'Creates a Stripe Checkout session for buying credit packs (Starter $0.50, Pro $3, Max $12). ' +
+          'When Stripe is not configured, returns a helpful error with alternative payment instructions (x402 crypto or email purchase).',
+        requestBody: {
+          required: true,
+          content: jsonContent({
+            type: 'object',
+            required: ['pack'],
+            properties: {
+              pack: { type: 'string', enum: ['starter', 'pro', 'max'], description: 'Credit pack to purchase' },
+              address: { type: 'string', description: 'Optional Ethereum address to associate with the purchase' },
+            },
+          }),
+        },
+        responses: {
+          200: {
+            description: 'Stripe Checkout session URL (when configured) or payment alternatives (when not configured)',
+            content: jsonContent({
+              oneOf: [
+                {
+                  type: 'object',
+                  properties: {
+                    checkoutUrl: { type: 'string', format: 'uri', description: 'URL to redirect to Stripe Checkout' },
+                  },
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    error: { type: 'string', example: 'stripe_not_configured' },
+                    message: { type: 'string' },
+                    fallback: {
+                      type: 'object',
+                      properties: {
+                        crypto: { type: 'string' },
+                        email: { type: 'string' },
+                      },
+                    },
+                  },
+                },
+              ],
+            }),
+          },
+          422: ctx.unprocessable('Missing or invalid pack field'),
+        },
+        security: [],
+      },
+    },
     '/v1/demo': {
       get: {
         tags: ['discovery'],

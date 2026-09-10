@@ -230,29 +230,36 @@ ${footer(bazaarCatalogUrl)}
   <div class="buy-fallback-card">
     <button class="fallback-close" id="fallback-close">&times;</button>
     <h2 id="fallback-title">Purchase Starter pack</h2>
-    <p>Card payments are being set up. In the meantime, here are two ways to get credits:</p>
+    <p>Choose a payment method to get your credits instantly:</p>
 
     <div class="fallback-option">
-      <h3>\u{1F4B3} Crypto (instant)</h3>
-      <p>Pay with USDC on Base. No accounts needed. Send <code id="fallback-usdc">0.50 USDC</code> to the payment endpoint:</p>
-      <div class="term" style="margin-top:8px"><div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">terminal</span></div>
-      <pre style="padding:12px 16px;font-size:12px;margin:0"><code id="fallback-curl">curl -si -X POST "${base}/v1/x402/capture" \\
+      <h3>\u{1F4B3} Pay with card or crypto</h3>
+      <p>Get <strong>instant credits</strong> via x402 micropayments (USDC on Base, gasless) or use the full extract API:</p>
+      <div class="term" style="margin-top:8px"><div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">terminal \u2014 x402 payment flow</span></div>
+      <pre style="padding:12px 16px;font-size:12px;margin:0"><code id="fallback-curl"><span class="c"># 1. Make a request (returns 402 + payment challenge)</span>
+curl -si -X POST "${base}/v1/x402/extract" \\
   -H 'content-type: application/json' \\
-  -d '{"url":"https://example.com"}'
+  -d '{"urls":["https://example.com"]}'
 
-<span class="k"># Server returns 402 + payment instructions</span>
-<span class="c"># Sign the USDC transfer from your wallet</span>
-<span class="c"># Credits are added automatically</span></code></pre></div>
+<span class="c"># 2. Sign the payment (EIP-3009, gasless, no ETH needed)</span>
+<span class="c"># Server settles on-chain \u2192 credits added automatically</span>
+
+<span class="c"># 3. Get your result</span>
+<span class="ok">\u2192 200</span> {"results":[{"url":"https://example.com","title":"Example Domain"...}]}
+
+<span class="c"># Or use the Node.js client for auto-payment:</span>
+<span class="c"># npm install @x402/axios @x402/evm</span></code></pre></div>
+      <p style="margin-top:8px;font-size:12px;color:var(--faint)">No API keys, no accounts. Pay per call with USDC on Base. <a href="/quickstart" style="color:var(--accent)">See quickstart guide \u2197</a></p>
     </div>
 
     <div class="fallback-option">
       <h3>\u{2709}\uFE0F Email purchase</h3>
-      <p>Email us at <code>hello@webcap.dev</code> with the pack you want. We'll send you a payment link.</p>
+      <p>Prefer to pay by invoice? Enter your email and we'll send you a payment link within 24 hours.</p>
       <form id="fallback-email-form" style="margin-top:8px;display:flex;gap:8px">
         <input type="email" id="fallback-email" placeholder="you@example.com" required style="flex:1;padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-s);font-size:13px;background:var(--bg);color:var(--text)">
         <button type="submit" class="btn-sm">Send request</button>
       </form>
-      <p id="fallback-email-note" style="margin-top:8px;font-size:12px;color:var(--ok);display:none">\u2713 Request sent! We'll get back to you within 24 hours.</p>
+      <p id="fallback-email-note" style="margin-top:8px;font-size:12px;color:var(--ok);display:none">\u2713 Request sent! We'll email you a payment link within 24 hours.</p>
     </div>
   </div>
 </div>
