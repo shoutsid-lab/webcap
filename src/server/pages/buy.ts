@@ -117,7 +117,7 @@ ${topBar(bazaarCatalogUrl, 'buy')}
       </ul>
       ${stripeConfigured
         ? `<button class="pack-btn" data-pack="starter" data-price="${usd(starter.usd)}" data-credits="${starter.credits}">Buy Starter \u2192</button>`
-        : `<div class="pack-notify"><form class="pack-notify-form" data-pack="starter"><input type="email" placeholder="you@email.com" required aria-label="Email for Starter purchase"><button type="submit" class="pack-btn">Get Starter \u2192</button></form><p class="pack-notify-note">We'll email you a payment link within 24h. <a href="/quickstart">Or use x402 crypto now \u2197</a></p></div>`
+        : `<a href="/quickstart" class="pack-btn" style="text-decoration:none">Pay with crypto \u2192</a>`
       }
     </div>
     <div class="buy-pack popular">
@@ -132,7 +132,7 @@ ${topBar(bazaarCatalogUrl, 'buy')}
       </ul>
       ${stripeConfigured
         ? `<button class="pack-btn" data-pack="pro" data-price="${usd(pro.usd)}" data-credits="${pro.credits.toLocaleString()}">Buy Pro \u2192</button>`
-        : `<div class="pack-notify"><form class="pack-notify-form" data-pack="pro"><input type="email" placeholder="you@email.com" required aria-label="Email for Pro purchase"><button type="submit" class="pack-btn">Get Pro \u2192</button></form><p class="pack-notify-note">We'll email you a payment link within 24h. <a href="/quickstart">Or use x402 crypto now \u2197</a></p></div>`
+        : `<a href="/quickstart" class="pack-btn" style="text-decoration:none">Pay with crypto \u2192</a>`
       }
     </div>
     <div class="buy-pack">
@@ -147,7 +147,7 @@ ${topBar(bazaarCatalogUrl, 'buy')}
       </ul>
       ${stripeConfigured
         ? `<button class="pack-btn" data-pack="max" data-price="${usd(max.usd)}" data-credits="${max.credits.toLocaleString()}">Buy Max \u2192</button>`
-        : `<div class="pack-notify"><form class="pack-notify-form" data-pack="max"><input type="email" placeholder="you@email.com" required aria-label="Email for Max purchase"><button type="submit" class="pack-btn">Get Max \u2192</button></form><p class="pack-notify-note">We'll email you a payment link within 24h. <a href="/quickstart">Or use x402 crypto now \u2197</a></p></div>`
+        : `<a href="/quickstart" class="pack-btn" style="text-decoration:none">Pay with crypto \u2192</a>`
       }
     </div>
   </div>
@@ -307,28 +307,11 @@ ${footer(bazaarCatalogUrl)}
       });
     });
   } else {
-    /* No Stripe: inline email-to-buy forms */
-    document.querySelectorAll('.pack-notify-form').forEach(function(form){
-      form.addEventListener('submit',function(e){
-        e.preventDefault();
-        var pack=form.getAttribute('data-pack')||'';
-        var emailInput=form.querySelector('input[type="email"]');
-        var email=emailInput?emailInput.value.trim():'';
-        if(!email)return;
-        trackBuyClick(pack,'','email_purchase_request');
-        fetch('/v1/track',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({event:'purchase_request',meta:{email:email,pack:pack,source:'buy_page_inline'}})}).catch(function(){});
-        fetch('/v1/waitlist',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:email})}).catch(function(){});
-        /* Replace form with success message */
-        var card=form.closest('.buy-pack');
-        if(card){
-          var btn=form.querySelector('button[type="submit"]');
-          if(btn){btn.textContent='Sent!';btn.style.background='var(--ok)';btn.disabled=true;}
-          emailInput.disabled=true;
-          emailInput.style.opacity='0.6';
-          var note=card.querySelector('.pack-notify-note');
-          if(note){note.innerHTML='<span style="color:var(--ok)">Check your inbox for a payment link.</span>';}
-        }
-        showToast('Request sent! Check your email.',4000);
+    /* No Stripe: crypto is the primary payment path — link to quickstart */
+    document.querySelectorAll('.pack-btn').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        var pack=btn.getAttribute('data-pack')||btn.textContent||'';
+        trackBuyClick(pack,'','crypto_quickstart');
       });
     });
   }
