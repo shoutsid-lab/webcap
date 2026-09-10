@@ -168,7 +168,7 @@ ${topBar(bazaarCatalogUrl, 'landing')}
         <div class="url-row">
           <input type="url" id="preview-url-input" name="url" inputmode="url" autocomplete="url"
             value="https://example.com/" placeholder="Paste any URL\u2026" required aria-label="URL to preview">
-          <button class="btn" type="submit" id="preview-btn">Extract data \u2197</button>
+          <button class="btn" type="submit" id="preview-btn" data-no-track>Extract data \u2197</button>
         </div>
         <p class="form-note">No sign-up needed. Results appear below instantly. Full API: $0.01 per batch of 50 URLs. <strong>Pay with crypto (USDC on Base) \u2014 gasless, instant.</strong> <a href="/quickstart">Payment guide \u2197</a></p>
         <div class="quick-try">
@@ -432,13 +432,19 @@ ${footer(bazaarCatalogUrl)}
       var mainCopyBtn=results?results.querySelector('.pr-copy-main'):null;
       if(mainCopyBtn){mainCopyBtn.addEventListener('click',function(){
         var curl=mainCopyBtn.getAttribute('data-curl')||'';
+        /* Track the copy attempt IMMEDIATELY (before clipboard) to ensure
+           curl_copy events are never lost if clipboard API fails or is denied */
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'curl_copy',meta:{url:url,source:'preview_success'}})],{type:'application/json'}));}catch(ex){}
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_results_copy'}})],{type:'application/json'}));}catch(ex){}
         if(navigator.clipboard){navigator.clipboard.writeText(curl).then(function(){
           mainCopyBtn.textContent='\u2713 Copied! Paste in terminal.';setTimeout(function(){mainCopyBtn.textContent='\u{1F4CB} Copy command \u2014 get full data in 30s';},3000);
           var toast=results?results.querySelector('#copy-toast'):null;
           if(toast){toast.hidden=false;setTimeout(function(){toast.hidden=true;},5000);}
+        }).catch(function(){
+          /* Clipboard denied — fallback: select text for manual copy */
+          mainCopyBtn.textContent='Right-click \u2192 Copy link address';
+          setTimeout(function(){mainCopyBtn.textContent='\u{1F4CB} Copy command \u2014 get full data in 30s';},3000);
         });}
-        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'curl_copy',meta:{url:url,source:'preview_success'}})],{type:'application/json'}));}catch(ex){}
-        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_results_copy'}})],{type:'application/json'}));}catch(ex){}
       });}
       /* --- api docs link tracking --- */
       var docsLink=results?results.querySelector('.pr-upgrade-link'):null;
@@ -527,12 +533,17 @@ ${footer(bazaarCatalogUrl)}
       var errMainCopyBtn=results?results.querySelector('.pr-copy-main'):null;
       if(errMainCopyBtn){errMainCopyBtn.addEventListener('click',function(){
         var curl=errMainCopyBtn.getAttribute('data-curl')||'';
+        /* Track IMMEDIATELY before clipboard */
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'curl_copy',meta:{url:url,source:'preview_error'}})],{type:'application/json'}));}catch(ex){}
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_error_copy'}})],{type:'application/json'}));}catch(ex){}
         if(navigator.clipboard){navigator.clipboard.writeText(curl).then(function(){
           errMainCopyBtn.textContent='\u2713 Copied! Paste in terminal.';setTimeout(function(){errMainCopyBtn.textContent='\u{1F4CB} Copy command';},3000);
           var toast=results?results.querySelector('#copy-toast'):null;
           if(toast){toast.hidden=false;setTimeout(function(){toast.hidden=true;},5000);}
+        }).catch(function(){
+          errMainCopyBtn.textContent='Right-click \u2192 Copy link address';
+          setTimeout(function(){errMainCopyBtn.textContent='\u{1F4CB} Copy command';},3000);
         });}
-        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'curl_copy',meta:{url:url,source:'preview_error'}})],{type:'application/json'}));}catch(ex){}
       });}
       /* --- api docs link tracking on error state --- */
       var errDocsLink=results?results.querySelector('.pr-upgrade-link'):null;
@@ -586,7 +597,10 @@ ${footer(bazaarCatalogUrl)}
   });});}
 
   /* --- CTA click tracking --- */
-  document.querySelectorAll('.btn').forEach(function(btn){
+  /* Only track navigation CTAs (hero, bottom banner), NOT the preview form
+     submit button (which already fires preview_submit) or dynamically
+     generated buttons in preview results (which have their own handlers). */
+  document.querySelectorAll('.btn:not([data-no-track]):not(form .btn)').forEach(function(btn){
     btn.addEventListener('click',function(){
       try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'cta_click',meta:{text:btn.textContent||'',href:btn.getAttribute('href')||''}})],{type:'application/json'}));}catch(ex){}
       /* Also fire upgrade_click for Buy credits buttons */

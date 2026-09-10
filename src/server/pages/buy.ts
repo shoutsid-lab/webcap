@@ -117,7 +117,7 @@ ${topBar(bazaarCatalogUrl, 'buy')}
       </ul>
       ${stripeConfigured
         ? `<button class="pack-btn" data-pack="starter" data-price="${usd(starter.usd)}" data-credits="${starter.credits}">Buy Starter \u2192</button>`
-        : `<a href="/quickstart" class="pack-btn" style="text-decoration:none">Pay with crypto \u2192</a>`
+        : `<a href="/quickstart" class="pack-btn" style="text-decoration:none" data-track="starter">Pay with crypto \u2192</a>`
       }
     </div>
     <div class="buy-pack popular">
@@ -132,7 +132,7 @@ ${topBar(bazaarCatalogUrl, 'buy')}
       </ul>
       ${stripeConfigured
         ? `<button class="pack-btn" data-pack="pro" data-price="${usd(pro.usd)}" data-credits="${pro.credits.toLocaleString()}">Buy Pro \u2192</button>`
-        : `<a href="/quickstart" class="pack-btn" style="text-decoration:none">Pay with crypto \u2192</a>`
+        : `<a href="/quickstart" class="pack-btn" style="text-decoration:none" data-track="pro">\u2605 Pay with crypto \u2192</a>`
       }
     </div>
     <div class="buy-pack">
@@ -147,33 +147,58 @@ ${topBar(bazaarCatalogUrl, 'buy')}
       </ul>
       ${stripeConfigured
         ? `<button class="pack-btn" data-pack="max" data-price="${usd(max.usd)}" data-credits="${max.credits.toLocaleString()}">Buy Max \u2192</button>`
-        : `<a href="/quickstart" class="pack-btn" style="text-decoration:none">Pay with crypto \u2192</a>`
+        : `<a href="/quickstart" class="pack-btn" style="text-decoration:none" data-track="max">Pay with crypto \u2192</a>`
       }
     </div>
   </div>
   ${!stripeConfigured ? `
-  <div style="text-align:center;margin-top:var(--s4);padding:12px 20px;background:rgba(37,99,235,.06);border:1px solid rgba(37,99,235,.15);border-radius:var(--r-m);font-size:13px;color:var(--muted)">
-    \u{1F48E} <strong>Instant crypto payments available now.</strong> Card payments coming soon. <a href="/quickstart" style="color:var(--accent);font-weight:700">Get started with x402 \u2197</a>
+  <div style="text-align:center;margin-top:var(--s4);padding:16px 20px;background:rgba(37,99,235,.06);border:2px solid rgba(37,99,235,.2);border-radius:var(--r-m);font-size:14px;color:var(--text)">
+    \u{1F48E} <strong>Pay with USDC on Base \u2014 instant, gasless, no accounts.</strong> Copy the command below, paste in your terminal, sign to pay. <a href="/quickstart" style="color:var(--accent);font-weight:700">Full quick start guide \u2197</a>
   </div>
   <div style="margin-top:var(--s5);padding:24px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l)">
-    <h3 style="font-size:16px;font-weight:700;margin:0 0 12px;text-align:center">How crypto payment works (instant)</h3>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s4);text-align:center">
+    <h3 style="font-size:16px;font-weight:700;margin:0 0 12px;text-align:center">Copy & paste \u2014 pay in 30 seconds</h3>
+    <div class="term"><div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">terminal \u2014 copy this</span></div>
+    <pre id="buy-curl-code"><code><span class="c"># Paste this in your terminal \u2014 gets full extract in 30s</span>
+curl -X POST "${base}/v1/x402/extract" \\
+  -H <span class="s">'content-type: application/json'</span> \\
+  -d <span class="s">'{"urls":["https://example.com/"]}'</span>
+
+<span class="k">\u2192 402</span> Payment Required (server sends payment challenge)
+<span class="c"># Sign with your wallet \u2014 gasless USDC transfer</span>
+<span class="c"># Result delivered instantly after payment</span></code></pre></div>
+    <div style="text-align:center;margin-top:12px">
+      <button class="pack-btn" id="buy-copy-cmd" data-curl="curl -X POST &quot;${base}/v1/x402/extract&quot; -H &quot;content-type: application/json&quot; -d &apos;{&quot;urls&quot;:[&quot;https://example.com/&quot;]}&apos;" style="display:inline-flex;align-items:center;gap:8px;width:auto;padding:12px 28px;font-size:14px">\u{1F4CB} Copy extract command</button>
+      <span id="buy-copy-toast" style="display:none;margin-left:12px;color:var(--ok);font-weight:600;font-size:13px">\u2713 Copied! Paste in terminal.</span>
+    </div>
+    <div style="margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s4);text-align:center">
       <div style="padding:12px">
-        <div style="font-size:24px;margin-bottom:8px">1\u20E3</div>
-        <p style="margin:0;font-size:14px;font-weight:600">Pick a pack</p>
-        <p style="margin:4px 0 0;font-size:12px;color:var(--faint)">Choose Starter, Pro, or Max above</p>
+        <div style="font-size:24px;margin-bottom:8px">\u{1F4CB}</div>
+        <p style="margin:0;font-size:14px;font-weight:600">Copy command</p>
+        <p style="margin:4px 0 0;font-size:12px;color:var(--faint)">Click the button above</p>
       </div>
       <div style="padding:12px">
-        <div style="font-size:24px;margin-bottom:8px">2\u20E3</div>
-        <p style="margin:0;font-size:14px;font-weight:600">Make a request</p>
-        <p style="margin:4px 0 0;font-size:12px;color:var(--faint)">POST to any x402 endpoint. Server returns a payment challenge.</p>
+        <div style="font-size:24px;margin-bottom:8px">\u{1F4BB}</div>
+        <p style="margin:0;font-size:14px;font-weight:600">Paste & run</p>
+        <p style="margin:4px 0 0;font-size:12px;color:var(--faint)">Paste in your terminal, hit enter</p>
       </div>
       <div style="padding:12px">
-        <div style="font-size:24px;margin-bottom:8px">3\u20E3</div>
-        <p style="margin:0;font-size:14px;font-weight:600">Sign & pay</p>
-        <p style="margin:4px 0 0;font-size:12px;color:var(--faint)">Sign a gasless USDC transfer. Credits added instantly. No accounts needed.</p>
+        <div style="font-size:24px;margin-bottom:8px">\u{1F48E}</div>
+        <p style="margin:0;font-size:14px;font-weight:600">Sign to pay</p>
+        <p style="margin:4px 0 0;font-size:12px;color:var(--faint)">Sign gasless USDC transfer</p>
       </div>
     </div>
+  </div>
+  <div style="margin-top:var(--s4);text-align:center;font-size:13px;color:var(--faint)">
+    <p>Don't have a crypto wallet? <a href="#email-notify" style="color:var(--accent)">Get notified when card payments launch</a> \u2022 <a href="https://github.com/shoutsid-lab/webcap" target="_blank" rel="noopener" style="color:var(--accent)">Star on GitHub</a></p>
+  </div>
+  <div id="email-notify" style="margin-top:var(--s5);padding:20px;background:var(--panel-2);border:1px solid var(--line);border-radius:var(--r-l)">
+    <h3 style="font-size:15px;font-weight:700;margin:0 0 8px;text-align:center">\u{1F4E7} Card payments coming soon</h3>
+    <p style="font-size:13px;color:var(--muted);text-align:center;margin:0 0 12px">Enter your email and we'll notify you when Stripe card payments are ready.</p>
+    <form class="pack-notify-form" id="notify-card-form" style="max-width:400px;margin:0 auto;display:flex;gap:0;border-radius:var(--r-m);overflow:hidden;border:1px solid var(--accent)">
+      <input type="email" placeholder="you@email.com" required aria-label="Email for card payment notification" style="flex:1;padding:10px 14px;border:none;font-size:13px;font-family:var(--mono);background:var(--bg);color:var(--text);min-width:0">
+      <button type="submit" style="padding:10px 16px;font-size:13px;font-weight:700;background:var(--accent);color:#fff;border:none;cursor:pointer;font-family:var(--mono);white-space:nowrap;border-left:1px solid var(--accent)">Notify me \u2192</button>
+    </form>
+    <p id="notify-card-note" style="margin-top:8px;font-size:12px;color:var(--faint);text-align:center"></p>
   </div>` : ''}
 
   <section class="buy-section">
@@ -282,8 +307,8 @@ ${footer(bazaarCatalogUrl)}
 
   if(stripeConfigured){
     /* Stripe configured: use checkout flow */
-    document.querySelectorAll('.pack-btn').forEach(function(btn){
-      btn.addEventListener('click',function(){
+    document.querySelectorAll('.pack-btn[data-pack]').forEach(function(btn){
+      btn.addEventListener('click',function(e){
         var pack=btn.getAttribute('data-pack')||'';
         var price=btn.getAttribute('data-price')||'';
         var credits=btn.getAttribute('data-credits')||'';
@@ -307,18 +332,51 @@ ${footer(bazaarCatalogUrl)}
       });
     });
   } else {
-    /* No Stripe: crypto is the primary payment path — link to quickstart */
-    document.querySelectorAll('.pack-btn').forEach(function(btn){
+    /* No Stripe: crypto CTA buttons — track clicks */
+    document.querySelectorAll('.pack-btn[data-track]').forEach(function(btn){
       btn.addEventListener('click',function(){
-        var pack=btn.getAttribute('data-pack')||btn.textContent||'';
-        trackBuyClick(pack,'','crypto_quickstart');
+        var pack=btn.getAttribute('data-track')||'';
+        trackBuyClick(pack,'','crypto_cta');
+        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{pack:pack,source:'buy_page_crypto'}})],{type:'application/json'}));}catch(ex){}
       });
     });
   }
 
-  /* track page view */
+  /* track page view (NOT upgrade_click — that should only fire on actual button clicks) */
   try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'buy_page_view',meta:{stripe:stripeConfigured}})],{type:'application/json'}));}catch(ex){}
-  try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{source:'buy_page'}})],{type:'application/json'}));}catch(ex){}
+
+  /* copy command button */
+  var copyCmdBtn=document.getElementById('buy-copy-cmd');
+  if(copyCmdBtn){
+    copyCmdBtn.addEventListener('click',function(){
+      var curl=copyCmdBtn.getAttribute('data-curl')||'';
+      if(navigator.clipboard){navigator.clipboard.writeText(curl).then(function(){
+        copyCmdBtn.textContent='\u2713 Copied! Paste in terminal.';
+        setTimeout(function(){copyCmdBtn.textContent='\u{1F4CB} Copy extract command';},3000);
+        var toast=document.getElementById('buy-copy-toast');
+        if(toast){toast.style.display='inline';setTimeout(function(){toast.style.display='none';},4000);}
+      });}
+      try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'curl_copy',meta:{source:'buy_page'}})],{type:'application/json'}));}catch(ex){}
+    });
+  }
+
+  /* email notify form (card payments coming soon) */
+  var notifyForm=document.getElementById('notify-card-form');
+  var notifyNote=document.getElementById('notify-card-note');
+  if(notifyForm){
+    notifyForm.addEventListener('submit',function(e){
+      e.preventDefault();
+      var emailInput=notifyForm.querySelector('input[type="email"]');
+      var email=emailInput?emailInput.value.trim():'';
+      if(!email)return;
+      fetch('/v1/track',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({event:'email_subscribe',meta:{email:email,source:'buy_page_notify'}})}).catch(function(){});
+      fetch('/v1/waitlist',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:email})}).catch(function(){});
+      var btn=notifyForm.querySelector('button[type="submit"]');
+      if(btn){btn.textContent='\u2713 Done!';btn.style.background='var(--ok)';btn.disabled=true;}
+      emailInput.disabled=true;emailInput.style.opacity='0.6';
+      if(notifyNote){notifyNote.textContent='\u2713 We\'ll email you when card payments launch. No spam.';}
+    });
+  }
 
   /* social proof */
   fetch('/v1/status').then(function(r){return r.json();}).then(function(s){
