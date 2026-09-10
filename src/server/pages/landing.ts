@@ -122,7 +122,7 @@ ${topBar(bazaarCatalogUrl, 'landing')}
         <div class="cta-row">
           <a class="btn" href="#preview">Try it free \u2193</a>
           <a class="btn ghost" href="https://github.com/shoutsid-lab/webcap" target="_blank" rel="noopener">\u{1F4BB} GitHub</a>
-          <a class="btn ghost" href="${stripeConfigured ? '/buy' : '#newsletter'}" data-upgrade="hero">Buy credits \u2192</a>
+          <a class="btn ghost" href="${stripeConfigured ? '/buy' : '#preview'}" data-upgrade="hero">\u{1F48E} Pay with crypto</a>
         </div>
         <div class="social-proof" id="social-proof"><span class="proof-icon">\u{1F7E2}</span> <span id="proof-text">Live metrics loading\u2026</span></div>
       </div>
@@ -183,7 +183,7 @@ ${topBar(bazaarCatalogUrl, 'landing')}
             value="https://example.com/" placeholder="Paste any URL\u2026" required aria-label="URL to preview">
           <button class="btn" type="submit" id="preview-btn">Extract \u2197</button>
         </div>
-        <p class="form-note">No sign-up needed. Results appear below instantly. <a href="/buy">Buy credits</a> for full API access \u2014 or copy the curl command and run it yourself.</p>
+        <p class="form-note">No sign-up needed. Results appear below instantly. <a href="/buy">Buy credits</a> for full API access \u2014 or copy the curl command and run it yourself. <strong>Pay $0.01 per batch of 50 URLs.</strong></p>
         <div class="quick-try">
           <span class="quick-try-label">Try:</span>
           <button type="button" class="quick-try-btn" data-url="https://example.com/">example.com</button>
@@ -250,7 +250,7 @@ ${topBar(bazaarCatalogUrl, 'landing')}
       <li><b>Call the API.</b>
         <p>POST <code>/v1/x402/capture</code> or <code>/v1/x402/extract</code>. The server answers with a payment challenge.</p></li>
       <li><b>Pay.</b>
-        <p>Pay with <strong>crypto (x402 USDC)</strong>. No accounts, no API keys, no subscriptions. <a href="/buy">Buy credits</a> or pay per-call.</p></li>
+        <p>Pay with <strong>crypto (x402 USDC on Base)</strong> \u2014 instant, gasless, no accounts. Or <a href="/buy">buy credits</a> with card (coming soon).</p></li>
       <li><b>Get your result.</b>
         <p>Instant response. Artifact served immediately. On-chain settlement for crypto payments.</p></li>
     </ol>
@@ -470,15 +470,23 @@ ${footer(bazaarCatalogUrl)}
       if(stripeConfigured){
         h+='<a href="'+esc(base)+'/buy" class="pr-upgrade-btn pr-pay-now" style="display:inline-block;text-decoration:none;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;cursor:pointer;text-align:center">\u{1F4B3} Buy credits with card \u2192</a>';
       } else {
-        h+='<div class="pr-upgrade-email" style="margin-bottom:8px">';
-        h+='<form class="pr-upgrade-email-form" style="display:flex;gap:0;border-radius:var(--r-m);overflow:hidden;border:1px solid var(--accent)">';
-        h+='<input type="email" placeholder="you@email.com" required aria-label="Email for purchase" style="flex:1;padding:10px 14px;border:none;font-size:14px;font-family:var(--mono);background:var(--bg);color:var(--text);min-width:0">';
-        h+='<button type="submit" class="pr-upgrade-email-btn" style="padding:10px 18px;font-size:14px;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;cursor:pointer;font-family:var(--mono);white-space:nowrap">Get $0.01 credits \u2192</button>';
+        /* PRIMARY: Copy curl command (instant crypto payment) */
+        h+='<button class="pr-upgrade-btn pr-copy-main pr-pay-now" data-curl="'+esc(curlCmd)+'" style="display:inline-block;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;cursor:pointer;text-align:center;font-size:14px;padding:12px 20px;border-radius:var(--r-m)">\u{1F4CB} Copy command \u2014 get full data in 30s</button>';
+        /* SECONDARY: Email form (fallback) */
+        h+='<details style="margin-top:8px;font-size:12px">';
+        h+='<summary style="cursor:pointer;color:var(--faint);font-size:11px">No crypto wallet? Get a card payment link \u2193</summary>';
+        h+='<div style="margin-top:6px">';
+        h+='<form class="pr-upgrade-email-form" style="display:flex;gap:0;border-radius:var(--r-m);overflow:hidden;border:1px solid var(--line)">';
+        h+='<input type="email" placeholder="you@email.com" required aria-label="Email for purchase" style="flex:1;padding:8px 12px;border:none;font-size:13px;font-family:var(--mono);background:var(--bg);color:var(--text);min-width:0">';
+        h+='<button type="submit" class="pr-upgrade-email-btn" style="padding:8px 14px;font-size:13px;font-weight:700;background:var(--panel-2);color:var(--text);border:none;cursor:pointer;font-family:var(--mono);white-space:nowrap;border-left:1px solid var(--line)">Email link \u2192</button>';
         h+='</form>';
-        h+='<p style="margin:6px 0 0;font-size:11px;color:var(--faint)">We\u2019ll email you a payment link within 24h. No account needed.</p>';
-        h+='</div>';
+        h+='<p style="margin:4px 0 0;font-size:10px;color:var(--faint)">We\u2019ll email you a Stripe payment link within 24h.</p>';
+        h+='</div></details>';
       }
-      h+='<button class="pr-upgrade-btn pr-copy-main" data-curl="'+esc(curlCmd)+'" title="Copy curl command to clipboard">\u{1F4CB} Or pay with crypto (curl)</button>';
+      /* mini how-it-works inline */
+      h+='<div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--faint);align-items:center">';
+      h+='<span>\u2705 Copy</span><span>\u2192</span><span>\u2705 Paste in terminal</span><span>\u2192</span><span>\u2705 Pay $0.01 with USDC</span>';
+      h+='</div>';
       h+='</div>';
       h+='<div class="pr-copy-toast" id="copy-toast" hidden>\u2713 Copied! Paste in your terminal and run.</div>';
       h+='<div class="pr-pay-instructions" id="pr-pay-instructions" hidden>';
@@ -663,15 +671,23 @@ ${footer(bazaarCatalogUrl)}
       if(stripeConfigured){
         errCta+='<a href="'+esc(base)+'/buy" class="pr-upgrade-btn pr-pay-now" style="display:inline-block;text-decoration:none;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;cursor:pointer;text-align:center">\u{1F4B3} Buy credits with card \u2192</a>';
       } else {
-        errCta+='<div class="pr-upgrade-email" style="margin-bottom:8px">';
-        errCta+='<form class="pr-upgrade-email-form" style="display:flex;gap:0;border-radius:var(--r-m);overflow:hidden;border:1px solid var(--accent)">';
-        errCta+='<input type="email" placeholder="you@email.com" required aria-label="Email for purchase" style="flex:1;padding:10px 14px;border:none;font-size:14px;font-family:var(--mono);background:var(--bg);color:var(--text);min-width:0">';
-        errCta+='<button type="submit" class="pr-upgrade-email-btn" style="padding:10px 18px;font-size:14px;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;cursor:pointer;font-family:var(--mono);white-space:nowrap">Get $0.01 credits \u2192</button>';
+        /* PRIMARY: Copy curl command (instant crypto payment) */
+        errCta+='<button class="pr-upgrade-btn pr-copy-main pr-pay-now" data-curl="'+esc(errCurlCmd)+'" style="display:inline-block;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;cursor:pointer;text-align:center;font-size:14px;padding:12px 20px;border-radius:var(--r-m)">\u{1F4CB} Copy command \u2014 get full data in 30s</button>';
+        /* SECONDARY: Email form (fallback) */
+        errCta+='<details style="margin-top:8px;font-size:12px">';
+        errCta+='<summary style="cursor:pointer;color:var(--faint);font-size:11px">No crypto wallet? Get a card payment link \u2193</summary>';
+        errCta+='<div style="margin-top:6px">';
+        errCta+='<form class="pr-upgrade-email-form" style="display:flex;gap:0;border-radius:var(--r-m);overflow:hidden;border:1px solid var(--line)">';
+        errCta+='<input type="email" placeholder="you@email.com" required aria-label="Email for purchase" style="flex:1;padding:8px 12px;border:none;font-size:13px;font-family:var(--mono);background:var(--bg);color:var(--text);min-width:0">';
+        errCta+='<button type="submit" class="pr-upgrade-email-btn" style="padding:8px 14px;font-size:13px;font-weight:700;background:var(--panel-2);color:var(--text);border:none;cursor:pointer;font-family:var(--mono);white-space:nowrap;border-left:1px solid var(--line)">Email link \u2192</button>';
         errCta+='</form>';
-        errCta+='<p style="margin:6px 0 0;font-size:11px;color:var(--faint)">We\u2019ll email you a payment link within 24h. No account needed.</p>';
-        errCta+='</div>';
+        errCta+='<p style="margin:4px 0 0;font-size:10px;color:var(--faint)">We\u2019ll email you a Stripe payment link within 24h.</p>';
+        errCta+='</div></details>';
       }
-      errCta+='<button class="pr-upgrade-btn pr-copy-main" data-curl="'+esc(errCurlCmd)+'" title="Copy curl command to clipboard">\u{1F4CB} Or pay with crypto (curl)</button>';
+      /* mini how-it-works inline */
+      errCta+='<div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--faint);align-items:center">';
+      errCta+='<span>\u2705 Copy</span><span>\u2192</span><span>\u2705 Paste in terminal</span><span>\u2192</span><span>\u2705 Pay $0.01 with USDC</span>';
+      errCta+='</div>';
       errCta+='</div>';
       errCta+='<div class="pr-copy-toast" id="copy-toast" hidden>\u2713 Copied! Paste in your terminal and run.</div>';
       errCta+='<div class="pr-pay-instructions" id="pr-pay-instructions" hidden>';
@@ -714,6 +730,11 @@ ${footer(bazaarCatalogUrl)}
       errCta+='<p class="email-note">No spam. Unsubscribe anytime.</p>';
       errCta+='</div>';
       errCta+='<div class="pr-try-another"><button class="btn-sm pr-try-btn" data-url="https://example.com/">Try example.com</button> <button class="btn-sm pr-try-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Try Wikipedia</button> <button class="btn-sm pr-try-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">Try MDN</button> <button class="btn-sm pr-try-btn" data-url="https://docs.python.org/3/">Try Python Docs</button></div>';
+      /* --- LIVE DEMO on error: show what full extract looks like --- */
+      errCta+='<div style="margin-top:20px;padding:16px 18px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-m)">';
+      errCta+='<span style="font-weight:700;font-size:13px">\u{1F4CA} Here\u2019s what full extraction looks like (real output):</span>';
+      errCta+='<pre id="error-demo-code" style="margin-top:10px;padding:12px 16px;border-radius:var(--r-s);font-size:12px;overflow-x:auto;background:var(--bg);border:1px solid var(--line);max-height:300px;overflow-y:auto"><code>Loading demo\u2026</code></pre>';
+      errCta+='</div>';
       /* Put the error FIRST — users need to understand what went wrong before seeing solutions */
       var errHtml='<div class="pr-error"><span class="pr-error-icon">\u26A0\uFE0F</span> <strong>'+esc(friendlyMsg)+'</strong>: '+esc(errMsg)+' '+hint+'<div class="pr-error-actions">'+retryBtn+'<a href="/v1/extract/preview?url='+encodeURIComponent(url)+'" target="_blank" class="pr-error-link">View raw JSON \u2197</a></div></div>';
       if(results){results.innerHTML=errHtml+errCta;results.scrollIntoView({behavior:'smooth',block:'start'});}
@@ -736,6 +757,29 @@ ${footer(bazaarCatalogUrl)}
           showToast('Request sent! Check your email.',4000);
         });
       });}
+      /* --- load demo on error state --- */
+      var errDemoCode=document.getElementById('error-demo-code');
+      if(errDemoCode){
+        fetch('/v1/demo').then(function(r){return r.json();}).then(function(d){
+          var results2=d.results||[];
+          if(!results2.length){errDemoCode.textContent='No demo available';return;}
+          var r=results2[0];
+          var out='';
+          out+='URL: '+(r.url||'')+'\n';
+          out+='Title: '+(r.title||'')+'\n';
+          out+='Description: '+(r.description||'').slice(0,120)+'...\n\n';
+          out+='Headings ('+((r.headings||[]).length)+'):\n';
+          (r.headings||[]).slice(0,6).forEach(function(h){out+='  H'+h.level+': '+h.text+'\n';});
+          out+='\nLinks ('+((r.links||[]).length)+'):\n';
+          (r.links||[]).slice(0,5).forEach(function(l){out+='  '+(l.text||l.href).slice(0,50)+'\n';});
+          out+='\nWord count: '+(r.wordCount||0)+'\n';
+          out+='Paragraphs: '+((r.paragraphs||[]).length)+'\n';
+          out+='Images: '+((r.images||[]).length)+'\n';
+          out+='\n--- Full markdown (first 500 chars) ---\n';
+          out+=(r.markdown||'').slice(0,500)+'...\n';
+          errDemoCode.textContent=out;
+        }).catch(function(){errDemoCode.textContent='Demo unavailable.';});
+      }
       var retryEls=results?results.querySelectorAll('.pr-retry-btn'):null;
       if(retryEls){retryEls.forEach(function(el){el.addEventListener('click',function(){
         var tryUrl=el.getAttribute('data-url')||'https://example.com/';

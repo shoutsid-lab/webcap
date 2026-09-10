@@ -153,25 +153,25 @@ ${topBar(bazaarCatalogUrl, 'buy')}
   </div>
   ${!stripeConfigured ? `
   <div style="text-align:center;margin-top:var(--s4);padding:12px 20px;background:rgba(37,99,235,.06);border:1px solid rgba(37,99,235,.15);border-radius:var(--r-m);font-size:13px;color:var(--muted)">
-    \u{1F513} <strong>Card payments coming soon.</strong> Currently accepting email purchase requests and x402 crypto (USDC on Base).
+    \u{1F48E} <strong>Instant crypto payments available now.</strong> Card payments coming soon. <a href="/quickstart" style="color:var(--accent);font-weight:700">Get started with x402 \u2197</a>
   </div>
   <div style="margin-top:var(--s5);padding:24px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l)">
-    <h3 style="font-size:16px;font-weight:700;margin:0 0 12px;text-align:center">How email purchase works</h3>
+    <h3 style="font-size:16px;font-weight:700;margin:0 0 12px;text-align:center">How crypto payment works (instant)</h3>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s4);text-align:center">
       <div style="padding:12px">
         <div style="font-size:24px;margin-bottom:8px">1\u20E3</div>
-        <p style="margin:0;font-size:14px;font-weight:600">Enter your email</p>
-        <p style="margin:4px 0 0;font-size:12px;color:var(--faint)">Pick a pack above and enter your email</p>
+        <p style="margin:0;font-size:14px;font-weight:600">Pick a pack</p>
+        <p style="margin:4px 0 0;font-size:12px;color:var(--faint)">Choose Starter, Pro, or Max above</p>
       </div>
       <div style="padding:12px">
         <div style="font-size:24px;margin-bottom:8px">2\u20E3</div>
-        <p style="margin:0;font-size:14px;font-weight:600">Get a payment link</p>
-        <p style="margin:4px 0 0;font-size:12px;color:var(--faint)">We\u2019ll email you a secure Stripe payment link within 24h</p>
+        <p style="margin:0;font-size:14px;font-weight:600">Make a request</p>
+        <p style="margin:4px 0 0;font-size:12px;color:var(--faint)">POST to any x402 endpoint. Server returns a payment challenge.</p>
       </div>
       <div style="padding:12px">
         <div style="font-size:24px;margin-bottom:8px">3\u20E3</div>
-        <p style="margin:0;font-size:14px;font-weight:600">Pay with card</p>
-        <p style="margin:4px 0 0;font-size:12px;color:var(--faint)">Click the link, pay with any credit/debit card. Credits added instantly.</p>
+        <p style="margin:0;font-size:14px;font-weight:600">Sign & pay</p>
+        <p style="margin:4px 0 0;font-size:12px;color:var(--faint)">Sign a gasless USDC transfer. Credits added instantly. No accounts needed.</p>
       </div>
     </div>
   </div>` : ''}
@@ -193,13 +193,18 @@ GET  /v1/extract/preview?url=https://example.com</code></pre></div>
     <h2>How to pay</h2>
     <p>Two payment methods, same API:</p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--s4);margin-top:var(--s4)">
-      <div style="padding:20px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l)">
-        <h3 style="font-size:16px;font-weight:700;margin:0 0 8px">\u{1F4B3} Card (Stripe)</h3>
-        <p style="color:var(--muted);font-size:14px;line-height:1.6;margin:0">Pay with any credit or debit card via Stripe Checkout. Credits are added instantly. No crypto wallet needed.</p>
+      <div style="padding:20px;background:var(--panel);border:2px solid var(--accent);border-radius:var(--r-l)">
+        <h3 style="font-size:16px;font-weight:700;margin:0 0 8px">\u{1F48E} Crypto (USDC on Base) \u2014 \u2605 instant</h3>
+        <p style="color:var(--muted);font-size:14px;line-height:1.6;margin:0">Pay with USDC on Base via x402. Gasless, no accounts needed. Sign a single EIP-3009 transfer from your wallet. <strong>Ready now.</strong></p>
+        <a href="/quickstart" style="display:inline-block;margin-top:12px;padding:8px 16px;background:var(--accent);color:var(--accent-ink);text-decoration:none;border-radius:var(--r-s);font-weight:700;font-size:13px">Quick start guide \u2197</a>
       </div>
       <div style="padding:20px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l)">
-        <h3 style="font-size:16px;font-weight:700;margin:0 0 8px">\u{1F48E} Crypto (USDC)</h3>
-        <p style="color:var(--muted);font-size:14px;line-height:1.6;margin:0">Pay with USDC on Base via x402. Gasless, no accounts needed. Sign a single EIP-3009 transfer from your wallet.</p>
+        <h3 style="font-size:16px;font-weight:700;margin:0 0 8px">\u{1F4B3} Card (Stripe) \u2014 coming soon</h3>
+        <p style="color:var(--muted);font-size:14px;line-height:1.6;margin:0">Pay with any credit or debit card via Stripe Checkout. Credits are added instantly. No crypto wallet needed.</p>
+        <form class="pack-notify-form" style="margin-top:12px;display:flex;gap:0;border-radius:var(--r-s);overflow:hidden;border:1px solid var(--line)">
+          <input type="email" placeholder="Notify me when ready" required aria-label="Email for card payment notification" style="flex:1;padding:8px 12px;border:none;font-size:13px;font-family:var(--mono);background:var(--bg);color:var(--text);min-width:0">
+          <button type="submit" style="padding:8px 14px;font-size:13px;font-weight:700;background:var(--panel-2);color:var(--text);border:none;cursor:pointer;font-family:var(--mono);white-space:nowrap;border-left:1px solid var(--line)">Notify \u2192</button>
+        </form>
       </div>
     </div>
   </section>
