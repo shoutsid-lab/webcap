@@ -1,8 +1,10 @@
 /**
- * GET / — the product landing page. Redesigned for conversion: ONE clear
- * value proposition, ONE CTA, proper section order following SaaS best practices.
+ * GET / — the product landing page. Radically simplified for conversion:
+ * Hero → Preview → Features → Pricing → Buy. No monitoring, trust badges,
+ * newsletter, or resource sections. Every section either demonstrates value
+ * or drives conversion.
  */
-import { DEFAULT_BAZAAR_CATALOG_URL, USDC_SCALE, WATCH_TOPUP_RUNS, watchTopUpPriceUsdcUnits, type WebcapConfig } from '../../config.js';
+import { DEFAULT_BAZAAR_CATALOG_URL, USDC_SCALE, type WebcapConfig } from '../../config.js';
 import { footer, topBar } from './chrome.js';
 import { BASE_CSS, LANDING_CSS } from './css.js';
 import { CHAIN_COPY } from './copy.js';
@@ -23,12 +25,6 @@ export function landingHtml(config: WebcapConfig): string {
   const network = config.x402Network ?? 'eip155:84532';
   const capturePrice = usd(config.x402PriceUsdcUnits);
   const extractPrice = usd(config.x402ExtractPriceUsdcUnits);
-  const auditPrice = usd(config.x402AuditPriceUsdcUnits);
-  const videoPrice = usd(config.x402VideoPriceUsdcUnits);
-  const analyzePrice = '$0.01';
-  const topUpUsd = (usdcUnits: number): string => `$${(usdcUnits / USDC_SCALE).toFixed(2)}`;
-  const captureTopUpPrice = topUpUsd(watchTopUpPriceUsdcUnits('capture', config));
-  const extractTopUpPrice = topUpUsd(watchTopUpPriceUsdcUnits('extract', config));
   const stripeConfigured = !!config.stripeSecretKey;
 
   const curlFlow = `<span class="c"># Capture any URL as PNG, JPEG, or PDF</span>
@@ -54,17 +50,17 @@ curl "${base}/v1/extract/preview?url=https://example.com/"
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>webcap \u2014 web capture API · screenshots · extraction · monitoring</title>
-<meta name="description" content="Developer API for screenshot capture (PNG/JPEG/PDF), structured extraction (title-to-markdown), and change monitoring with webhook alerts. Pay per call, no accounts needed.">
+<title>webcap \u2014 web capture API \u2014 screenshots \u2014 extraction \u2014 monitoring</title>
+<meta name="description" content="Screenshot any URL. Extract structured data. Monitor for changes. Developer API with pay-per-call pricing \u2014 no API keys, no accounts.">
 <!-- Open Graph / Facebook -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="${base}">
-<meta property="og:title" content="webcap \u2014 web capture API · screenshots · extraction · monitoring">
+<meta property="og:title" content="webcap \u2014 web capture API \u2014 screenshots \u2014 extraction \u2014 monitoring">
 <meta property="og:description" content="Screenshot any URL. Extract structured data. Monitor for changes. Developer API with pay-per-call pricing \u2014 no API keys, no accounts.">
 <meta property="og:image" content="${base}/icon.png">
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="webcap \u2014 web capture API · screenshots · extraction · monitoring">
+<meta name="twitter:title" content="webcap \u2014 web capture API \u2014 screenshots \u2014 extraction \u2014 monitoring">
 <meta name="twitter:description" content="Screenshot any URL. Extract structured data. Monitor for changes. Developer API with pay-per-call pricing \u2014 no API keys, no accounts.">
 <meta name="twitter:image" content="${base}/icon.png">
 <link rel="canonical" href="${base}">
@@ -122,7 +118,6 @@ ${topBar(bazaarCatalogUrl, 'landing')}
         <div class="cta-row">
           <a class="btn" href="#preview">Try it free \u2193</a>
           <a class="btn ghost" href="https://github.com/shoutsid-lab/webcap" target="_blank" rel="noopener">\u{1F4BB} GitHub</a>
-          <a class="btn ghost" href="/buy" data-upgrade="hero">\u{1F48E} Buy credits</a>
         </div>
         <div class="social-proof" id="social-proof"><span class="proof-icon">\u{1F7E2}</span> <span id="proof-text">Live metrics loading\u2026</span></div>
       </div>
@@ -158,14 +153,6 @@ ${topBar(bazaarCatalogUrl, 'landing')}
         <span class="trust-num">Pay per call</span>
         <span class="trust-label">Card or crypto</span>
       </div>
-      <div class="trust-item">
-        <span class="trust-num">993 tests</span>
-        <span class="trust-label">passing</span>
-      </div>
-      <div class="trust-item">
-        <span class="trust-num">MIT</span>
-        <span class="trust-label">licensed</span>
-      </div>
     </div>
   </section>
 
@@ -183,7 +170,7 @@ ${topBar(bazaarCatalogUrl, 'landing')}
             value="https://example.com/" placeholder="Paste any URL\u2026" required aria-label="URL to preview">
           <button class="btn" type="submit" id="preview-btn">Extract data \u2197</button>
         </div>
-        <p class="form-note">No sign-up needed. Results appear below instantly. <a href="/buy">Buy credits</a> for full API access \u2014 enter your email to get a payment link. <strong>$0.01 per batch of 50 URLs.</strong></p>
+        <p class="form-note">No sign-up needed. Results appear below instantly. Full API: $0.01 per batch of 50 URLs. <strong>Pay with crypto (USDC on Base) \u2014 gasless, instant.</strong> <a href="/quickstart">Payment guide \u2197</a></p>
         <div class="quick-try">
           <span class="quick-try-label">Try:</span>
           <button type="button" class="quick-try-btn" data-url="https://example.com/">example.com</button>
@@ -195,20 +182,6 @@ ${topBar(bazaarCatalogUrl, 'landing')}
       </form>
       <div id="preview-results" class="preview-results" hidden></div>
     </div>
-  </section>
-
-  <!-- ═══════════════════════════════════════════════════════════════
-       LIVE DEMO: See what a full extract looks like (no signup)
-       ═══════════════════════════════════════════════════════════════ -->
-  <section class="section wrap" id="demo">
-    <p class="eyebrow">Live demo</p>
-    <h2>See what a full extract looks like</h2>
-    <p class="hint">This is real output from the API \u2014 structured data from Hacker News, extracted in one call.</p>
-    <div class="term" id="demo-term" aria-label="live demo of webcap extract output">
-      <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">webcap extract \u2014 Hacker News</span></div>
-      <pre><code id="demo-code">Loading demo\u2026</code></pre>
-    </div>
-    <p style="text-align:center;margin-top:16px;font-size:14px;color:var(--muted)">One API call. All this data. <strong>$0.01 per batch.</strong> <a href="#preview">Try it yourself \u2193</a></p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════════════════
@@ -235,7 +208,7 @@ ${topBar(bazaarCatalogUrl, 'landing')}
         <div class="feature-icon">\u{1F514}</div>
         <h3>Monitor</h3>
         <p>Scheduled re-captures with webhook alerts. Detect any change, get notified.</p>
-        <span class="feature-price">from ${esc(captureTopUpPrice)}/50 runs</span>
+        <span class="feature-price">from $0.10/50 runs</span>
       </div>
     </div>
   </section>
@@ -250,22 +223,10 @@ ${topBar(bazaarCatalogUrl, 'landing')}
       <li><b>Call the API.</b>
         <p>POST <code>/v1/x402/capture</code> or <code>/v1/x402/extract</code>. The server answers with a payment challenge.</p></li>
       <li><b>Pay.</b>
-        <p>Pay with <strong>crypto (x402 USDC on Base)</strong> \u2014 instant, gasless, no accounts. Or <a href="/buy">buy credits</a> with card (coming soon).</p></li>
+        <p>Pay with <strong>crypto (x402 USDC on Base)</strong> \u2014 instant, gasless, no accounts. Copy the command, paste in terminal, sign once. <a href="/quickstart">Payment guide</a>.</p></li>
       <li><b>Get your result.</b>
         <p>Instant response. Artifact served immediately. On-chain settlement for crypto payments.</p></li>
     </ol>
-    <div class="term">${termBar('bash \u2014 quick start')}<pre><code><span class="c"># Free preview \u2014 no payment needed</span>
-curl "${base}/v1/extract/preview?url=https://example.com/"
-
-<span class="c"># Paid capture \u2014 returns 402, sign, retry</span>
-curl -si -X POST "${base}/v1/x402/capture" \\
-  -H <span class="s">'content-type: application/json'</span> \\
-  -d <span class="s">'{"url":"https://example.com/"}'</span>
-
-<span class="c"># Paid extract \u2014 structured JSON from any URL</span>
-curl -si -X POST "${base}/v1/x402/extract" \\
-  -H <span class="s">'content-type: application/json'</span> \\
-  -d <span class="s">'{"urls":["https://example.com/"]}'</span></code></pre></div>
   </section>
 
   <!-- ═══════════════════════════════════════════════════════════════
@@ -292,18 +253,12 @@ curl -si -X POST "${base}/v1/x402/extract" \\
       </div>
       <div class="price">
         <h3>Video</h3>
-        <div class="amount">${esc(videoPrice)} <small>/ URL</small></div>
+        <div class="amount">${esc(usd(config.x402VideoPriceUsdcUnits))} <small>/ URL</small></div>
         <p>Full-page scroll capture as MP4. For demos and archiving.</p>
         <span class="tag">POST /v1/x402/video</span>
       </div>
-      <div class="price">
-        <h3>Analyze</h3>
-        <div class="amount">${esc(analyzePrice)} <small>/ URL</small></div>
-        <p>AI classification, accessibility audit, entity extraction.</p>
-        <span class="tag">POST /v1/x402/analyze</span>
-      </div>
     </div>
-    <p class="hint" style="margin-top:var(--s5)">Also: <code>POST /v1/x402/audit</code> \u2014 SEO + link health for ${esc(auditPrice)}/URL. Full spec: <code><a href="/openapi.json">GET /openapi.json</a></code></p>
+    <p class="hint" style="margin-top:var(--s5)">Also: <code>POST /v1/x402/audit</code> \u2014 SEO + link health for $0.001/URL. Full spec: <code><a href="/openapi.json">GET /openapi.json</a></code></p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════════════════
@@ -319,66 +274,6 @@ curl -si -X POST "${base}/v1/x402/extract" \\
         <a class="btn" href="#preview">Try it free \u2193</a>
         <a class="btn ghost" href="/buy">Buy credits \u2192</a>
       </div>
-    </div>
-  </section>
-
-  <!-- ═══════════════════════════════════════════════════════════════
-       NEWSLETTER: Email capture — standalone, always visible
-       ═══════════════════════════════════════════════════════════════ -->
-  <section class="section wrap" id="newsletter">
-    <div class="waitlist-card">
-      <div class="waitlist-content">
-        <h3>Stay in the loop</h3>
-        <p>Get notified about new features, API improvements, and launch discounts. No spam — just product updates.</p>
-      </div>
-      <div class="waitlist-form">
-        <form id="waitlist-form" class="waitlist-row">
-          <input type="email" id="waitlist-email" placeholder="you@example.com" required aria-label="Email address">
-          <button class="btn" type="submit" id="waitlist-btn">Subscribe</button>
-        </form>
-        <p class="waitlist-note" id="waitlist-note"></p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══════════════════════════════════════════════════════════════
-       MONITORING: Change detection with webhooks
-       ═══════════════════════════════════════════════════════════════ -->
-  <section class="section wrap" id="monitoring">
-    <p class="eyebrow">Monitoring</p>
-    <h2>Change detection with webhook alerts</h2>
-    <p class="hint">Point webcap at a URL on a schedule. Every run is compared against the previous one. A webhook fires when something changes. Runs are pre-paid in ${WATCH_TOPUP_RUNS}-run packs.</p>
-    <div class="price-grid">
-      <div class="price">
-        <h3>Capture watch</h3>
-        <div class="amount">${esc(captureTopUpPrice)} <small>/ ${WATCH_TOPUP_RUNS} runs</small></div>
-        <p>${WATCH_TOPUP_RUNS} scheduled re-captures. Artifact bytes fingerprinted with sha256.</p>
-        <span class="tag">${WATCH_TOPUP_RUNS} \u00D7 ${esc(capturePrice)} \u2014 POST /v1/x402/watches/topup</span>
-      </div>
-      <div class="price">
-        <h3>Extract watch</h3>
-        <div class="amount">${esc(extractTopUpPrice)} <small>/ ${WATCH_TOPUP_RUNS} runs</small></div>
-        <p>${WATCH_TOPUP_RUNS} scheduled re-extractions. Field-level diff on change.</p>
-        <span class="tag">${WATCH_TOPUP_RUNS} \u00D7 ${esc(extractPrice)} \u2014 POST /v1/x402/watches/topup</span>
-      </div>
-      <div class="price">
-        <h3>Change alerts</h3>
-        <div class="amount">$0 <small>/ with any watch</small></div>
-        <p>Webhook fires POST with diff details when a change is detected.</p>
-        <span class="tag">your https endpoint</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══════════════════════════════════════════════════════════════
-       TRUST: Independent verification badges
-       ═══════════════════════════════════════════════════════════════ -->
-  <section class="section wrap" id="trust">
-    <p class="eyebrow">Trust</p>
-    <p class="hint">Independently observed trust (third-party index, live-probed):</p>
-    <div class="trust-strip">
-      <a href="https://5.75.142.199.sslip.io/x402/trust/46929" target="_blank" rel="noopener"><img src="https://5.75.142.199.sslip.io/badge/x402/46929.svg" alt="x402 trust badge: capture route" loading="lazy"></a>
-      <a href="https://5.75.142.199.sslip.io/x402/trust/46928" target="_blank" rel="noopener"><img src="https://5.75.142.199.sslip.io/badge/x402/46928.svg" alt="x402 trust badge: extract route" loading="lazy"></a>
     </div>
   </section>
 
@@ -466,31 +361,21 @@ ${footer(bazaarCatalogUrl)}
       if(d.truncated)h+='<span class="pr-badge">preview</span>';
       h+='</div>';
       if(p.description)h+='<p class="pr-desc">'+esc(p.description)+'</p>';
-      /* --- UPGRADE CTA FIRST: crypto copy-paste as PRIMARY action --- */
+      /* --- UPGRADE CTA: Email-to-buy as primary, copy command as secondary --- */
       h+='<div class="pr-upgrade pr-upgrade-top">';
       h+='<div class="pr-upgrade-body">';
       h+='<div class="pr-upgrade-title"><span class="pr-upgrade-icon">\u{1F513}</span> Unlock full data \u2014 $0.01</div>';
       h+='<p style="margin:6px 0 10px;font-size:13px;color:var(--muted)">Get ALL '+hCount+' headings, ALL '+lCount+' links, full markdown, paragraphs, images, and AI classification. <strong>Batch up to 50 URLs per payment.</strong></p>';
       h+='</div>';
-      h+='<div class="pr-upgrade-actions">';
-      if(stripeConfigured){
-        h+='<a href="'+esc(base)+'/buy" class="pr-upgrade-btn pr-pay-now" style="display:inline-block;text-decoration:none;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;cursor:pointer;text-align:center">\u{1F4B3} Buy credits with card \u2192</a>';
-      } else {
-        /* PRIMARY: Copy-paste crypto command — the ONLY working payment path */
-        h+='<div style="display:flex;flex-direction:column;gap:6px;width:100%">';
-        h+='<div style="position:relative;background:var(--bg);border:2px solid var(--accent);border-radius:var(--r-m);overflow:hidden">';
-        h+='<div style="padding:8px 12px;background:rgba(37,99,235,.06);border-bottom:1px solid rgba(37,99,235,.1);font-size:11px;font-weight:700;color:var(--accent);font-family:var(--mono)">\u{1F4CB} Copy this command &rarr; paste in terminal &rarr; get full data in 30s</div>';
-        h+='<pre style="margin:0;padding:12px 14px;font-size:12px;overflow-x:auto;background:transparent"><code>'+esc(curlCmd)+'</code></pre>';
-        h+='<button class="pr-copy-btn pr-copy-main" style="position:absolute;top:6px;right:8px;padding:6px 14px;font-size:12px;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;border-radius:var(--r-s);cursor:pointer;font-family:var(--mono)" data-curl="'+esc(curlCmd)+'">\u{1F4CB} Copy &amp; pay</button>';
-        h+='</div>';
-        h+='<div style="display:flex;gap:12px;margin-top:8px;font-size:12px;color:var(--muted);align-items:flex-start">';
-        h+='<div style="display:flex;gap:6px;align-items:flex-start"><span style="color:var(--accent);font-weight:700">1.</span><span>Paste in terminal</span></div>';
-        h+='<div style="display:flex;gap:6px;align-items:flex-start"><span style="color:var(--accent);font-weight:700">2.</span><span>Sign the USDC payment (gasless)</span></div>';
-        h+='<div style="display:flex;gap:6px;align-items:flex-start"><span style="color:var(--accent);font-weight:700">3.</span><span>Get full JSON response</span></div>';
-        h+='</div>';
-        h+='<p style="margin:8px 0 0;font-size:11px;color:var(--faint)">\u{1F48E} No wallet? <a href="'+esc(base)+'/quickstart" style="color:var(--accent);font-weight:600">Quick start guide</a> \u00B7 <a href="'+esc(base)+'/buy" style="color:var(--accent)">Buy credits page</a></p>';
-        h+='</div>';
-      }
+      h+='<div class="pr-upgrade-actions" style="display:flex;flex-direction:column;gap:8px;width:100%">';
+      /* PRIMARY: Copy command button \u2014 instant path to try paid API */
+      h+='<button class="pr-copy-main" data-curl="'+esc(curlCmd)+'" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 20px;font-size:15px;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;border-radius:var(--r-m);cursor:pointer;font-family:var(--mono);width:100%;box-shadow:0 2px 8px rgba(37,99,235,.25);transition:all .15s ease">\u{1F4CB} Copy command \u2014 get full data in 30s</button>';
+      /* SECONDARY: Buy credits link */
+      h+='<a href="'+esc(base)+'/buy" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 20px;text-decoration:none;font-weight:600;background:var(--panel);color:var(--accent);border:1px solid var(--accent);border-radius:var(--r-m);font-size:13px;font-family:var(--mono);width:100%">\u{1F48E} Buy credits with crypto \u2192</a>';
+      h+='</div>';
+      /* mini how-it-works inline */
+      h+='<div style="display:flex;gap:8px;margin-top:10px;font-size:11px;color:var(--faint);align-items:center;flex-wrap:wrap">';
+      h+='<span>\u{1F4CB} Copy</span><span>\u2192</span><span>\u{1F4BB} Paste in terminal</span><span>\u2192</span><span>\u{1F48E} Sign to pay</span><span>\u2192</span><span>\u2705 Get full data</span>';
       h+='</div>';
       h+='<div class="pr-copy-toast" id="copy-toast" hidden>\u2713 Copied! Paste in your terminal and run.</div>';
       h+='<div class="pr-pay-instructions" id="pr-pay-instructions" hidden>';
@@ -541,53 +426,14 @@ ${footer(bazaarCatalogUrl)}
       h+='<div class="pr-bottom-actions">';
       h+='<a href="'+esc(base)+'/quickstart" class="pr-upgrade-link" data-track="quickstart_click">Quick start guide \u2197</a>';
       h+='</div>';
-      h+='<div class="pr-email-capture">';
-      h+='<p>Not ready to pay? Get product updates:</p>';
-      h+='<form class="email-form" id="email-capture-form">';
-      h+='<input type="email" placeholder="you@example.com" required aria-label="Email for updates">';
-      h+='<button type="submit" class="btn-sm">Subscribe</button>';
-      h+='</form>';
-      h+='<p class="email-note">No spam. Unsubscribe anytime.</p>';
-      h+='</div>';
       h+='<div class="pr-try-another"><button class="btn-sm pr-try-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Wikipedia</button> <button class="btn-sm pr-try-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">MDN Docs</button> <button class="btn-sm pr-try-btn" data-url="https://github.com/shoutsid-lab/webcap">GitHub repo</button> <button class="btn-sm pr-try-btn" data-url="https://docs.python.org/3/">Python Docs</button></div>';
       if(results){results.innerHTML=h;results.scrollIntoView({behavior:'smooth',block:'start'});}
-      /* --- inline email purchase form (when Stripe not configured) --- */
-      var emailForms=results?results.querySelectorAll('.pr-upgrade-email-form'):null;
-      if(emailForms){emailForms.forEach(function(ef){
-        ef.addEventListener('submit',function(e){
-          e.preventDefault();
-          var emailInput=ef.querySelector('input[type="email"]');
-          var email=emailInput?emailInput.value.trim():'';
-          if(!email)return;
-          try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_email_purchase',email:email}})],{type:'application/json'}));}catch(ex){}
-          fetch('/v1/track',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({event:'purchase_request',meta:{email:email,url:url,source:'preview_inline'}})}).catch(function(){});
-          fetch('/v1/waitlist',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:email})}).catch(function(){});
-          var btn=ef.querySelector('button[type="submit"]');
-          if(btn){btn.textContent='\u2713 Sent!';btn.style.background='var(--ok)';btn.disabled=true;}
-          emailInput.disabled=true;emailInput.style.opacity='0.6';
-          var note=ef.parentNode?ef.parentNode.querySelector('p'):null;
-          if(note){note.innerHTML='<span style="color:var(--ok)">Check your inbox for a payment link.</span>';}
-          showToast('Request sent! Check your email.',4000);
-        });
-      });}
       /* --- primary copy button (big) --- */
       var mainCopyBtn=results?results.querySelector('.pr-copy-main'):null;
       if(mainCopyBtn){mainCopyBtn.addEventListener('click',function(){
         var curl=mainCopyBtn.getAttribute('data-curl')||'';
         if(navigator.clipboard){navigator.clipboard.writeText(curl).then(function(){
-          mainCopyBtn.textContent='\u2713 Copied!';setTimeout(function(){mainCopyBtn.textContent='\u{1F4CB} Copy & pay';},3000);
-          var toast=results?results.querySelector('#copy-toast'):null;
-          if(toast){toast.hidden=false;setTimeout(function(){toast.hidden=true;},5000);}
-        });}
-        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'curl_copy',meta:{url:url,source:'preview_success'}})],{type:'application/json'}));}catch(ex){}
-        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_results_copy'}})],{type:'application/json'}));}catch(ex){}
-      });}
-      /* --- secondary copy button (small) --- */
-      var copyBtn=results?results.querySelector('.pr-copy-btn'):null;
-      if(copyBtn){copyBtn.addEventListener('click',function(){
-        var curl=copyBtn.getAttribute('data-curl')||'';
-        if(navigator.clipboard){navigator.clipboard.writeText(curl).then(function(){
-          copyBtn.textContent='Copied!';setTimeout(function(){copyBtn.textContent='Copy';},2000);
+          mainCopyBtn.textContent='\u2713 Copied! Paste in terminal.';setTimeout(function(){mainCopyBtn.textContent='\u{1F4CB} Copy command \u2014 get full data in 30s';},3000);
           var toast=results?results.querySelector('#copy-toast'):null;
           if(toast){toast.hidden=false;setTimeout(function(){toast.hidden=true;},5000);}
         });}
@@ -599,45 +445,6 @@ ${footer(bazaarCatalogUrl)}
       if(docsLink){docsLink.addEventListener('click',function(){
         try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_results'}})],{type:'application/json'}));}catch(ex){}
       });}
-      /* --- pay now button: copy command + show step-by-step guide --- */
-      var payNowBtn=results?results.querySelector('.pr-pay-now'):null;
-      if(payNowBtn){payNowBtn.addEventListener('click',function(){
-        var curl=payNowBtn.getAttribute('data-curl')||'';
-        /* Copy command to clipboard */
-        if(navigator.clipboard&&curl){navigator.clipboard.writeText(curl).then(function(){
-          var toast=results?results.querySelector('#copy-toast'):null;
-          if(toast){toast.hidden=false;setTimeout(function(){toast.hidden=true;},3000);}
-        });}
-        /* Show step-by-step instructions */
-        var instr=results?results.querySelector('#pr-pay-instructions'):null;
-        if(instr){instr.hidden=false;instr.scrollIntoView({behavior:'smooth',block:'nearest'});}
-        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_pay_now'}})],{type:'application/json'}));}catch(ex){}
-      });}
-      /* --- buy credits link tracking --- */
-      var buyLink=results?results.querySelector('.pr-buy-link'):null;
-      if(buyLink){buyLink.addEventListener('click',function(){
-        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_results'}})],{type:'application/json'}));}catch(ex){}
-      });}
-      /* --- comparison table is now inline (built above) --- */
-      try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'demo_view',meta:{url:url,source:'preview_inline',headings:hCount,links:lCount,words:wCount}})],{type:'application/json'}));}catch(ex){}
-      /* email capture */
-      var emailForm=results?results.querySelector('#email-capture-form'):null;
-      if(emailForm){emailForm.addEventListener('submit',function(e){
-        e.preventDefault();
-        var emailInput=emailForm.querySelector('input[type="email"]');
-        var email=emailInput?emailInput.value.trim():'';
-        if(!email)return;
-        fetch('/v1/track',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({event:'email_subscribe',meta:{email:email,url:url}})}).catch(function(){});
-        emailForm.innerHTML='<p style="color:var(--ok);font-weight:600">\u2713 Subscribed! Check your inbox.</p>';
-      });}
-      /* --- try another URL buttons --- */
-      var tryBtns=results?results.querySelectorAll('.pr-try-btn'):null;
-      if(tryBtns){tryBtns.forEach(function(btn){btn.addEventListener('click',function(){
-        var tryUrl=btn.getAttribute('data-url')||'';
-        var input2=document.getElementById('preview-url-input');
-        if(input2&&tryUrl)input2.value=tryUrl;
-        form.dispatchEvent(new Event('submit'));
-      });});}
       try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'preview_result_success',meta:{url:url,wordCount:p.wordCount||0,headingCount:(p.headings||[]).length,linkCount:(p.links||[]).length}})],{type:'application/json'}));}catch(ex){}
     }
     function onFail(err){
@@ -661,7 +468,7 @@ ${footer(bazaarCatalogUrl)}
         hint='<p class="pr-hint">The domain couldn\'t be resolved. Check for typos in the URL.</p>';
       }
       var retryBtn='<button class="btn-sm pr-retry-btn" data-url="https://example.com/">Try example.com</button> <button class="btn-sm pr-retry-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Try Wikipedia</button> <button class="btn-sm pr-retry-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">Try MDN</button> <button class="btn-sm pr-retry-btn" data-url="'+url+'">Retry this URL</button>';
-      /* --- upgrade CTA on error: copy-paste crypto as PRIMARY action --- */
+      /* --- upgrade CTA on error: Copy command + buy credits --- */
       var errCta='';
       var errCurlCmd='curl -X POST "'+base+'/v1/x402/extract" -H "content-type: application/json" -d \'{"urls":["'+url+'"]}\'';
       errCta+='<div class="pr-upgrade">';
@@ -669,94 +476,25 @@ ${footer(bazaarCatalogUrl)}
       errCta+='<div class="pr-upgrade-title"><span class="pr-upgrade-icon">\u{1F513}</span> Unlock full data \u2014 $0.01</div>';
       errCta+='<p style="margin:4px 0 8px;font-size:12px;color:var(--muted)">Full markdown, all headings & links, images, paragraphs, and AI classification. <strong>Batch up to 50 URLs per payment.</strong> No accounts needed.</p>';
       errCta+='</div>';
-      errCta+='<div class="pr-upgrade-actions">';
-      if(stripeConfigured){
-        errCta+='<a href="'+esc(base)+'/buy" class="pr-upgrade-btn pr-pay-now" style="display:inline-block;text-decoration:none;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;cursor:pointer;text-align:center">\u{1F4B3} Buy credits with card \u2192</a>';
-      } else {
-        /* PRIMARY: Copy-paste crypto command — the ONLY working payment path */
-        errCta+='<div style="display:flex;flex-direction:column;gap:6px;width:100%">';
-        errCta+='<div style="position:relative;background:var(--bg);border:2px solid var(--accent);border-radius:var(--r-m);overflow:hidden">';
-        errCta+='<div style="padding:8px 12px;background:rgba(37,99,235,.06);border-bottom:1px solid rgba(37,99,235,.1);font-size:11px;font-weight:700;color:var(--accent);font-family:var(--mono)">\u{1F4CB} Copy this command &rarr; paste in terminal &rarr; get full data in 30s</div>';
-        errCta+='<pre style="margin:0;padding:12px 14px;font-size:12px;overflow-x:auto;background:transparent"><code>'+esc(errCurlCmd)+'</code></pre>';
-        errCta+='<button class="pr-copy-btn pr-copy-main" style="position:absolute;top:6px;right:8px;padding:6px 14px;font-size:12px;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;border-radius:var(--r-s);cursor:pointer;font-family:var(--mono)" data-curl="'+esc(errCurlCmd)+'">\u{1F4CB} Copy &amp; pay</button>';
-        errCta+='</div>';
-        errCta+='<div style="display:flex;gap:12px;margin-top:8px;font-size:12px;color:var(--muted);align-items:flex-start">';
-        errCta+='<div style="display:flex;gap:6px;align-items:flex-start"><span style="color:var(--accent);font-weight:700">1.</span><span>Paste in terminal</span></div>';
-        errCta+='<div style="display:flex;gap:6px;align-items:flex-start"><span style="color:var(--accent);font-weight:700">2.</span><span>Sign the USDC payment (gasless)</span></div>';
-        errCta+='<div style="display:flex;gap:6px;align-items:flex-start"><span style="color:var(--accent);font-weight:700">3.</span><span>Get full JSON response</span></div>';
-        errCta+='</div>';
-        errCta+='<p style="margin:8px 0 0;font-size:11px;color:var(--faint)">\u{1F48E} No wallet? <a href="'+esc(base)+'/quickstart" style="color:var(--accent);font-weight:600">Quick start guide</a> \u00B7 <a href="'+esc(base)+'/buy" style="color:var(--accent)">Buy credits page</a></p>';
-        errCta+='</div>';
-      }
+      errCta+='<div class="pr-upgrade-actions" style="display:flex;flex-direction:column;gap:8px;width:100%">';
+      /* PRIMARY: Copy command button \u2014 instant path to try paid API */
+      errCta+='<button class="pr-copy-main" data-curl="'+esc(errCurlCmd)+'" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 20px;font-size:15px;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;border-radius:var(--r-m);cursor:pointer;font-family:var(--mono);width:100%;box-shadow:0 2px 8px rgba(37,99,235,.25);transition:all .15s ease">\u{1F4CB} Copy command \u2014 get full data in 30s</button>';
+      /* SECONDARY: Buy credits link */
+      errCta+='<a href="'+esc(base)+'/buy" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 20px;text-decoration:none;font-weight:600;background:var(--panel);color:var(--accent);border:1px solid var(--accent);border-radius:var(--r-m);font-size:13px;font-family:var(--mono);width:100%">\u{1F48E} Buy credits with crypto \u2192</a>';
+      errCta+='</div>';
+      /* mini how-it-works inline */
+      errCta+='<div style="display:flex;gap:8px;margin-top:10px;font-size:11px;color:var(--faint);align-items:center;flex-wrap:wrap">';
+      errCta+='<span>\u{1F4CB} Copy</span><span>\u2192</span><span>\u{1F4BB} Paste in terminal</span><span>\u2192</span><span>\u{1F48E} Sign to pay</span><span>\u2192</span><span>\u2705 Get full data</span>';
+      errCta+='</div>';
       errCta+='</div>';
       errCta+='<div class="pr-copy-toast" id="copy-toast" hidden>\u2713 Copied! Paste in your terminal and run.</div>';
-      errCta+='<div class="pr-pay-instructions" id="pr-pay-instructions" hidden>';
-      errCta+='<div style="padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-m);margin-top:12px">';
-      errCta+='<p style="font-weight:700;margin:0 0 12px;font-size:14px">\u2705 Command copied! Here\u2019s what to do:</p>';
-      errCta+='<div style="display:flex;gap:12px;margin-bottom:12px">';
-      errCta+='<div style="flex:1;padding:12px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-s)">';
-      errCta+='<p style="font-weight:700;margin:0 0 4px;font-size:13px;color:var(--accent)">Step 1: Paste in terminal</p>';
-      errCta+='<p style="margin:0;font-size:12px;color:var(--muted)">The curl command is on your clipboard. Paste and run it.</p>';
-      errCta+='</div>';
-      errCta+='<div style="flex:1;padding:12px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-s)">';
-      errCta+='<p style="font-weight:700;margin:0 0 4px;font-size:13px;color:var(--accent)">Step 2: Sign the payment</p>';
-      errCta+='<p style="margin:0;font-size:12px;color:var(--muted)">Server returns payment instructions. Sign once with your wallet.</p>';
-      errCta+='</div>';
-      errCta+='</div>';
-      errCta+='</div></div>';
-      /* --- STATIC COMPARISON on error: show what full extract offers --- */
-      errCta+='<div class="pr-auto-demo" id="pr-auto-demo" style="margin-top:16px;padding:16px 18px;background:rgba(37,99,235,.04);border:1px solid rgba(37,99,235,.15);border-radius:var(--r-m)">';
-      errCta+='<span class="pr-label" style="color:var(--accent);font-weight:700">\u{1F4CA} What the full extract gives you</span>';
-      errCta+='<table style="width:100%;border-collapse:collapse;margin-top:10px;font-family:var(--mono);font-size:12px">';
-      errCta+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Feature</td><td style="padding:5px 10px;color:var(--accent);text-align:center;font-weight:700">$0.01 per batch</td></tr>';
-      errCta+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Title + description</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713</td></tr>';
-      errCta+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">All headings (H1-H6)</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713</td></tr>';
-      errCta+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">All links with text</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713</td></tr>';
-      errCta+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Full markdown</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713</td></tr>';
-      errCta+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Paragraphs</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713</td></tr>';
-      errCta+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Images</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713</td></tr>';
-      errCta+='<tr><td style="padding:5px 0;color:var(--muted)">AI classification</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713</td></tr>';
-      errCta+='</table>';
-      errCta+='<p style="margin-top:10px;font-size:12px;color:var(--muted)">\u{1F4A1} Browser-level capture handles blocking sites. <strong>Batch up to 50 URLs per payment.</strong></p>';
-      errCta+='</div>';
-      errCta+='<div class="pr-email-capture">';
-      errCta+='<p>Not ready to pay? Get product updates:</p>';
-      errCta+='<form class="email-form" id="email-capture-form">';
-      errCta+='<input type="email" placeholder="you@example.com" required aria-label="Email for updates">';
-      errCta+='<button type="submit" class="btn-sm">Subscribe</button>';
-      errCta+='</form>';
-      errCta+='<p class="email-note">No spam. Unsubscribe anytime.</p>';
-      errCta+='</div>';
-      errCta+='<div class="pr-try-another"><button class="btn-sm pr-try-btn" data-url="https://example.com/">Try example.com</button> <button class="btn-sm pr-try-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Try Wikipedia</button> <button class="btn-sm pr-try-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">Try MDN</button> <button class="btn-sm pr-try-btn" data-url="https://docs.python.org/3/">Try Python Docs</button></div>';
-      /* --- LIVE DEMO on error: show what full extract looks like --- */
-      errCta+='<div style="margin-top:20px;padding:16px 18px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-m)">';
-      errCta+='<span style="font-weight:700;font-size:13px">\u{1F4CA} Here\u2019s what full extraction looks like (real output):</span>';
-      errCta+='<pre id="error-demo-code" style="margin-top:10px;padding:12px 16px;border-radius:var(--r-s);font-size:12px;overflow-x:auto;background:var(--bg);border:1px solid var(--line);max-height:300px;overflow-y:auto"><code>Loading demo\u2026</code></pre>';
-      errCta+='</div>';
       /* Put the error FIRST — users need to understand what went wrong before seeing solutions */
       var errHtml='<div class="pr-error"><span class="pr-error-icon">\u26A0\uFE0F</span> <strong>'+esc(friendlyMsg)+'</strong>: '+esc(errMsg)+' '+hint+'<div class="pr-error-actions">'+retryBtn+'<a href="/v1/extract/preview?url='+encodeURIComponent(url)+'" target="_blank" class="pr-error-link">View raw JSON \u2197</a></div></div>';
-      if(results){results.innerHTML=errHtml+errCta;results.scrollIntoView({behavior:'smooth',block:'start'});}
-      /* --- inline email purchase form on error (when Stripe not configured) --- */
-      var errEmailForms=results?results.querySelectorAll('.pr-upgrade-email-form'):null;
-      if(errEmailForms){errEmailForms.forEach(function(ef){
-        ef.addEventListener('submit',function(e){
-          e.preventDefault();
-          var emailInput=ef.querySelector('input[type="email"]');
-          var email=emailInput?emailInput.value.trim():'';
-          if(!email)return;
-          try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_error_email_purchase',email:email}})],{type:'application/json'}));}catch(ex){}
-          fetch('/v1/track',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({event:'purchase_request',meta:{email:email,url:url,source:'preview_error_inline'}})}).catch(function(){});
-          fetch('/v1/waitlist',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:email})}).catch(function(){});
-          var btn=ef.querySelector('button[type="submit"]');
-          if(btn){btn.textContent='\u2713 Sent!';btn.style.background='var(--ok)';btn.disabled=true;}
-          emailInput.disabled=true;emailInput.style.opacity='0.6';
-          var note=ef.parentNode?ef.parentNode.querySelector('p'):null;
-          if(note){note.innerHTML='<span style="color:var(--ok)">Check your inbox for a payment link.</span>';}
-          showToast('Request sent! Check your email.',4000);
-        });
-      });}
+      /* --- DEMO PREVIEW: Show what webcap CAN extract, even when the user's URL fails --- */
+      var demoHtml='<div id="err-demo-section" style="margin-top:16px;padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l)"><p style="margin:0 0 10px;font-size:13px;color:var(--muted)"><strong>\u{1F4CA} Here\u2019s what a full extract looks like</strong> (Hacker News \u2014 example output)</p><div id="err-demo-code" style="font-family:var(--mono);font-size:12px;line-height:1.6;color:var(--text);white-space:pre-wrap;max-height:300px;overflow-y:auto;padding:12px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-s)">Loading demo\u2026</div></div>';
+      if(results){results.innerHTML=errHtml+errCta+demoHtml;results.scrollIntoView({behavior:'smooth',block:'start'});}
       /* --- load demo on error state --- */
-      var errDemoCode=document.getElementById('error-demo-code');
+      var errDemoCode=document.getElementById('err-demo-code');
       if(errDemoCode){
         fetch('/v1/demo').then(function(r){return r.json();}).then(function(d){
           var results2=d.results||[];
@@ -790,18 +528,7 @@ ${footer(bazaarCatalogUrl)}
       if(errMainCopyBtn){errMainCopyBtn.addEventListener('click',function(){
         var curl=errMainCopyBtn.getAttribute('data-curl')||'';
         if(navigator.clipboard){navigator.clipboard.writeText(curl).then(function(){
-          errMainCopyBtn.textContent='\u2713 Copied!';setTimeout(function(){errMainCopyBtn.textContent='\u{1F4CB} Copy command';},3000);
-          var toast=results?results.querySelector('#copy-toast'):null;
-          if(toast){toast.hidden=false;setTimeout(function(){toast.hidden=true;},5000);}
-        });}
-        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'curl_copy',meta:{url:url,source:'preview_error'}})],{type:'application/json'}));}catch(ex){}
-      });}
-      /* --- secondary copy button (small) on error state --- */
-      var errCopyBtn=results?results.querySelector('.pr-copy-btn'):null;
-      if(errCopyBtn){errCopyBtn.addEventListener('click',function(){
-        var curl=errCopyBtn.getAttribute('data-curl')||'';
-        if(navigator.clipboard){navigator.clipboard.writeText(curl).then(function(){
-          errCopyBtn.textContent='Copied!';setTimeout(function(){errCopyBtn.textContent='Copy';},2000);
+          errMainCopyBtn.textContent='\u2713 Copied! Paste in terminal.';setTimeout(function(){errMainCopyBtn.textContent='\u{1F4CB} Copy command';},3000);
           var toast=results?results.querySelector('#copy-toast'):null;
           if(toast){toast.hidden=false;setTimeout(function(){toast.hidden=true;},5000);}
         });}
@@ -812,44 +539,6 @@ ${footer(bazaarCatalogUrl)}
       if(errDocsLink){errDocsLink.addEventListener('click',function(){
         try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_error'}})],{type:'application/json'}));}catch(ex){}
       });}
-      /* --- buy credits link tracking on error state --- */
-      var errBuyLink=results?results.querySelector('.pr-buy-link'):null;
-      if(errBuyLink){errBuyLink.addEventListener('click',function(){
-        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_error'}})],{type:'application/json'}));}catch(ex){}
-      });}
-      /* --- pay now button on error state: copy command + show guide --- */
-      var errPayNowBtn=results?results.querySelector('.pr-pay-now'):null;
-      if(errPayNowBtn){errPayNowBtn.addEventListener('click',function(){
-        var curl=errPayNowBtn.getAttribute('data-curl')||'';
-        /* Copy command to clipboard */
-        if(navigator.clipboard&&curl){navigator.clipboard.writeText(curl).then(function(){
-          var toast=results?results.querySelector('#copy-toast'):null;
-          if(toast){toast.hidden=false;setTimeout(function(){toast.hidden=true;},3000);}
-        });}
-        /* Show step-by-step instructions */
-        var instr=results?results.querySelector('#pr-pay-instructions'):null;
-        if(instr){instr.hidden=false;instr.scrollIntoView({behavior:'smooth',block:'nearest'});}
-        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_error_pay_now'}})],{type:'application/json'}));}catch(ex){}
-      });}
-      /* --- comparison table is now inline (built above) --- */
-      /* email capture on error state */
-      var errEmailForm=results?results.querySelector('#email-capture-form'):null;
-      if(errEmailForm){errEmailForm.addEventListener('submit',function(e){
-        e.preventDefault();
-        var emailInput=errEmailForm.querySelector('input[type="email"]');
-        var email=emailInput?emailInput.value.trim():'';
-        if(!email)return;
-        fetch('/v1/track',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({event:'email_subscribe',meta:{email:email,url:url,source:'preview_error'}})}).catch(function(){});
-        errEmailForm.innerHTML='<p style="color:var(--ok);font-weight:600">\u2713 Subscribed! Check your inbox.</p>';
-      });}
-      /* --- try another URL buttons on error state --- */
-      var errTryBtns=results?results.querySelectorAll('.pr-try-btn'):null;
-      if(errTryBtns){errTryBtns.forEach(function(btn){btn.addEventListener('click',function(){
-        var tryUrl=btn.getAttribute('data-url')||'';
-        var input2=document.getElementById('preview-url-input');
-        if(input2&&tryUrl)input2.value=tryUrl;
-        form.dispatchEvent(new Event('submit'));
-      });});}
       /* classify error type for analytics */
       var errorType='other';
       if(errMsg.indexOf('502')!==-1)errorType='capture_failed';
@@ -887,55 +576,6 @@ ${footer(bazaarCatalogUrl)}
   });
   function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-  /* --- waitlist form --- */
-  var wlForm=document.getElementById('waitlist-form');
-  var wlNote=document.getElementById('waitlist-note');
-  if(wlForm){wlForm.addEventListener('submit',function(e){
-    e.preventDefault();
-    var emailInput=document.getElementById('waitlist-email');
-    var btn=document.getElementById('waitlist-btn');
-    var email=emailInput?emailInput.value.trim():'';
-    if(!email)return;
-    if(btn){btn.disabled=true;btn.textContent='Joining\u2026';}
-    fetch('/v1/waitlist',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:email})})
-      .then(function(r){return r.json();})
-      .then(function(d){
-        if(wlNote){wlNote.className='waitlist-note success';wlNote.textContent='\u2713 You\'re on the list! Check your inbox for a welcome email.';}
-        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'email_subscribe',meta:{email:email,source:'landing_newsletter'}})],{type:'application/json'}));}catch(ex){}
-      })
-      .catch(function(){
-        if(wlNote){wlNote.className='waitlist-note error';wlNote.textContent='Something went wrong. Please try again.';}
-      })
-      .finally(function(){
-        if(btn){btn.disabled=false;btn.textContent='Subscribe';}
-      });
-  });}
-
-  /* --- Live demo: fetch /v1/demo and display structured output --- */
-  var demoCode=document.getElementById('demo-code');
-  if(demoCode){
-    fetch('/v1/demo').then(function(r){return r.json();}).then(function(d){
-      var results=d.results||[];
-      if(!results.length){demoCode.textContent='No demo available';return;}
-      var r=results[0];
-      var out='';
-      out+='URL: '+(r.url||'')+'\n';
-      out+='Title: '+(r.title||'')+'\n';
-      out+='Description: '+(r.description||'').slice(0,120)+'...\n\n';
-      out+='Headings ('+((r.headings||[]).length)+'):\n';
-      (r.headings||[]).slice(0,6).forEach(function(h){out+='  H'+h.level+': '+h.text+'\n';});
-      out+='\nLinks ('+((r.links||[]).length)+'):\n';
-      (r.links||[]).slice(0,5).forEach(function(l){out+='  '+(l.text||l.href).slice(0,50)+'\n';});
-      out+='\nWord count: '+(r.wordCount||0)+'\n';
-      out+='Paragraphs: '+((r.paragraphs||[]).length)+'\n';
-      out+='Images: '+((r.images||[]).length)+'\n';
-      out+='\n--- Full markdown (first 500 chars) ---\n';
-      out+=(r.markdown||'').slice(0,500)+'...\n';
-      demoCode.textContent=out;
-      try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'demo_view',meta:{source:'landing_demo_section'}})],{type:'application/json'}));}catch(ex){}
-    }).catch(function(){demoCode.textContent='Demo unavailable. Try the live preview above.';});
-  }
-
   /* --- Quick-try buttons --- */
   var quickBtns=document.querySelectorAll('.quick-try-btn');
   if(quickBtns){quickBtns.forEach(function(btn){btn.addEventListener('click',function(){
@@ -955,9 +595,6 @@ ${footer(bazaarCatalogUrl)}
       }
     });
   });
-
-  /* --- AUTO-PREVIEW removed: was aggressive and wasted preview calls --- */
-  /* Users can try the preview by clicking "Extract" or using quick-try buttons */
 })();
 </script>
 </body>
