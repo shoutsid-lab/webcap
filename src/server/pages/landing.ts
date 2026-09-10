@@ -598,7 +598,7 @@ ${footer(bazaarCatalogUrl)}
         try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_results'}})],{type:'application/json'}));}catch(ex){}
       });}
       /* --- pay now button: copy command + show step-by-step guide --- */
-      var payNowBtn=results?results.querySelector('#pr-pay-now'):null;
+      var payNowBtn=results?results.querySelector('.pr-pay-now'):null;
       if(payNowBtn){payNowBtn.addEventListener('click',function(){
         var curl=payNowBtn.getAttribute('data-curl')||'';
         /* Copy command to clipboard */
@@ -820,7 +820,7 @@ ${footer(bazaarCatalogUrl)}
         try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_error'}})],{type:'application/json'}));}catch(ex){}
       });}
       /* --- pay now button on error state: copy command + show guide --- */
-      var errPayNowBtn=results?results.querySelector('#pr-pay-now'):null;
+      var errPayNowBtn=results?results.querySelector('.pr-pay-now'):null;
       if(errPayNowBtn){errPayNowBtn.addEventListener('click',function(){
         var curl=errPayNowBtn.getAttribute('data-curl')||'';
         /* Copy command to clipboard */
@@ -957,6 +957,19 @@ ${footer(bazaarCatalogUrl)}
       }
     });
   });
+
+  /* --- AUTO-PREVIEW: trigger preview on page load for instant value demo --- */
+  /* Only auto-run if user hasn't interacted and URL input has a default value */
+  if(form){
+    var autoUrl=document.getElementById('preview-url-input');
+    if(autoUrl&&autoUrl.value&&!sessionStorage.getItem('webcap_previewed')){
+      /* Small delay to let page render first */
+      setTimeout(function(){
+        form.dispatchEvent(new Event('submit'));
+        sessionStorage.setItem('webcap_previewed','1');
+      },800);
+    }
+  }
 })();
 </script>
 </body>

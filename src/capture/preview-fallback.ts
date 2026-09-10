@@ -81,15 +81,38 @@ export async function previewFallback(url: string): Promise<PageStructure> {
   }
 
   if (!response.ok) {
+    /* Try to extract whatever we can from error pages — many still have
+       useful HTML (e.g., 403/404 pages with titles, 502 pages with info).
+       Only throw if the body is empty or too short to be useful. */
+    const errHtml = await response.text().catch(() => '');
+    if (errHtml.length > 200) {
+      /* Parse the error page — it might have useful structure */
+      return parseHtmlToStructure(errHtml, url);
+    }
     throw new CaptureError(`preview fallback fetch returned HTTP ${response.status} for ${url}`);
   }
 
   const contentType = response.headers.get('content-type') ?? '';
+  const html = await response.text();
+
+  /* Handle non-HTML content types gracefully — return minimal structure
+     with raw text as markdown instead of throwing. This converts some
+     502 errors into degraded-but-functional previews. */
   if (!contentType.includes('text/html') && !contentType.includes('application/xhtml')) {
-    throw new CaptureError(`preview fallback: unsupported content-type ${contentType} for ${url}`);
+    const title = html.slice(0, 200).replace(/\n/g, ' ').trim() || url;
+    const wordCount = html.split(/\s+/).filter((w) => w !== '').length;
+    return {
+      title,
+      description: '',
+      headings: [],
+      paragraphs: [html.slice(0, 1000)],
+      links: [],
+      images: [],
+      wordCount,
+      markdown: html.slice(0, 2000),
+    };
   }
 
-  const html = await response.text();
   return parseHtmlToStructure(html, url);
 }
 
