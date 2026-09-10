@@ -14,15 +14,17 @@
  */
 import { CaptureError } from './errors.js';
 import type { PageStructure } from './pipeline.js';
+import { lookup } from 'node:dns';
 
 /**
  * Fetch timeout for the HTTP-only fallback.
- * Budget: browser timeout (12s) + this fallback must stay under 45s (client AbortController).
- * With MAX_RETRIES=1: 12s browser + 2×15s fallback = 42s total — safely under 45s.
- * Previous config (10s timeout) caused 5/6 preview failures from network timeouts.
- * Increased to 15s to handle slow sites (HN, SPAs, CDN-backed pages).
+ * Budget: the entire preview pipeline must complete within ~35s (client AbortController
+ * is 45s; we leave 10s margin for network round-trip and server processing).
+ * With MAX_RETRIES=1: 8s×2 attempts = 16s max, leaving ~19s for browser fallback.
+ * Previous config (15s timeout, 2 retries) sometimes exceeded the 45s client budget
+ * when the browser fallback was also needed.
  */
-const FETCH_TIMEOUT_MS = 15_000;
+const FETCH_TIMEOUT_MS = 8_000;
 
 /** Maximum number of retry attempts for transient network errors (0 = one attempt). */
 const MAX_RETRIES = 1;
@@ -41,6 +43,22 @@ const USER_AGENTS: readonly string[] = [
  * Retries up to MAX_RETRIES times on transient network errors with user-agent rotation.
  */
 export async function previewFallback(url: string): Promise<PageStructure> {
+  /* DNS pre-check: fail fast on invalid/unresolvable domains instead of
+     waiting the full 15s fetch timeout. This converts slow 502s into
+     fast, informative errors and improves the preview success rate by
+     letting the caller return a useful error message immediately. */
+  try {
+    const hostname = new URL(url).hostname;
+    await new Promise<void>((resolve, reject) => {
+      lookup(hostname, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  } catch (dnsErr) {
+    throw new CaptureError(`DNS resolution failed for ${url}: ${dnsErr instanceof Error ? dnsErr.message : String(dnsErr)}`);
+  }
+
   let response: Response | undefined;
   let lastError: Error | undefined;
 
@@ -69,8 +87,8 @@ export async function previewFallback(url: string): Promise<PageStructure> {
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       if (attempt < MAX_RETRIES) {
-        // Exponential backoff: 500ms, 1000ms, 2000ms (keep total under budget)
-        const backoffMs = Math.min(500 * Math.pow(2, attempt), 2000);
+        // Exponential backoff: 300ms (keep total under 35s budget)
+        const backoffMs = Math.min(300 * Math.pow(2, attempt), 800);
         await new Promise((resolve) => setTimeout(resolve, backoffMs));
       }
     }

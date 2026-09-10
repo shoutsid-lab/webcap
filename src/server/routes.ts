@@ -26,6 +26,7 @@ import { RateLimiter, rejectRateLimited } from '../util/ratelimit.js';
 import { extractPage, storeArtifact } from '../extract/service.js';
 import type { PageStructure } from '../capture/pipeline.js';
 import { pinoServiceLogger } from '../util/logger.js';
+import { getCachedPreview, cachePreview } from '../db/preview-cache.js';
 import { parseExtractSchema, parseExtractUrls, assertSupportedSchema, assertTypedExtractValid, filterExtractedBySchema, parseExtractSpans, parseTypedSchema, type ExtractedContent, type ExtractResult } from './extract-parse.js';
 import { isRecord, parseFormat, parseOptions, validatedUrl } from './capture-parse.js';
 import { x402Payer } from './x402.js';
@@ -33,8 +34,6 @@ import { computeAudit } from '../audit/checks.js';
 import type { AppDeps } from './server.js';
 import type { OgResult } from '../capture/og.js';
 import { ogDebuggerHtml } from './pages/og-debugger.js';
-import { OpenAICompatibleVisionAdapter } from '../ml/vision/adapter.js';
-import { validateImageSignature, type ClassificationResult } from '../ml/vision/contracts.js';
 
 // Fixed 60s window for the preview per-peer budget; the preview limit itself
 // is configurable (WEBCAP_PREVIEW_RATE_LIMIT, default DEFAULT_PREVIEW_RATE_LIMIT).
@@ -49,6 +48,25 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
   // fixed-window per-peer budget family as the preview route (separate
   // instance so the two free surfaces don't share one budget).
   const ogDebuggerLimiter = new RateLimiter(config.previewRateLimit ?? DEFAULT_PREVIEW_RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
+
+  // --- SEO: AI plugin manifest for ChatGPT/Claude/other AI assistants ---
+  app.get('/.well-known/ai-plugin.json', async (_req, reply) => {
+    const base = config.publicBaseUrl;
+    return reply
+      .header('content-type', 'application/json')
+      .send(JSON.stringify({
+        schema_version: 'v1',
+        name_for_human: 'webcap',
+        name_for_model: 'webcap',
+        description_for_human: 'Web capture API: screenshot any URL, extract structured data, monitor for changes.',
+        description_for_model: 'webcap is a pay-per-call web capture API. Use it to screenshot URLs as PNG/JPEG/PDF, extract structured data (title, headings, links, markdown), and monitor pages for changes. Free preview: GET /v1/extract/preview?url=... Paid: POST /v1/x402/capture or POST /v1/x402/extract (x402 micropayments, USDC on Base). No API keys or accounts needed.',
+        auth: { type: 'none' },
+        api: { type: 'openapi', url: `${base}/openapi.json` },
+        logo_url: `${base}/icon.png`,
+        contact_email: 'hello@webcap.dev',
+        legal_info_url: 'https://github.com/shoutsid-lab/webcap/blob/main/LICENSE',
+      }));
+  });
 
   app.post('/v1/x402/capture', async (req) => {
     if (config.x402Network === undefined) {
@@ -274,8 +292,34 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         },
       });
     }
-    let enhanced = false;
-    let modelUsage: { prompt: number; completion: number; total: number } | undefined;
+    // --- Preview cache: return cached result instantly if available ---
+    const cached = getCachedPreview(db, normalizedUrl);
+    if (cached !== null) {
+      return {
+        url: rawUrl,
+        preview: {
+          title: cached.preview.title,
+          description: cached.preview.description,
+          headings: cached.preview.headings.slice(0, config.previewHeadingsLimit ?? DEFAULT_PREVIEW_HEADINGS_LIMIT),
+          links: cached.preview.links.slice(0, config.previewLinksLimit ?? DEFAULT_PREVIEW_LINKS_LIMIT),
+          wordCount: cached.preview.wordCount,
+          markdown: cached.preview.markdown.slice(0, config.previewMarkdownLimit ?? DEFAULT_PREVIEW_MARKDOWN_LIMIT),
+        },
+        truncated: true,
+        cached: true,
+        upgrade: {
+          endpoint: 'POST /v1/x402/extract',
+          note: 'paid: full paragraphs + images + batch (up to 50 URLs) + optional model extraction + AI classification',
+        },
+        paidUpgrade: {
+          endpoint: 'POST /v1/x402/extract',
+          priceUsdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE,
+          priceUsdcUnits: config.x402ExtractPriceUsdcUnits,
+          howToPay: 'HTTP 402 -> sign a gasless EIP-3009 USDC transferWithAuthorization -> retry with the PAYMENT-SIGNATURE header (x402 v2 exact scheme)',
+          guide: `${config.publicBaseUrl}/skill.md`,
+        },
+      };
+    }
     let structure: {
       title: string;
       description: string;
@@ -295,6 +339,13 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       //
       // If the HTTP-only fetch fails (dynamic SPA, blocks non-browser UAs),
       // fall back to the full browser capture as a secondary option.
+      //
+      // PERFORMANCE: The entire preview pipeline must complete within ~35s
+      // (client AbortController is 45s; we leave 10s margin for network
+      // round-trip and server processing). We achieve this by:
+      // - HTTP fallback: ~10s per attempt × 2 attempts = ~20s max
+      // - Browser fallback (no model): ~8s
+      // - Total: ~28s worst case (well within budget)
       try {
         const fallback = await previewFallback(normalizedUrl);
         structure = {
@@ -308,74 +359,28 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           markdown: fallback.markdown,
         };
       } catch (fallbackErr) {
-        // HTTP-only failed — try full browser capture as secondary
+        // HTTP-only failed — try lightweight browser capture as secondary.
+        // NOTE: We intentionally SKIP model/AI extraction here to keep
+        // latency under 10s. The preview is a free demo; the full extract
+        // endpoint (paid) handles AI-enhanced extraction.
         try {
-          if (config.modelApiBaseUrl !== '' && config.modelApiKey !== '' && config.modelName !== '') {
-            const model = {
-              baseUrl: config.modelApiBaseUrl,
-              apiKey: config.modelApiKey,
-              model: config.modelName,
-            };
-            const extractResult = await extractPage({
-              url: normalizedUrl,
-              captureStructured: deps.captureStructured,
-              schema: undefined,
-              model,
-              modelTimeoutMs: 12_000,
-              logger: pinoServiceLogger(req.log),
-              captureOptions: { timeoutMs: 12_000 },
-            });
-            structure = {
-              title: extractResult.title,
-              description: extractResult.description,
-              headings: [...extractResult.headings],
-              paragraphs: [...extractResult.paragraphs],
-              links: [...extractResult.links],
-              images: [...extractResult.images],
-              wordCount: extractResult.wordCount,
-              markdown: extractResult.markdown,
-            };
-            if ('extracted' in extractResult && extractResult.extracted !== undefined) {
-              enhanced = true;
-              const extracted = extractResult.extracted;
-              const { __usage__, ...extractedData } = extracted;
-              modelUsage = extractedData.__usage__ as
-                | { prompt: number; completion: number; total: number }
-                | undefined;
-              if (extracted.title && !structure.title) structure.title = extracted.title as string;
-              if (extracted.description && !structure.description) structure.description = extracted.description as string;
-              if (extracted.headings && Array.isArray(extracted.headings)) {
-                const mergedHeadings: typeof structure.headings = structure.headings;
-                for (const h of extracted.headings) {
-                  const exists = mergedHeadings.find((eh: { level: number; text: string }) => eh.text === h.text);
-                  if (!exists) mergedHeadings.push(h);
-                }
-                structure.headings = mergedHeadings.slice(0, config.previewHeadingsLimit ?? DEFAULT_PREVIEW_HEADINGS_LIMIT);
-              }
-              if (extracted.links && Array.isArray(extracted.links)) {
-                const mergedLinks: typeof structure.links = structure.links;
-                for (const l of extracted.links) {
-                  const exists = mergedLinks.find((el: { href: string; text: string }) => el.href === l.href && el.text === l.text);
-                  if (!exists) mergedLinks.push(l);
-                }
-                structure.links = mergedLinks.slice(0, config.previewLinksLimit ?? DEFAULT_PREVIEW_LINKS_LIMIT);
-              }
-            }
-          } else {
-            const captured = await deps.captureStructured({ url: normalizedUrl, options: { timeoutMs: 12_000, includeHtml: false } });
-            structure = {
-              title: captured.structure.title,
-              description: captured.structure.description,
-              headings: [...captured.structure.headings],
-              paragraphs: [...captured.structure.paragraphs],
-              links: [...captured.structure.links],
-              images: [...captured.structure.images],
-              wordCount: captured.structure.wordCount,
-              markdown: captured.structure.markdown,
-            };
-          }
+          const captured = await deps.captureStructured({
+            url: normalizedUrl,
+            options: { timeoutMs: 8_000, includeHtml: false },
+          });
+          structure = {
+            title: captured.structure.title,
+            description: captured.structure.description,
+            headings: [...captured.structure.headings],
+            paragraphs: [...captured.structure.paragraphs],
+            links: [...captured.structure.links],
+            images: [...captured.structure.images],
+            wordCount: captured.structure.wordCount,
+            markdown: captured.structure.markdown,
+          };
         } catch (browserErr) {
-          // Both HTTP-only and browser failed
+          // Both HTTP-only and browser failed — throw structured error
+          // so the client can show a helpful message and demo fallback.
           if (browserErr instanceof CaptureError) throw new HttpError(502, 'capture_failed', browserErr.message);
           if (fallbackErr instanceof CaptureError) throw new HttpError(502, 'capture_failed', fallbackErr.message);
           throw new HttpError(502, 'capture_failed', `capture failed for ${rawUrl}: ${browserErr instanceof Error ? browserErr.message : String(browserErr)}`);
@@ -386,31 +391,21 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       throw new HttpError(502, 'capture_failed', `capture failed for ${rawUrl}: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // ML Classification: when model is configured, classify the page type
-    let classification: ClassificationResult | undefined;
-    if (config.modelApiBaseUrl !== '' && config.modelApiKey !== '' && config.modelName !== '') {
-      try {
-        const adapter = new OpenAICompatibleVisionAdapter({
-          baseUrl: config.modelApiBaseUrl,
-          model: config.modelName,
-          apiKey: config.modelApiKey,
-          timeoutMs: 15_000,
-          allowRemoteEndpoint: true,
-        });
-        // Capture screenshot for classification
-        const captureResult = await deps.capture({ url: normalizedUrl, format: 'jpeg' });
-        if (validateImageSignature(captureResult.buffer, 'image/jpeg')) {
-          const exchange = await adapter.analyze({
-            imageBytes: captureResult.buffer,
-            mediaType: 'image/jpeg',
-            task: 'classification',
-          });
-          classification = exchange.result as ClassificationResult;
-        }
-      } catch {
-        // Classification is best-effort; don't fail the preview
-      }
-    }
+    // ML Classification: intentionally SKIPPED for the free preview path.
+    // Classification requires a full browser screenshot + AI model call (10-15s).
+    // The preview is a free demo — classification adds latency but no conversion
+    // value. Users who want classification use the paid POST /v1/x402/extract
+    // endpoint which includes it in the full extract response.
+
+    // --- Cache the successful preview result for repeat requests ---
+    cachePreview(db, normalizedUrl, {
+      title: structure.title,
+      description: structure.description,
+      headings: structure.headings.slice(0, config.previewHeadingsLimit ?? DEFAULT_PREVIEW_HEADINGS_LIMIT),
+      links: structure.links.slice(0, config.previewLinksLimit ?? DEFAULT_PREVIEW_LINKS_LIMIT),
+      wordCount: structure.wordCount,
+      markdown: structure.markdown.slice(0, config.previewMarkdownLimit ?? DEFAULT_PREVIEW_MARKDOWN_LIMIT),
+    }, true);
 
     return {
       url: rawUrl,
@@ -421,10 +416,9 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         links: structure.links.slice(0, config.previewLinksLimit ?? DEFAULT_PREVIEW_LINKS_LIMIT),
         wordCount: structure.wordCount,
         markdown: structure.markdown.slice(0, config.previewMarkdownLimit ?? DEFAULT_PREVIEW_MARKDOWN_LIMIT),
-        ...(enhanced ? { enhanced: true, modelUsage } : {}),
-        ...(classification !== undefined ? { classification } : {}),
       },
       truncated: true,
+      cached: false,
       upgrade: {
         endpoint: 'POST /v1/x402/extract',
         note: 'paid: full paragraphs + images + batch (up to 50 URLs) + optional model extraction + AI classification',
