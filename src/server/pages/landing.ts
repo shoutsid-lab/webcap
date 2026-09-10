@@ -43,7 +43,7 @@ curl -X POST "${base}/v1/x402/extract" \\
 <span class="c"># Free preview \u2014 no payment needed</span>
 curl "${base}/v1/extract/preview?url=https://example.com/"
 <span class="ok">\u2192 200</span> {"title":"Example Domain","wordCount":123}
-<div class="term-note"><span class="c">How to pay:</span> x402 micropayments (USDC) or Stripe. Free preview: <code>${base}/v1/extract/preview?url=...</code></div>`;
+<div class="term-note"><span class="c">How to pay:</span> x402 micropayments (USDC on Base, gasless). Free preview: <code>${base}/v1/extract/preview?url=...</code></div>`;
 
   return `<!doctype html>
 <html lang="en">

@@ -60,7 +60,7 @@ try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'landing_vi
 <main class="wrap qs-main">
   <p class="eyebrow">Developer guide</p>
   <h1>Quick Start: <span class="hl">Capture the web in 3 steps</span></h1>
-  <p class="lede">No API keys. No accounts. Just HTTP calls. Pay ${capturePrice}/screenshot or ${extractPrice}/extract with <strong>card (Stripe)</strong> or crypto (USDC on Base, gasless).</p>
+  <p class="lede">No API keys. No accounts. Just HTTP calls. Pay ${capturePrice}/screenshot or ${extractPrice}/extract with crypto (USDC on Base, gasless). No wallet? <a href="/buy">Buy credits with email</a>.</p>
 
   <!-- STEP 1: Try the free preview -->
   <section class="qs-section">
@@ -74,6 +74,51 @@ curl "${base}/v1/extract/preview?url=https://example.com/"
     </div>
     <div class="qs-tip"><strong>Tip:</strong> The preview is truncated — you get headings, links, and a markdown slice. The full extract (step 2) gives you everything including OG tags, full markdown, and batch support for up to 50 URLs.</div>
   </section>
+
+  <!-- LIVE DEMO: Show what the full extract looks like -->
+  <section class="qs-section">
+    <h2>See what a full extract gives you</h2>
+    <p>Here's the actual output from a single ${extractPrice} extract call — this is the real data you get, not a simulation:</p>
+    <div id="qs-demo-area" style="margin-top:var(--s4)">
+      <div class="term" aria-label="Full extract demo output">
+        <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">extract output — Hacker News (real data)</span></div>
+        <pre id="qs-demo-code" style="max-height:400px;overflow-y:auto"><code>Loading demo\u2026</code></pre>
+      </div>
+      <div style="margin-top:var(--s3);display:flex;gap:var(--s3);flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)"><span style="color:var(--ok);font-weight:700">\u2713</span> All headings (not truncated)</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)"><span style="color:var(--ok);font-weight:700">\u2713</span> All links with text</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)"><span style="color:var(--ok);font-weight:700">\u2713</span> Full markdown</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)"><span style="color:var(--ok);font-weight:700">\u2713</span> Paragraphs</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)"><span style="color:var(--ok);font-weight:700">\u2713</span> Images</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)"><span style="color:var(--ok);font-weight:700">\u2713</span> Word count</div>
+      </div>
+    </div>
+    <script>
+    (function(){
+      var el=document.getElementById('qs-demo-code');
+      if(!el)return;
+      fetch('/v1/demo').then(function(r){return r.json();}).then(function(d){
+        var r=(d.results||[])[0];
+        if(!r){el.textContent='Demo unavailable';return;}
+        var out='';
+        out+='URL: '+r.url+'\n';
+        out+='Title: '+r.title+'\n';
+        out+='Description: '+(r.description||'').slice(0,120)+'\n\n';
+        out+='Headings ('+((r.headings||[]).length)+'):\n';
+        (r.headings||[]).slice(0,8).forEach(function(h){out+='  H'+h.level+': '+h.text+'\n';});
+        out+='\nLinks ('+((r.links||[]).length)+'):\n';
+        (r.links||[]).slice(0,8).forEach(function(l){out+='  '+(l.text||'').slice(0,40)+' \u2192 '+l.href.slice(0,60)+'\n';});
+        out+='\nParagraphs ('+((r.paragraphs||[]).length)+'):\n';
+        (r.paragraphs||[]).slice(0,3).forEach(function(p){out+='  '+p.slice(0,100)+'...\n';});
+        out+='\nWord count: '+r.wordCount+'\n';
+        out+='Images: '+(r.images||[]).length+'\n';
+        out+='Classification: '+(r.classification?r.classification.type+' ('+Math.round(r.classification.confidence*100)+'%)':'N/A')+'\n';
+        out+='\n--- Full markdown (first 300 chars) ---\n';
+        out+=(r.markdown||'').slice(0,300)+'...\n';
+        el.textContent=out;
+      }).catch(function(){el.textContent='Demo unavailable.';});
+    })();
+    </script>
 
   <!-- STEP 2: Make a paid request -->
   <section class="qs-section">
