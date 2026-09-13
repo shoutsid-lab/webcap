@@ -20,11 +20,12 @@ import { lookup } from 'node:dns';
  * Fetch timeout for the HTTP-only fallback.
  * Budget: the entire preview pipeline must complete within ~35s (client AbortController
  * is 45s; we leave 10s margin for network round-trip and server processing).
- * With MAX_RETRIES=1: 8s×2 attempts = 16s max, leaving ~19s for browser fallback.
- * Previous config (15s timeout, 2 retries) sometimes exceeded the 45s client budget
- * when the browser fallback was also needed.
+ *
+ * With MAX_RETRIES=1: 12s×2 attempts = 24s max (with 300ms backoff).
+ * Browser fallback adds ~12s. Total worst case: ~36s (within 45s budget).
+ * If we used 3 attempts (36s) + browser (12s) = 48s, exceeding client timeout.
  */
-const FETCH_TIMEOUT_MS = 8_000;
+const FETCH_TIMEOUT_MS = 12_000;
 
 /** Maximum number of retry attempts for transient network errors (0 = one attempt). */
 const MAX_RETRIES = 1;

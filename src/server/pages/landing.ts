@@ -332,8 +332,7 @@ ${footer(bazaarCatalogUrl)}
   /* --- preview form --- */
   var form=document.getElementById('preview-form');
   if(!form)return;
-  function doPreviewFetch(url,attempt){
-    attempt=attempt||1;
+  function doPreviewFetch(url){
     var ac;if(typeof AbortController!=='undefined'){ac=new AbortController();setTimeout(function(){ac.abort();},45000);}
     return fetch('/v1/extract/preview?url='+encodeURIComponent(url),ac?{signal:ac.signal}:undefined)
       .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();});
@@ -348,20 +347,22 @@ ${footer(bazaarCatalogUrl)}
     if(!/^https?:\\/\\//i.test(url))url='https://'+url;
     try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'preview_submit',meta:{url:url}})],{type:'application/json'}));}catch(ex){}
     if(btn){btn.disabled=true;btn.textContent='Loading\u2026';}
-    if(results){results.hidden=false;results.innerHTML='<div class="pr-loading"><span class="pr-spinner"></span> Fetching preview\u2026</div>';}
+    if(results){results.hidden=false;results.innerHTML='<div class="pr-loading"><span class="pr-spinner"></span> Fetching preview\u2026<span style="display:block;font-size:11px;color:var(--faint);margin-top:4px">Extracting title, headings, links, and markdown</span></div>';}
     function onSuccess(d){
       var p=d.preview||{};
       var h='';
       var hCount=(p.headings||[]).length;
       var lCount=(p.links||[]).length;
       var wCount=p.wordCount||0;
-      var curlCmd='curl -X POST "'+base+'/v1/x402/extract" -H "content-type: application/json" -d \'{"urls":["'+url+'"]}\'';
+      var curlCmd = 'curl -X POST "' + base + '/v1/x402/extract" ' +
+                    '-H "content-type: application/json" ' +
+                    '-d \'{"urls":["' + url + '"]}\'';
       /* --- header --- */
       h+='<div class="pr-header"><span class="pr-url">'+esc(p.title||url)+'</span>';
       if(d.truncated)h+='<span class="pr-badge">preview</span>';
       h+='</div>';
       if(p.description)h+='<p class="pr-desc">'+esc(p.description)+'</p>';
-      /* --- UPGRADE CTA: Email-to-buy as primary, copy command as secondary --- */
+      /* --- UPGRADE CTA: Copy command as primary, buy credits as secondary --- */
       h+='<div class="pr-upgrade pr-upgrade-top">';
       h+='<div class="pr-upgrade-body">';
       h+='<div class="pr-upgrade-title"><span class="pr-upgrade-icon">\u{1F513}</span> Unlock full data \u2014 $0.01</div>';
@@ -369,7 +370,7 @@ ${footer(bazaarCatalogUrl)}
       h+='</div>';
       h+='<div class="pr-upgrade-actions" style="display:flex;flex-direction:column;gap:8px;width:100%">';
       /* PRIMARY: Copy command button \u2014 instant path to try paid API */
-      h+='<button class="pr-copy-main" data-curl="'+esc(curlCmd)+'" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 20px;font-size:15px;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;border-radius:var(--r-m);cursor:pointer;font-family:var(--mono);width:100%;box-shadow:0 2px 8px rgba(37,99,235,.25);transition:all .15s ease">\u{1F4CB} Copy command \u2014 get full data in 30s</button>';
+      h+='<button class="pr-copy-main" data-curl="'+esc(curlCmd)+'" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:16px 24px;font-size:16px;font-weight:800;background:var(--accent);color:var(--accent-ink);border:none;border-radius:var(--r-m);cursor:pointer;font-family:var(--mono);width:100%;box-shadow:0 4px 16px rgba(37,99,235,.35);transition:all .15s ease;letter-spacing:-0.3px">\u{1F4CB} Copy command \u2014 paste in terminal, get full data</button>';
       /* SECONDARY: Buy credits link */
       h+='<a href="'+esc(base)+'/buy" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 20px;text-decoration:none;font-weight:600;background:var(--panel);color:var(--accent);border:1px solid var(--accent);border-radius:var(--r-m);font-size:13px;font-family:var(--mono);width:100%">\u{1F48E} Buy credits with crypto \u2192</a>';
       h+='</div>';
@@ -408,6 +409,14 @@ ${footer(bazaarCatalogUrl)}
       h+='</table>';
       h+='<p style="margin-top:10px;font-size:12px;color:var(--muted)">\u{1F4A1} One $0.01 payment gets you EVERYTHING: all headings, all links, full markdown, paragraphs, images, and AI classification. <strong>One payment covers up to 50 URLs.</strong></p>';
       h+='</div>';
+      /* --- TERMINAL COMMAND BOX: Show the exact curl command with one-click copy --- */
+      h+='<div class="pr-terminal" style="margin-top:16px;border:1px solid var(--line);border-radius:var(--r-m);overflow:hidden">';
+      h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line)">';
+      h+='<span style="font-size:11px;font-weight:600;color:var(--muted)">Terminal \u2014 paste this command to get full data</span>';
+      h+='<button class="pr-copy-main" data-curl="'+esc(curlCmd)+'" style="padding:4px 12px;font-size:11px;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;border-radius:var(--r-s);cursor:pointer;font-family:var(--mono);transition:all .15s ease">\u{1F4CB} Copy</button>';
+      h+='</div>';
+      h+='<pre style="margin:0;padding:12px 14px;font-size:12px;line-height:1.5;background:var(--bg);overflow-x:auto;color:var(--text)"><code>'+esc(curlCmd)+'</code></pre>';
+      h+='</div>';
       /* --- preview data BELOW the CTA: users can see what they got --- */
       if(p.headings&&p.headings.length){
         h+='<div class="pr-section"><span class="pr-label">Headings ('+hCount+(d.truncated?' preview \u2014 more in full extract':'')+') '+'</span><ul>';
@@ -422,35 +431,33 @@ ${footer(bazaarCatalogUrl)}
         h+='</div></div>';
       }
       if(p.wordCount)h+='<div class="pr-section"><span class="pr-label">Words</span> '+p.wordCount+(d.truncated?' (truncated)':'')+'</div>';
-      /* --- secondary actions at bottom --- */
+      /* --- secondary actions at bottom: repeat the copy CTA for users who scrolled down --- */
       h+='<div class="pr-bottom-actions">';
-      h+='<a href="'+esc(base)+'/quickstart" class="pr-upgrade-link" data-track="quickstart_click">Quick start guide \u2197</a>';
+      h+='<button class="pr-copy-main" data-curl="'+esc(curlCmd)+'" style="display:inline-flex;align-items:center;gap:8px;padding:14px 28px;font-size:15px;font-weight:800;background:var(--accent);color:var(--accent-ink);border:none;border-radius:var(--r-m);cursor:pointer;font-family:var(--mono);box-shadow:0 4px 16px rgba(37,99,235,.35);transition:all .15s ease">\u{1F4CB} Copy command \u2014 paste in terminal, get full data</button>';
       h+='</div>';
       h+='<div class="pr-try-another"><button class="btn-sm pr-try-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Wikipedia</button> <button class="btn-sm pr-try-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">MDN Docs</button> <button class="btn-sm pr-try-btn" data-url="https://github.com/shoutsid-lab/webcap">GitHub repo</button> <button class="btn-sm pr-try-btn" data-url="https://docs.python.org/3/">Python Docs</button></div>';
       if(results){results.innerHTML=h;results.scrollIntoView({behavior:'smooth',block:'start'});}
-      /* --- primary copy button (big) --- */
-      var mainCopyBtn=results?results.querySelector('.pr-copy-main'):null;
-      if(mainCopyBtn){mainCopyBtn.addEventListener('click',function(){
-        var curl=mainCopyBtn.getAttribute('data-curl')||'';
-        /* Track the copy attempt IMMEDIATELY (before clipboard) to ensure
-           curl_copy events are never lost if clipboard API fails or is denied */
-        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'curl_copy',meta:{url:url,source:'preview_success'}})],{type:'application/json'}));}catch(ex){}
-        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_results_copy'}})],{type:'application/json'}));}catch(ex){}
-        if(navigator.clipboard){navigator.clipboard.writeText(curl).then(function(){
-          mainCopyBtn.textContent='\u2713 Copied! Paste in terminal.';setTimeout(function(){mainCopyBtn.textContent='\u{1F4CB} Copy command \u2014 get full data in 30s';},3000);
-          var toast=results?results.querySelector('#copy-toast'):null;
-          if(toast){toast.hidden=false;setTimeout(function(){toast.hidden=true;},5000);}
-        }).catch(function(){
-          /* Clipboard denied — fallback: select text for manual copy */
-          mainCopyBtn.textContent='Right-click \u2192 Copy link address';
-          setTimeout(function(){mainCopyBtn.textContent='\u{1F4CB} Copy command \u2014 get full data in 30s';},3000);
-        });}
-      });}
-      /* --- api docs link tracking --- */
-      var docsLink=results?results.querySelector('.pr-upgrade-link'):null;
-      if(docsLink){docsLink.addEventListener('click',function(){
-        try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_results'}})],{type:'application/json'}));}catch(ex){}
-      });}
+      /* --- primary copy button(s) (top + bottom) --- */
+      var allCopyBtns=results?results.querySelectorAll('.pr-copy-main'):[];
+      allCopyBtns.forEach(function(mainCopyBtn){
+        mainCopyBtn.addEventListener('click',function(){
+          var curl=mainCopyBtn.getAttribute('data-curl')||'';
+          /* Track the copy attempt IMMEDIATELY (before clipboard) to ensure
+             curl_copy events are never lost if clipboard API fails or is denied */
+          try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'curl_copy',meta:{url:url,source:'preview_success'}})],{type:'application/json'}));}catch(ex){}
+          try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_results_copy'}})],{type:'application/json'}));}catch(ex){}
+          if(navigator.clipboard){navigator.clipboard.writeText(curl).then(function(){
+            allCopyBtns.forEach(function(b){b.textContent='\u2713 Copied! Now paste in your terminal';b.style.background='#16a34a';b.style.boxShadow='0 4px 16px rgba(22,163,74,.35)';});
+            setTimeout(function(){allCopyBtns.forEach(function(b){b.textContent='\u{1F4CB} Copy command \u2014 paste in terminal, get full data';b.style.background='';b.style.boxShadow='';});},4000);
+            var toast=results?results.querySelector('#copy-toast'):null;
+            if(toast){toast.hidden=false;setTimeout(function(){toast.hidden=true;},5000);}
+          }).catch(function(){
+            /* Clipboard denied \u2014 fallback: select text for manual copy */
+            mainCopyBtn.textContent='Right-click \u2192 Copy link address';
+            setTimeout(function(){mainCopyBtn.textContent='\u{1F4CB} Copy command \u2014 paste in terminal, get full data';},3000);
+          });}
+        });
+      });
       try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'preview_result_success',meta:{url:url,wordCount:p.wordCount||0,headingCount:(p.headings||[]).length,linkCount:(p.links||[]).length}})],{type:'application/json'}));}catch(ex){}
     }
     function onFail(err){
@@ -484,7 +491,7 @@ ${footer(bazaarCatalogUrl)}
       errCta+='</div>';
       errCta+='<div class="pr-upgrade-actions" style="display:flex;flex-direction:column;gap:8px;width:100%">';
       /* PRIMARY: Copy command button \u2014 instant path to try paid API */
-      errCta+='<button class="pr-copy-main" data-curl="'+esc(errCurlCmd)+'" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 20px;font-size:15px;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;border-radius:var(--r-m);cursor:pointer;font-family:var(--mono);width:100%;box-shadow:0 2px 8px rgba(37,99,235,.25);transition:all .15s ease">\u{1F4CB} Copy command \u2014 get full data in 30s</button>';
+      errCta+='<button class="pr-copy-main" data-curl="'+esc(errCurlCmd)+'" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:16px 24px;font-size:16px;font-weight:800;background:var(--accent);color:var(--accent-ink);border:none;border-radius:var(--r-m);cursor:pointer;font-family:var(--mono);width:100%;box-shadow:0 4px 16px rgba(37,99,235,.35);transition:all .15s ease;letter-spacing:-0.3px">\u{1F4CB} Copy command \u2014 paste in terminal, get full data</button>';
       /* SECONDARY: Buy credits link */
       errCta+='<a href="'+esc(base)+'/buy" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 20px;text-decoration:none;font-weight:600;background:var(--panel);color:var(--accent);border:1px solid var(--accent);border-radius:var(--r-m);font-size:13px;font-family:var(--mono);width:100%">\u{1F48E} Buy credits with crypto \u2192</a>';
       errCta+='</div>';
@@ -494,11 +501,13 @@ ${footer(bazaarCatalogUrl)}
       errCta+='</div>';
       errCta+='</div>';
       errCta+='<div class="pr-copy-toast" id="copy-toast" hidden>\u2713 Copied! Paste in your terminal and run.</div>';
+      /* --- TERMINAL COMMAND BOX on error: show the command even when preview fails --- */
+      var errTerminal='<div class="pr-terminal" style="margin-top:16px;border:1px solid var(--line);border-radius:var(--r-m);overflow:hidden"><div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line)"><span style="font-size:11px;font-weight:600;color:var(--muted)">Terminal \u2014 paste this command to get full data</span><button class="pr-copy-main" data-curl="'+esc(errCurlCmd)+'" style="padding:4px 12px;font-size:11px;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;border-radius:var(--r-s);cursor:pointer;font-family:var(--mono);transition:all .15s ease">\u{1F4CB} Copy</button></div><pre style="margin:0;padding:12px 14px;font-size:12px;line-height:1.5;background:var(--bg);overflow-x:auto;color:var(--text)"><code>'+esc(errCurlCmd)+'</code></pre></div>';
       /* Put the error FIRST — users need to understand what went wrong before seeing solutions */
       var errHtml='<div class="pr-error"><span class="pr-error-icon">\u26A0\uFE0F</span> <strong>'+esc(friendlyMsg)+'</strong>: '+esc(errMsg)+' '+hint+'<div class="pr-error-actions">'+retryBtn+'<a href="/v1/extract/preview?url='+encodeURIComponent(url)+'" target="_blank" class="pr-error-link">View raw JSON \u2197</a></div></div>';
       /* --- DEMO PREVIEW: Show what webcap CAN extract, even when the user's URL fails --- */
       var demoHtml='<div id="err-demo-section" style="margin-top:16px;padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l)"><p style="margin:0 0 10px;font-size:13px;color:var(--muted)"><strong>\u{1F4CA} Here\u2019s what a full extract looks like</strong> (Hacker News \u2014 example output)</p><div id="err-demo-code" style="font-family:var(--mono);font-size:12px;line-height:1.6;color:var(--text);white-space:pre-wrap;max-height:300px;overflow-y:auto;padding:12px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-s)">Loading demo\u2026</div></div>';
-      if(results){results.innerHTML=errHtml+errCta+demoHtml;results.scrollIntoView({behavior:'smooth',block:'start'});}
+      if(results){results.innerHTML=errHtml+errCta+errTerminal+demoHtml;results.scrollIntoView({behavior:'smooth',block:'start'});}
       /* --- load demo on error state --- */
       var errDemoCode=document.getElementById('err-demo-code');
       if(errDemoCode){
@@ -537,7 +546,8 @@ ${footer(bazaarCatalogUrl)}
         try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'curl_copy',meta:{url:url,source:'preview_error'}})],{type:'application/json'}));}catch(ex){}
         try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'upgrade_click',meta:{url:url,source:'preview_error_copy'}})],{type:'application/json'}));}catch(ex){}
         if(navigator.clipboard){navigator.clipboard.writeText(curl).then(function(){
-          errMainCopyBtn.textContent='\u2713 Copied! Paste in terminal.';setTimeout(function(){errMainCopyBtn.textContent='\u{1F4CB} Copy command';},3000);
+          errMainCopyBtn.textContent='\u2713 Copied! Now paste in your terminal';errMainCopyBtn.style.background='#16a34a';errMainCopyBtn.style.boxShadow='0 4px 16px rgba(22,163,74,.35)';
+          setTimeout(function(){errMainCopyBtn.textContent='\u{1F4CB} Copy command';errMainCopyBtn.style.background='';errMainCopyBtn.style.boxShadow='';},4000);
           var toast=results?results.querySelector('#copy-toast'):null;
           if(toast){toast.hidden=false;setTimeout(function(){toast.hidden=true;},5000);}
         }).catch(function(){
@@ -561,26 +571,9 @@ ${footer(bazaarCatalogUrl)}
       else if(errMsg.indexOf('ENOTFOUND')!==-1||err.name==='TypeError')errorType='dns_error';
       try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'preview_result_error',meta:{url:url,error:errMsg,errorType:errorType}})],{type:'application/json'}));}catch(ex){}
     }
-    doPreviewFetch(url,1)
+    doPreviewFetch(url)
       .then(function(d){onSuccess(d);})
-      .catch(function(err){
-        /* Retry twice on transient errors: network hiccups, 502 (server may fallback on retry) */
-        var e=String(err);
-        if(e.indexOf('Failed to fetch')!==-1||e.indexOf('AbortError')!==-1||e.indexOf('502')!==-1){
-          return new Promise(function(resolve){setTimeout(resolve,1000);}).then(function(){
-            return doPreviewFetch(url,2);
-          }).then(function(d){onSuccess(d);}).catch(function(err2){
-            var e2=String(err2);
-            if(e2.indexOf('Failed to fetch')!==-1||e2.indexOf('AbortError')!==-1||e2.indexOf('502')!==-1){
-              return new Promise(function(resolve){setTimeout(resolve,2000);}).then(function(){
-                return doPreviewFetch(url,3);
-              }).then(function(d){onSuccess(d);}).catch(function(err3){onFail(err3);});
-            }
-            onFail(err2);
-          });
-        }
-        onFail(err);
-      })
+      .catch(function(err){onFail(err);})
       .finally(function(){
         if(btn){btn.disabled=false;btn.textContent='Extract \u2197';}
       });

@@ -144,6 +144,8 @@ export function registerStatusRoute(app: FastifyInstance, deps: AppDeps): void {
 
       // Structured funnel with conversion rates between stages
       // preview_error is a sibling of preview_success (both from preview_try), not sequential
+      // cta_click is a parallel navigation metric, NOT a funnel stage (CTAs exist on
+      // the landing page independently of the preview flow)
       const funnelStages = [
         { event: 'landing_view', label: 'page_view' },
         { event: 'preview_submit', label: 'preview_try' },
@@ -151,8 +153,6 @@ export function registerStatusRoute(app: FastifyInstance, deps: AppDeps): void {
         { event: 'preview_result_error', label: 'preview_error', skipConversion: true },
         { event: 'upgrade_click', label: 'upgrade_click' },
         { event: 'curl_copy', label: 'curl_copy' },
-        { event: 'email_subscribe', label: 'email_subscribe' },
-        { event: 'cta_click', label: 'cta_click' },
       ];
       let prevCount = 0;
       for (const stage of funnelStages) {
@@ -322,8 +322,6 @@ export function registerStatusRoute(app: FastifyInstance, deps: AppDeps): void {
         { event: 'preview_result_error', label: 'preview_error', skipConversion: true },
         { event: 'upgrade_click', label: 'upgrade_click' },
         { event: 'curl_copy', label: 'curl_copy' },
-        { event: 'email_subscribe', label: 'email_subscribe' },
-        { event: 'cta_click', label: 'cta_click' },
       ];
       let prevCount = 0;
       for (const stage of funnelStages) {

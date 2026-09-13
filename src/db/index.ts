@@ -24,6 +24,7 @@ export function openDb(path: string): Db {
   migrateEndpointHits(db);
   migratePaymentWebhooks(db);
   migrateTrackingEvents(db);
+  migratePreviewCache(db);
   return db;
 }
 
@@ -171,6 +172,30 @@ function migratePaymentWebhooks(db: Db): void {
         'created_at TEXT NOT NULL)',
     );
     db.exec('CREATE INDEX IF NOT EXISTS idx_payment_webhooks_account_id ON payment_webhooks(account_id)');
+  }
+}
+
+/**
+ * Preview cache: stores successful preview results keyed by normalized URL
+ * and a content hash. Enables sub-50ms responses for repeat preview requests
+ * (e.g., demo URLs like example.com, Wikipedia, etc.).
+ */
+function migratePreviewCache(db: Db): void {
+  const table = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'preview_cache'")
+    .get() as { name: string } | undefined;
+  if (table === undefined) {
+    db.exec(
+      'CREATE TABLE preview_cache (' +
+        'url TEXT NOT NULL, ' +
+        'hash TEXT NOT NULL, ' +
+        'preview_json TEXT NOT NULL, ' +
+        'hit_count INTEGER NOT NULL DEFAULT 1, ' +
+        'created_at TEXT NOT NULL, ' +
+        'expires_at TEXT NOT NULL, ' +
+        'PRIMARY KEY (url, hash))',
+    );
+    db.exec('CREATE INDEX IF NOT EXISTS idx_preview_cache_expires ON preview_cache(expires_at)');
   }
 }
 

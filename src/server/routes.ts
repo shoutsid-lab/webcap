@@ -343,9 +343,9 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       // PERFORMANCE: The entire preview pipeline must complete within ~35s
       // (client AbortController is 45s; we leave 10s margin for network
       // round-trip and server processing). We achieve this by:
-      // - HTTP fallback: ~10s per attempt × 2 attempts = ~20s max
-      // - Browser fallback (no model): ~8s
-      // - Total: ~28s worst case (well within budget)
+      // - HTTP fallback: ~12s per attempt × 2 attempts = ~24s max
+      // - Browser fallback (no model): ~12s
+      // - Total: ~36s worst case (within 45s client budget)
       try {
         const fallback = await previewFallback(normalizedUrl);
         structure = {
@@ -361,12 +361,12 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       } catch (fallbackErr) {
         // HTTP-only failed — try lightweight browser capture as secondary.
         // NOTE: We intentionally SKIP model/AI extraction here to keep
-        // latency under 10s. The preview is a free demo; the full extract
+        // latency under 12s. The preview is a free demo; the full extract
         // endpoint (paid) handles AI-enhanced extraction.
         try {
           const captured = await deps.captureStructured({
             url: normalizedUrl,
-            options: { timeoutMs: 8_000, includeHtml: false },
+            options: { timeoutMs: 12_000, includeHtml: false },
           });
           structure = {
             title: captured.structure.title,
