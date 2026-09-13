@@ -354,9 +354,8 @@ ${footer(bazaarCatalogUrl)}
       var hCount=(p.headings||[]).length;
       var lCount=(p.links||[]).length;
       var wCount=p.wordCount||0;
-      var curlCmd = 'curl -X POST "' + base + '/v1/x402/extract" ' +
-              '-H "content-type: application/json" ' +
-              '-d \'{"urls":["' + url + '"]}\'';
+      
+      const curlCmd = \`curl -X POST '\${base}/v1/x402/extract' -H 'content-type: application/json' -d '{"urls":["\${url}"]}'\`;
       /* --- header --- */
       h+='<div class="pr-header"><span class="pr-url">'+esc(p.title||url)+'</span>';
       if(d.truncated)h+='<span class="pr-badge">preview</span>';
@@ -472,18 +471,19 @@ ${footer(bazaarCatalogUrl)}
         hint='<p class="pr-hint">Too many requests. Wait a minute and try again, or use the paid API for unlimited access.</p>';
       }else if(errMsg.indexOf('404')!==-1||errMsg.indexOf('not found')!==-1){
         friendlyMsg='URL not found';
-        hint='<p class="pr-hint">The page doesn\'t exist. Check the URL and try again. Make sure it starts with <code>https://</code>.</p>';
+        hint="<p class='pr-hint'>The page doesn't exist. Check the URL and try again. Make sure it starts with <code>https://</code>.</p>";
       }else if(errMsg.indexOf('502')!==-1){
         friendlyMsg='Site blocked capture';
         hint='<p class="pr-hint">This site blocks automated requests. The paid API uses advanced browser-level capture that handles most blocking. Try it with the full extract.</p>';
       }else if(errMsg.indexOf('network')!==-1||errMsg.indexOf('ENOTFOUND')!==-1){
         friendlyMsg='DNS resolution failed';
-        hint='<p class="pr-hint">The domain couldn\'t be resolved. Check for typos in the URL.</p>';
+        hint="<p class='pr-hint'>The domain couldn't be resolved. Check for typos in the URL.</p>";
       }
       var retryBtn='<button class="btn-sm pr-retry-btn" data-url="https://example.com/">Try example.com</button> <button class="btn-sm pr-retry-btn" data-url="https://en.wikipedia.org/wiki/Web_scraping">Try Wikipedia</button> <button class="btn-sm pr-retry-btn" data-url="https://developer.mozilla.org/en-US/docs/Web/HTTP">Try MDN</button> <button class="btn-sm pr-retry-btn" data-url="'+url+'">Retry this URL</button>';
       /* --- upgrade CTA on error: Copy command + buy credits --- */
       var errCta='';
-      var errCurlCmd='curl -X POST "'+base+'/v1/x402/extract" -H "content-type: application/json" -d \'{"urls":["'+url+'"]}\'';
+      const errCurlCmd = \`curl -X POST '\${base}/v1/x402/extract' -H 'content-type: application/json' -d '{"urls":["\${url}"]}'\`;
+
       errCta+='<div class="pr-upgrade">';
       errCta+='<div class="pr-upgrade-body">';
       errCta+='<div class="pr-upgrade-title"><span class="pr-upgrade-icon">\u{1F513}</span> Unlock full data \u2014 $0.01</div>';
@@ -510,27 +510,31 @@ ${footer(bazaarCatalogUrl)}
       if(results){results.innerHTML=errHtml+errCta+errTerminal+demoHtml;results.scrollIntoView({behavior:'smooth',block:'start'});}
       /* --- load demo on error state --- */
       var errDemoCode=document.getElementById('err-demo-code');
-      if(errDemoCode){
+            if(errDemoCode){
         fetch('/v1/demo').then(function(r){return r.json();}).then(function(d){
           var results2=d.results||[];
           if(!results2.length){errDemoCode.textContent='No demo available';return;}
-          var r=results2[0];
+          // Correctly extract the first item in the results array
+          var item=results2[0];
+          if(!item){errDemoCode.textContent='No demo data found';return;}
+          
           var out='';
-          out+='URL: '+(r.url||'')+'\n';
-          out+='Title: '+(r.title||'')+'\n';
-          out+='Description: '+(r.description||'').slice(0,120)+'...\n\n';
-          out+='Headings ('+((r.headings||[]).length)+'):\n';
-          (r.headings||[]).slice(0,6).forEach(function(h){out+='  H'+h.level+': '+h.text+'\n';});
-          out+='\nLinks ('+((r.links||[]).length)+'):\n';
-          (r.links||[]).slice(0,5).forEach(function(l){out+='  '+(l.text||l.href).slice(0,50)+'\n';});
-          out+='\nWord count: '+(r.wordCount||0)+'\n';
-          out+='Paragraphs: '+((r.paragraphs||[]).length)+'\n';
-          out+='Images: '+((r.images||[]).length)+'\n';
-          out+='\n--- Full markdown (first 500 chars) ---\n';
-          out+=(r.markdown||'').slice(0,500)+'...\n';
+          out+='URL: '+(item.url||'')+'\\n';
+          out+='Title: '+(item.title||'')+'\\n';
+          out+='Description: '+(item.description||'').slice(0,120)+'...\\n\\n';
+          out+='Headings ('+((item.headings||[]).length)+'):\\n';
+          (item.headings||[]).slice(0,6).forEach(function(h){out+='  H'+h.level+': '+h.text+'\\n';});
+          out+='\\nLinks ('+((item.links||[]).length)+'):\\n';
+          (item.links||[]).slice(0,5).forEach(function(l){out+='  '+(l.text||l.href).slice(0,50)+'\\n';});
+          out+='\\nWord count: '+(item.wordCount||0)+'\\n';
+          out+='Paragraphs: '+((item.paragraphs||[]).length)+'\\n';
+          out+='Images: '+((item.images||[]).length)+'\\n';
+          out+='\\n--- Full markdown (first 500 chars) ---\\n';
+          out+=(item.markdown||'').slice(0,500)+'...\\n';
           errDemoCode.textContent=out;
         }).catch(function(){errDemoCode.textContent='Demo unavailable.';});
       }
+
       var retryEls=results?results.querySelectorAll('.pr-retry-btn'):null;
       if(retryEls){retryEls.forEach(function(el){el.addEventListener('click',function(){
         var tryUrl=el.getAttribute('data-url')||'https://example.com/';
