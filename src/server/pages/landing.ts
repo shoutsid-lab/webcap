@@ -355,8 +355,8 @@ ${footer(bazaarCatalogUrl)}
       var lCount=(p.links||[]).length;
       var wCount=p.wordCount||0;
       var curlCmd = 'curl -X POST "' + base + '/v1/x402/extract" ' +
-                    '-H "content-type: application/json" ' +
-                    '-d \'{"urls":["' + url + '"]}\'';
+              '-H "content-type: application/json" ' +
+              '-d \'{"urls":["' + url + '"]}\'';
       /* --- header --- */
       h+='<div class="pr-header"><span class="pr-url">'+esc(p.title||url)+'</span>';
       if(d.truncated)h+='<span class="pr-badge">preview</span>';
