@@ -291,7 +291,7 @@ ${footer(bazaarCatalogUrl)}
 
 <script>
 (function(){
-  var base='${base}';
+  var base=${JSON.stringify(base)};
   var stripeConfigured=${stripeConfigured};
 
   function showToast(msg,dur){
@@ -374,9 +374,10 @@ ${footer(bazaarCatalogUrl)}
       var btn=notifyForm.querySelector('button[type="submit"]');
       if(btn){btn.textContent='\u2713 Done!';btn.style.background='var(--ok)';btn.disabled=true;}
       emailInput.disabled=true;emailInput.style.opacity='0.6';
-      if(notifyNote){notifyNote.textContent='\u2713 We\'ll email you when card payments launch. No spam.';}
+      if(notifyNote){notifyNote.textContent="\u2713 We'll email you when card payments launch. No spam.";}
     });
   }
+
 
   /* social proof */
   fetch('/v1/status').then(function(r){return r.json();}).then(function(s){
