@@ -4,7 +4,7 @@ import type { Db } from '../db/index.js';
 import type { ArtifactRepo } from '../db/artifacts.js';
 import { DEFAULT_BODY_LIMIT_BYTES, DEFAULT_REQUEST_TIMEOUT_MS, type WebcapConfig } from '../config.js';
 import { toResponse, type ErrorBody, HttpError } from '../util/errors.js';
-import type { CaptureRequest, CaptureResult, StructuredCapture } from '../capture/pipeline.js';
+import type { CaptureRequest, CaptureResult, PageStructure, StructuredCapture } from '../capture/pipeline.js';
 import type { OgResult } from '../capture/og.js';
 import { registerBillingRoutes } from './billing.js';
 import { registerAdminHitsRoutes } from './admin-hits.js';
@@ -29,6 +29,8 @@ export interface AppDeps {
   readonly config: WebcapConfig;
   readonly capture: (req: CaptureRequest) => Promise<CaptureResult>;
   readonly captureStructured: (req: CaptureRequest) => Promise<StructuredCapture>;
+  /** HTTP-only preview fetch (default: previewFallback); injectable for tests. */
+  readonly previewFallback?: (url: string) => Promise<PageStructure>;
   readonly og: (req: { url: string }) => Promise<OgResult>;
   /** Private hosts that may still be captured (local dev); default: none. */
   readonly captureAllowHosts?: readonly string[];

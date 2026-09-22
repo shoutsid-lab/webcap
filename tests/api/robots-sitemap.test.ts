@@ -164,6 +164,8 @@ describe('GET /.well-known/x402 + GET /.well-known/agent-card.json (machine disc
         'POST /v1/x402/audit',
         'POST /v1/x402/map-lite',
         'POST /v1/x402/video',
+        'POST /v1/x402/analyze',
+        'POST /v1/x402/analyze/batch',
         'POST /v1/x402/watches/topup',
       ]);
       expect(body.endpoints[0]?.usdc).toBe(fx.config.x402PriceUsdcUnits / 1_000_000);
@@ -200,7 +202,7 @@ describe('GET /.well-known/x402 + GET /.well-known/agent-card.json (machine disc
       expect(card.payments.payTo).toBe(
         fx.config.x402Network === undefined ? null : fx.config.x402PayTo,
       );
-      expect(card.skills.map((s) => s.id)).toEqual(['capture', 'extract', 'audit', 'map-lite', 'video', 'watch']);
+      expect(card.skills.map((s) => s.id)).toEqual(['capture', 'extract', 'audit', 'map-lite', 'video', 'analyze', 'watch']);
     } finally {
       await closeApiFixture(fx);
     }

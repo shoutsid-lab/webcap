@@ -4,7 +4,7 @@
  * Provides visual analysis endpoints that leverage the ML intelligence layer.
  * These routes use the vision adapter for AI-powered page analysis.
  */
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 import type { Db } from '../db/index.js';
 import type { WebcapConfig } from '../config.js';
@@ -12,20 +12,57 @@ import { HttpError, unprocessable } from '../util/errors.js';
 import { isRecord, validatedUrl } from './capture-parse.js';
 import { x402Payer } from './x402.js';
 import { OpenAICompatibleVisionAdapter, VisionError } from '../ml/vision/adapter.js';
-import { validateTask, validateMediaType, type AnalysisTask, type MediaType } from '../ml/vision/contracts.js';
+import { validateTask } from '../ml/vision/contracts.js';
+import { deterministicAnalyze } from '../ml/deterministic.js';
 import type { AppDeps } from './server.js';
 
-// --- Rate limiting for free analysis preview ---
-const ANALYSIS_RATE_LIMIT_WINDOW_MS = 60_000;
-const DEFAULT_ANALYSIS_RATE_LIMIT = 5; // 5 free analyses per minute
-
-// --- Analysis price (same as extract for now) ---
-const DEFAULT_ANALYSIS_PRICE_USDC_UNITS = 10_000; // $0.01
+// Analyze is priced at the extract tier; read from config so the 402 challenge, ledger, and OpenAPI doc agree.
 
 export interface MLRouteDeps {
   readonly db: Db;
   readonly config: WebcapConfig;
   readonly captureAllowHosts?: readonly string[];
+}
+
+function modelConfigured(config: WebcapConfig): boolean {
+  return config.modelApiBaseUrl !== '' && config.modelApiKey !== '' && config.modelName !== '';
+}
+
+function parseTask(rawTask: unknown): 'classification' | 'accessibility' | 'layout' | 'entities' | 'sentiment' {
+  if (typeof rawTask !== 'string') throw unprocessable('task is required');
+  let task: 'classification' | 'accessibility' | 'layout' | 'entities' | 'sentiment' | 'diff';
+  try {
+    task = validateTask(rawTask);
+  } catch {
+    throw unprocessable(`unsupported task: ${rawTask}. Supported: classification, accessibility, layout, entities, sentiment`);
+  }
+  if (task === 'diff') {
+    throw unprocessable('diff needs two captures: create a watch (POST /v1/watches) and compare runs, or top up change detection via POST /v1/x402/watches/topup');
+  }
+  return task;
+}
+
+function visionAdapter(config: WebcapConfig): OpenAICompatibleVisionAdapter {
+  return new OpenAICompatibleVisionAdapter({
+    baseUrl: config.modelApiBaseUrl,
+    model: config.modelName,
+    apiKey: config.modelApiKey,
+    timeoutMs: config.modelTimeoutMs ?? 30_000,
+    allowRemoteEndpoint: true,
+  });
+}
+
+function recordAnalyzeRevenue(req: FastifyRequest, config: WebcapConfig, urls: number): { payer: string; priceUsdcUnits: number; costUsdcUnits: number } {
+  const payer = x402Payer(req) ?? 'unknown';
+  const priceUsdcUnits = config.x402ExtractPriceUsdcUnits;
+  const costUsdcUnits = config.computeCostUsdcUnitsPerRequest * urls;
+  (req as unknown as { _pendingRevenue?: { endpoint: string; payer: string; revenueUsdcUnits: number; costUsdcUnits: number } })._pendingRevenue = {
+    endpoint: 'analyze',
+    payer,
+    revenueUsdcUnits: priceUsdcUnits,
+    costUsdcUnits,
+  };
+  return { payer, priceUsdcUnits, costUsdcUnits };
 }
 
 /**
@@ -61,68 +98,56 @@ export function registerMLRoutes(app: FastifyInstance, deps: AppDeps): void {
     const url = validatedUrl(rawUrl, allowHosts);
 
     const rawTask = body.task;
-    if (typeof rawTask !== 'string') throw unprocessable('task is required');
-    const task = validateTask(rawTask);
+    const task = parseTask(rawTask);
 
     const context = typeof body.context === 'string' ? body.context : undefined;
 
-    // Check model configuration
-    if (config.modelApiBaseUrl === '' || config.modelApiKey === '' || config.modelName === '') {
-      throw new HttpError(503, 'model_not_configured', 'ML analysis requires MODEL_API_BASE_URL, MODEL_API_KEY, and MODEL_NAME to be configured');
-    }
-
-    // Create vision adapter
-    const adapter = new OpenAICompatibleVisionAdapter({
-      baseUrl: config.modelApiBaseUrl,
-      model: config.modelName,
-      apiKey: config.modelApiKey,
-      timeoutMs: config.modelTimeoutMs ?? 30_000,
-      allowRemoteEndpoint: true, // Allow non-localhost for production models
-    });
-
-    // Capture screenshot
-    let captureResult;
-    try {
-      captureResult = await deps.capture({ url, format: 'png' });
-    } catch (err) {
-      throw new HttpError(502, 'capture_failed', `failed to capture screenshot: ${err instanceof Error ? err.message : String(err)}`);
-    }
-
-    // Perform analysis
     const started = performance.now();
-    let exchange;
-    try {
-      exchange = await adapter.analyze({
-        imageBytes: captureResult.buffer,
-        mediaType: 'image/png',
-        task,
-        context,
-      });
-    } catch (err) {
-      if (err instanceof VisionError) {
-        throw new HttpError(502, 'analysis_failed', `ML analysis failed: ${err.message}`);
+    if (modelConfigured(config)) {
+      const adapter = visionAdapter(config);
+      let captureResult;
+      try {
+        captureResult = await deps.capture({ url, format: 'png' });
+      } catch (err) {
+        throw new HttpError(502, 'capture_failed', `failed to capture screenshot: ${err instanceof Error ? err.message : String(err)}`);
       }
-      throw err;
+      let exchange;
+      try {
+        exchange = await adapter.analyze({
+          imageBytes: captureResult.buffer,
+          mediaType: 'image/png',
+          task,
+          context,
+        });
+      } catch (err) {
+        if (err instanceof VisionError) {
+          throw new HttpError(502, 'analysis_failed', `ML analysis failed: ${err.message}`);
+        }
+        throw err;
+      }
+      const latencyMs = Math.max(0, performance.now() - started);
+      const payment = recordAnalyzeRevenue(req, config, 1);
+      return {
+        task,
+        result: exchange.result,
+        payment,
+        latency_ms: Math.round(latencyMs),
+      };
     }
+
+    let captured;
+    try {
+      captured = await deps.captureStructured({ url, options: { includeHtml: true } });
+    } catch (err) {
+      throw new HttpError(502, 'capture_failed', `failed to capture page: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    const result = deterministicAnalyze({ structure: captured.structure, html: captured.html, pageUrl: url, task, context });
     const latencyMs = Math.max(0, performance.now() - started);
-
-    // Record revenue (deferred to post-settlement hook)
-    const payer = x402Payer(req) ?? 'unknown';
-    (req as unknown as { _pendingRevenue?: { endpoint: string; payer: string; revenueUsdcUnits: number; costUsdcUnits: number } })._pendingRevenue = {
-      endpoint: 'analyze',
-      payer,
-      revenueUsdcUnits: DEFAULT_ANALYSIS_PRICE_USDC_UNITS,
-      costUsdcUnits: config.computeCostUsdcUnitsPerRequest,
-    };
-
+    const payment = recordAnalyzeRevenue(req, config, 1);
     return {
       task,
-      result: exchange.result,
-      payment: {
-        payer,
-        priceUsdcUnits: DEFAULT_ANALYSIS_PRICE_USDC_UNITS,
-        costUsdcUnits: config.computeCostUsdcUnitsPerRequest,
-      },
+      result,
+      payment,
       latency_ms: Math.round(latencyMs),
     };
   });
@@ -150,8 +175,7 @@ export function registerMLRoutes(app: FastifyInstance, deps: AppDeps): void {
     if (rawUrls.length > 10) throw unprocessable('urls must contain at most 10 items');
 
     const rawTask = body.task;
-    if (typeof rawTask !== 'string') throw unprocessable('task is required');
-    const task = validateTask(rawTask);
+    const task = parseTask(rawTask);
 
     const context = typeof body.context === 'string' ? body.context : undefined;
 
@@ -162,21 +186,6 @@ export function registerMLRoutes(app: FastifyInstance, deps: AppDeps): void {
       urls.push(validatedUrl(rawUrl, allowHosts));
     }
 
-    // Check model configuration
-    if (config.modelApiBaseUrl === '' || config.modelApiKey === '' || config.modelName === '') {
-      throw new HttpError(503, 'model_not_configured', 'ML analysis requires MODEL_API_BASE_URL, MODEL_API_KEY, and MODEL_NAME to be configured');
-    }
-
-    // Create vision adapter
-    const adapter = new OpenAICompatibleVisionAdapter({
-      baseUrl: config.modelApiBaseUrl,
-      model: config.modelName,
-      apiKey: config.modelApiKey,
-      timeoutMs: config.modelTimeoutMs ?? 30_000,
-      allowRemoteEndpoint: true,
-    });
-
-    // Process each URL
     const results: Array<{
       url: string;
       status: 'ok' | 'error';
@@ -184,57 +193,49 @@ export function registerMLRoutes(app: FastifyInstance, deps: AppDeps): void {
       error?: string;
     }> = [];
 
+    if (modelConfigured(config)) {
+      const adapter = visionAdapter(config);
+      let failures = 0;
+      for (const url of urls) {
+        try {
+          const captureResult = await deps.capture({ url, format: 'png' });
+          const exchange = await adapter.analyze({
+            imageBytes: captureResult.buffer,
+            mediaType: 'image/png',
+            task,
+            context,
+          });
+          results.push({ url, status: 'ok', result: exchange.result });
+        } catch (err) {
+          failures += 1;
+          results.push({ url, status: 'error', error: err instanceof Error ? err.message : String(err) });
+        }
+      }
+      if (failures === urls.length) {
+        throw new HttpError(502, 'analysis_failed', 'all urls failed to analyze');
+      }
+      const payment = recordAnalyzeRevenue(req, config, urls.length);
+      return { results, task, payment };
+    }
+
     let failures = 0;
     for (const url of urls) {
       try {
-        // Capture screenshot
-        const captureResult = await deps.capture({ url, format: 'png' });
-
-        // Perform analysis
-        const exchange = await adapter.analyze({
-          imageBytes: captureResult.buffer,
-          mediaType: 'image/png',
-          task,
-          context,
-        });
-
+        const captured = await deps.captureStructured({ url, options: { includeHtml: true } });
         results.push({
           url,
           status: 'ok',
-          result: exchange.result,
+          result: deterministicAnalyze({ structure: captured.structure, html: captured.html, pageUrl: url, task, context }),
         });
       } catch (err) {
         failures += 1;
-        results.push({
-          url,
-          status: 'error',
-          error: err instanceof Error ? err.message : String(err),
-        });
+        results.push({ url, status: 'error', error: err instanceof Error ? err.message : String(err) });
       }
     }
-
-    // All URLs failed
     if (failures === urls.length) {
       throw new HttpError(502, 'analysis_failed', 'all urls failed to analyze');
     }
-
-    // Record revenue (flat price for batch, deferred to post-settlement hook)
-    const payer = x402Payer(req) ?? 'unknown';
-    (req as unknown as { _pendingRevenue?: { endpoint: string; payer: string; revenueUsdcUnits: number; costUsdcUnits: number } })._pendingRevenue = {
-      endpoint: 'analyze',
-      payer,
-      revenueUsdcUnits: DEFAULT_ANALYSIS_PRICE_USDC_UNITS,
-      costUsdcUnits: config.computeCostUsdcUnitsPerRequest * urls.length,
-    };
-
-    return {
-      results,
-      task,
-      payment: {
-        payer,
-        priceUsdcUnits: DEFAULT_ANALYSIS_PRICE_USDC_UNITS,
-        costUsdcUnits: config.computeCostUsdcUnitsPerRequest * urls.length,
-      },
-    };
+    const payment = recordAnalyzeRevenue(req, config, urls.length);
+    return { results, task, payment };
   });
 }

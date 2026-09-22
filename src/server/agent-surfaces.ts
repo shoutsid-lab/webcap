@@ -67,8 +67,8 @@ on-chain. You pay USDC only, never ETH gas.
 | POST /v1/x402/audit | ${usdc(config.x402AuditPriceUsdcUnits)} | SEO basics + link/OG health in one call (title, description, OG tags, link health) |
 | POST /v1/x402/map-lite | ${usdc(config.x402AuditPriceUsdcUnits)} | Site map in one call: URL list from sitemap/robots plus a 1-hop same-host crawl (maxUrls up to 50, default 20) |
 | POST /v1/x402/video | ${usdc(config.x402VideoPriceUsdcUnits)} | Scroll-capture of one URL as video (mp4/webm): base64 artifact |
-| POST /v1/x402/analyze | $0.01 | AI-powered visual analysis: classification, accessibility, layout, entities, sentiment |
-| POST /v1/x402/analyze/batch | $0.01 | Batch AI analysis (up to 10 URLs, one payment) |
+| POST /v1/x402/analyze | ${usdc(config.x402ExtractPriceUsdcUnits)} | AI-powered visual analysis: classification, accessibility, layout, entities, sentiment |
+| POST /v1/x402/analyze/batch | ${usdc(config.x402ExtractPriceUsdcUnits)} | Batch AI analysis (up to 10 URLs, one payment) |
 | POST /v1/x402/watches/topup | ${usdc(watchTopUpPriceUsdcUnits('capture', config))}–${usdc(watchTopUpPriceUsdcUnits('extract', config))} | 100 scheduled re-capture runs for an existing watch (capture watch ${usdc(watchTopUpPriceUsdcUnits('capture', config))}, extract watch ${usdc(watchTopUpPriceUsdcUnits('extract', config))}) |
 
 ### Request / response shapes
@@ -113,7 +113,7 @@ POST /v1/x402/watches/topup
 
 ## Free endpoints (no payment)
 
-- GET /v1/extract/preview?url=… — bounded structured preview (title, headings, links, truncated markdown + AI classification when model configured); rate-limited per IP
+- GET /v1/extract/preview?url=… — bounded structured preview (title, headings, links, truncated markdown); rate-limited per IP
 - GET /v1/og?url=… — Open Graph metadata (title, description, image, icon)
 - POST /v1/watches — create a scheduled re-capture watch (free; starts with 0 credits — top up via /v1/x402/watches/topup)
 - GET /v1/watches/:id — watch state + recent runs · DELETE /v1/watches/:id — remove it
@@ -203,6 +203,8 @@ Base URL: ${config.publicBaseUrl}
 | Audit (SEO + OG + link health, one URL) | POST /v1/x402/audit {"url"} | ${usdc(config.x402AuditPriceUsdcUnits)} |
 | Map-lite (site URL list, one call) | POST /v1/x402/map-lite {"url", "maxUrls"? (default 20, at most 50)} | ${usdc(config.x402AuditPriceUsdcUnits)} |
 | Video (scroll-capture mp4/webm, one URL) | POST /v1/x402/video {"url", "format"?, "durationMs"?, "scrollSpeed"?, "scrollEasing"?, "options"? (viewport)} | ${usdc(config.x402VideoPriceUsdcUnits)} |
+| Analyze (AI visual analysis, one URL) | POST /v1/x402/analyze {"url", "task"} where task: classification\|accessibility\|layout\|entities\|sentiment | ${usdc(config.x402ExtractPriceUsdcUnits)} |
+| Analyze batch (up to 10 URLs, one payment) | POST /v1/x402/analyze/batch {"urls": string[], "task"} | ${usdc(config.x402ExtractPriceUsdcUnits)} |
 | Watch top-up (100 runs) | POST /v1/x402/watches/topup {"watchId", "runs": 100} | ${usdc(watchTopUpPriceUsdcUnits('capture', config))} (capture watch) / ${usdc(watchTopUpPriceUsdcUnits('extract', config))} (extract watch) |
 | Structured preview (truncated) | GET /v1/extract/preview?url=… | free, rate-limited per IP |
 | OG metadata | GET /v1/og?url=… | free |

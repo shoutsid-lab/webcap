@@ -109,6 +109,8 @@ describe('GET / (content negotiation: landing page + JSON front door)', () => {
             { path: 'POST /v1/x402/audit', usdc: 0.002, note: 'SEO basics + link/OG health in one call' },
             { path: 'POST /v1/x402/map-lite', usdc: 0.002, note: 'site URL list via sitemap/robots plus a 1-hop same-host crawl' },
             { path: 'POST /v1/x402/video', usdc: 0.005, note: 'scroll-capture MP4/WebM video in one call' },
+            { path: 'POST /v1/x402/analyze', usdc: 0.01, note: 'AI visual analysis: classification, accessibility, entities, sentiment' },
+            { path: 'POST /v1/x402/analyze/batch', usdc: 0.01, note: 'batch AI analysis of up to 10 URLs for one payment' },
           ],
         },
         catalog: 'GET /v1/x402/service — full agent-discoverable descriptor + the exact x402 payment flow',

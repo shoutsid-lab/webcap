@@ -1,0 +1,17 @@
+# cloudflared named-tunnel config for webcap.shoutsid.fyi (primary edge).
+#
+# ONE-TIME SETUP (needs Cloudflare account access):
+#   1. bin/cloudflared tunnel login
+#   2. bin/cloudflared tunnel create webcap
+#      -> note the tunnel ID; credentials land in ~/.cloudflared/<id>.json
+#   3. Set credentials-file below to that path.
+#   4. DNS: CNAME webcap -> <tunnel-id>.cfargotunnel.com (proxied)
+#      (or: bin/cloudflared tunnel route dns webcap webcap.shoutsid.fyi)
+#   5. Add to cron: * * * * * /home/shoutsid/code/webcap/bin/cf-tunnel-watchdog.sh
+#      plus @reboot for the same script.
+tunnel: webcap
+credentials-file: /home/shoutsid/.cloudflared/<TUNNEL_ID>.json
+ingress:
+  - hostname: webcap.shoutsid.fyi
+    service: http://localhost:8080
+  - service: http_status:404

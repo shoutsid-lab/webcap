@@ -1,11 +1,12 @@
 import type { PageStructure } from '../capture/pipeline.js';
+import type { PageClassification } from '../ml/deterministic.js';
 import { unprocessable } from '../util/errors.js';
 import { validateAgainstSchema, verifySpans, type Span } from '../extract/schema-validator.js';
 import { isRecord, validatedUrl } from './capture-parse.js';
 
 export const MAX_EXTRACT_BATCH = 50;
 
-export type ExtractedContent = PageStructure & { readonly extracted?: Record<string, unknown> };
+export type ExtractedContent = PageStructure & { readonly extracted?: Record<string, unknown>; readonly classification?: PageClassification };
 
 export type ExtractResult =
   | { readonly url: string; readonly status: 'ok'; readonly data: ExtractedContent }

@@ -206,6 +206,42 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
         security: [],
       },
     },
+    '/.well-known/ai-plugin.json': {
+      get: {
+        tags: ['discovery'],
+        summary: 'AI plugin manifest (ChatGPT/Claude plugin discovery)',
+        description:
+          'ChatGPT/Claude-style plugin manifest pointing at this deployment\'s OpenAPI document, service icon, ' +
+          'and contact info. Free, no payment.',
+        responses: {
+          200: {
+            description: 'application/json; charset=utf-8 — the plugin manifest',
+            content: jsonContent({
+              type: 'object',
+              properties: {
+                schema_version: { type: 'string', example: 'v1' },
+                name_for_human: { type: 'string', example: 'webcap' },
+                name_for_model: { type: 'string', example: 'webcap' },
+                description_for_human: { type: 'string' },
+                description_for_model: { type: 'string' },
+                auth: { type: 'object', properties: { type: { type: 'string', example: 'none' } } },
+                api: {
+                  type: 'object',
+                  properties: {
+                    type: { type: 'string', example: 'openapi' },
+                    url: { type: 'string', example: `${config.publicBaseUrl}/openapi.json` },
+                  },
+                },
+                logo_url: { type: 'string' },
+                contact_email: { type: 'string' },
+                legal_info_url: { type: 'string' },
+              },
+            }),
+          },
+        },
+        security: [],
+      },
+    },
     '/llms.txt': {
       get: {
         tags: ['discovery'],

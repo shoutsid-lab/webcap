@@ -67,6 +67,16 @@ const extractResponse = (priceUsdcUnits: number): Json => ({
               wordCount: { type: 'integer' },
               markdown: { type: 'string' },
               extracted: { type: 'object', description: 'Model-extracted JSON when a schema was supplied' },
+              classification: {
+                type: 'object',
+                description: 'Deterministic page classification (rule-based, no model): category + confidence + tags',
+                properties: {
+                  category: { type: 'string', description: 'Page category (article, product, documentation, landing-page, forum, social-media, e-commerce, news, blog, wiki, dashboard, form, other)' },
+                  confidence: { type: 'number', description: '0.4 (no signal) to 0.8 (og:type match)' },
+                  tags: { type: 'array', items: { type: 'string' } },
+                  mode: { type: 'string', example: 'deterministic' },
+                },
+              },
             },
           },
           error: { type: 'string', description: 'Present when status=error' },

@@ -52,6 +52,7 @@ export interface ApiFixture {
 export interface FixtureOverrides {
   readonly capture?: (req: CaptureRequest) => Promise<CaptureResult>;
   readonly captureStructured?: (req: CaptureRequest) => Promise<StructuredCapture>;
+  readonly previewFallback?: (url: string) => Promise<PageStructure>;
   readonly og?: (req: { url: string }) => Promise<OgResult>;
   /** Pino options for the fixture app (default: logging disabled). */
   readonly loggerOptions?: FastifyServerOptions['logger'];
@@ -104,8 +105,10 @@ export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
     }));
   const captureStructured =
     overrides.captureStructured ?? (async (): Promise<StructuredCapture> => ({ html: FAKE_HTML, structure: FAKE_STRUCTURE }));
+  const previewFallback =
+    overrides.previewFallback ?? (async (): Promise<PageStructure> => FAKE_STRUCTURE);
   const og = overrides.og ?? (async (req: { url: string }): Promise<OgResult> => ({ url: req.url, title: 'Stub Title' }));
-  const app = buildApp({ db, config, capture, captureStructured, og, artifacts: makeArtifactRepo(db), loggerOptions: overrides.loggerOptions });
+  const app = buildApp({ db, config, capture, captureStructured, previewFallback, og, artifacts: makeArtifactRepo(db), loggerOptions: overrides.loggerOptions });
   return {
     app,
     db,

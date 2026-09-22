@@ -1,10 +1,9 @@
 /**
  * GET / — the product landing page. Radically simplified for conversion:
- * Hero → Preview → Features → Pricing → Buy. No monitoring, trust badges,
- * newsletter, or resource sections. Every section either demonstrates value
- * or drives conversion.
+ * Hero → Preview → Features → Pricing → Buy. No newsletter or resource
+ * sections. Every section either demonstrates value or drives conversion.
  */
-import { DEFAULT_BAZAAR_CATALOG_URL, USDC_SCALE, type WebcapConfig } from '../../config.js';
+import { DEFAULT_BAZAAR_CATALOG_URL, USDC_SCALE, WATCH_TOPUP_RUNS, watchTopUpPriceUsdcUnits, type WebcapConfig } from '../../config.js';
 import { footer, topBar } from './chrome.js';
 import { BASE_CSS, LANDING_CSS } from './css.js';
 import { CHAIN_COPY } from './copy.js';
@@ -25,6 +24,9 @@ export function landingHtml(config: WebcapConfig): string {
   const network = config.x402Network ?? 'eip155:84532';
   const capturePrice = usd(config.x402PriceUsdcUnits);
   const extractPrice = usd(config.x402ExtractPriceUsdcUnits);
+  const topUpUsd = (usdcUnits: number): string => `$${(usdcUnits / USDC_SCALE).toFixed(2)}`;
+  const captureTopUpPrice = topUpUsd(watchTopUpPriceUsdcUnits('capture', config));
+  const extractTopUpPrice = topUpUsd(watchTopUpPriceUsdcUnits('extract', config));
   const stripeConfigured = !!config.stripeSecretKey;
 
   const curlFlow = `<span class="c"># Capture any URL as PNG, JPEG, or PDF</span>
@@ -154,6 +156,11 @@ ${topBar(bazaarCatalogUrl, 'landing')}
         <span class="trust-label">Card or crypto</span>
       </div>
     </div>
+    <p class="hint" style="margin-top:var(--s3)">Independently observed trust (third-party index, live-probed — not a guarantee):</p>
+    <div class="trust-strip">
+      <a href="https://5.75.142.199.sslip.io/x402/trust/46929" target="_blank" rel="noopener"><img src="https://5.75.142.199.sslip.io/badge/x402/46929.svg" alt="x402 trust badge: capture route" loading="lazy"></a>
+      <a href="https://5.75.142.199.sslip.io/x402/trust/46928" target="_blank" rel="noopener"><img src="https://5.75.142.199.sslip.io/badge/x402/46928.svg" alt="x402 trust badge: extract route" loading="lazy"></a>
+    </div>
   </section>
 
   <!-- ═══════════════════════════════════════════════════════════════
@@ -208,7 +215,7 @@ ${topBar(bazaarCatalogUrl, 'landing')}
         <div class="feature-icon">\u{1F514}</div>
         <h3>Monitor</h3>
         <p>Scheduled re-captures with webhook alerts. Detect any change, get notified.</p>
-        <span class="feature-price">from $0.10/50 runs</span>
+        <span class="feature-price">from ${esc(captureTopUpPrice)}/${WATCH_TOPUP_RUNS} runs</span>
       </div>
     </div>
   </section>
@@ -256,6 +263,18 @@ ${topBar(bazaarCatalogUrl, 'landing')}
         <div class="amount">${esc(usd(config.x402VideoPriceUsdcUnits))} <small>/ URL</small></div>
         <p>Full-page scroll capture as MP4. For demos and archiving.</p>
         <span class="tag">POST /v1/x402/video</span>
+      </div>
+      <div class="price">
+        <h3>Capture watch</h3>
+        <div class="amount">${esc(captureTopUpPrice)} <small>/ ${WATCH_TOPUP_RUNS} runs</small></div>
+        <p>${WATCH_TOPUP_RUNS} scheduled re-captures of a URL. Change-detection webhook on every diff.</p>
+        <span class="tag">${WATCH_TOPUP_RUNS} × ${esc(capturePrice)} — POST /v1/x402/watches/topup</span>
+      </div>
+      <div class="price">
+        <h3>Extract watch</h3>
+        <div class="amount">${esc(extractTopUpPrice)} <small>/ ${WATCH_TOPUP_RUNS} runs</small></div>
+        <p>${WATCH_TOPUP_RUNS} scheduled re-extractions (title, headings, links, markdown). Webhook on change.</p>
+        <span class="tag">${WATCH_TOPUP_RUNS} × ${esc(extractPrice)} — POST /v1/x402/watches/topup</span>
       </div>
     </div>
     <p class="hint" style="margin-top:var(--s5)">Also: <code>POST /v1/x402/audit</code> \u2014 SEO + link health for $0.001/URL. Full spec: <code><a href="/openapi.json">GET /openapi.json</a></code></p>
@@ -365,7 +384,7 @@ ${footer(bazaarCatalogUrl)}
       h+='<div class="pr-upgrade pr-upgrade-top">';
       h+='<div class="pr-upgrade-body">';
       h+='<div class="pr-upgrade-title"><span class="pr-upgrade-icon">\u{1F513}</span> Unlock full data \u2014 $0.01</div>';
-      h+='<p style="margin:6px 0 10px;font-size:13px;color:var(--muted)">Get ALL '+hCount+' headings, ALL '+lCount+' links, full markdown, paragraphs, images, and AI classification. <strong>Batch up to 50 URLs per payment.</strong></p>';
+      h+='<p style="margin:6px 0 10px;font-size:13px;color:var(--muted)">Get ALL '+hCount+' headings, ALL '+lCount+' links, full markdown, paragraphs, images, and page classification. <strong>Batch up to 50 URLs per payment.</strong></p>';
       h+='</div>';
       h+='<div class="pr-upgrade-actions" style="display:flex;flex-direction:column;gap:8px;width:100%">';
       /* PRIMARY: Copy command button \u2014 instant path to try paid API */
@@ -404,9 +423,9 @@ ${footer(bazaarCatalogUrl)}
       h+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Full markdown</td><td style="padding:5px 10px;text-align:center">\u2717 truncated</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713 complete</td></tr>';
       h+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Paragraphs</td><td style="padding:5px 10px;text-align:center">\u2717</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713 all</td></tr>';
       h+='<tr style="border-bottom:1px solid rgba(37,99,235,.1)"><td style="padding:5px 0;color:var(--muted)">Images</td><td style="padding:5px 10px;text-align:center">\u2717</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713 all</td></tr>';
-      h+='<tr><td style="padding:5px 0;color:var(--muted)">AI classification</td><td style="padding:5px 10px;text-align:center">\u2717</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713 type + confidence</td></tr>';
+      h+='<tr><td style="padding:5px 0;color:var(--muted)">Page classification</td><td style="padding:5px 10px;text-align:center">\u2717</td><td style="padding:5px 10px;text-align:center;color:var(--ok)">\u2713 type + confidence</td></tr>';
       h+='</table>';
-      h+='<p style="margin-top:10px;font-size:12px;color:var(--muted)">\u{1F4A1} One $0.01 payment gets you EVERYTHING: all headings, all links, full markdown, paragraphs, images, and AI classification. <strong>One payment covers up to 50 URLs.</strong></p>';
+      h+='<p style="margin-top:10px;font-size:12px;color:var(--muted)">\u{1F4A1} One $0.01 payment gets you EVERYTHING: all headings, all links, full markdown, paragraphs, images, and page classification. <strong>One payment covers up to 50 URLs.</strong></p>';
       h+='</div>';
       /* --- TERMINAL COMMAND BOX: Show the exact curl command with one-click copy --- */
       h+='<div class="pr-terminal" style="margin-top:16px;border:1px solid var(--line);border-radius:var(--r-m);overflow:hidden">';
@@ -487,7 +506,7 @@ ${footer(bazaarCatalogUrl)}
       errCta+='<div class="pr-upgrade">';
       errCta+='<div class="pr-upgrade-body">';
       errCta+='<div class="pr-upgrade-title"><span class="pr-upgrade-icon">\u{1F513}</span> Unlock full data \u2014 $0.01</div>';
-      errCta+='<p style="margin:4px 0 8px;font-size:12px;color:var(--muted)">Full markdown, all headings & links, images, paragraphs, and AI classification. <strong>Batch up to 50 URLs per payment.</strong> No accounts needed.</p>';
+      errCta+='<p style="margin:4px 0 8px;font-size:12px;color:var(--muted)">Full markdown, all headings & links, images, paragraphs, and page classification. <strong>Batch up to 50 URLs per payment.</strong> No accounts needed.</p>';
       errCta+='</div>';
       errCta+='<div class="pr-upgrade-actions" style="display:flex;flex-direction:column;gap:8px;width:100%">';
       /* PRIMARY: Copy command button \u2014 instant path to try paid API */

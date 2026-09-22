@@ -17,6 +17,8 @@ const SITEMAP_PATHS = [
   '/v1/x402/audit',
   '/v1/x402/map-lite',
   '/v1/x402/video',
+  '/v1/x402/analyze',
+  '/v1/x402/analyze/batch',
   '/v1/x402/watches/topup',
   '/v1/watches',
   '/v1/extract/preview',
@@ -100,6 +102,16 @@ export async function x402WellKnown(config: WebcapConfig) {
         description: 'Scroll-capture a URL as an MP4/WebM video in one call',
       },
       {
+        path: 'POST /v1/x402/analyze',
+        usdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE,
+        description: 'AI-powered visual analysis: classification, accessibility, layout, entities, sentiment',
+      },
+      {
+        path: 'POST /v1/x402/analyze/batch',
+        usdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE,
+        description: 'Batch AI analysis of up to 10 URLs under one payment',
+      },
+      {
         path: 'POST /v1/x402/watches/topup',
         usdc:
           watchTopUpPriceUsdcUnits('capture', config) / USDC_SCALE,
@@ -171,6 +183,12 @@ export async function agentCard(config: WebcapConfig) {
         tags: ['video', 'capture', 'x402', 'usdc'],
       },
       {
+        id: 'analyze',
+        name: 'Visual analysis',
+        description: `AI-powered page analysis: classification, accessibility, entities, sentiment — ${config.x402ExtractPriceUsdcUnits / USDC_SCALE} USDC via x402`,
+        tags: ['ai', 'analysis', 'classification', 'accessibility', 'x402', 'usdc'],
+      },
+      {
         id: 'watch',
         name: 'Scheduled monitoring',
         description: `Pre-pay ${WATCH_TOPUP_RUNS} runs of a capture/extract monitor with change-detection webhooks — ${watchTopUpPriceUsdcUnits('capture', config) / USDC_SCALE}–${watchTopUpPriceUsdcUnits('extract', config) / USDC_SCALE} USDC per pack via x402`,
@@ -198,6 +216,8 @@ export function frontDoorPayload(config: WebcapConfig) {
         { path: 'POST /v1/x402/audit', usdc: config.x402AuditPriceUsdcUnits / USDC_SCALE, note: 'SEO basics + link/OG health in one call' },
         { path: 'POST /v1/x402/map-lite', usdc: config.x402AuditPriceUsdcUnits / USDC_SCALE, note: 'site URL list via sitemap/robots plus a 1-hop same-host crawl' },
         { path: 'POST /v1/x402/video', usdc: config.x402VideoPriceUsdcUnits / USDC_SCALE, note: 'scroll-capture MP4/WebM video in one call' },
+        { path: 'POST /v1/x402/analyze', usdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE, note: 'AI visual analysis: classification, accessibility, entities, sentiment' },
+        { path: 'POST /v1/x402/analyze/batch', usdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE, note: 'batch AI analysis of up to 10 URLs for one payment' },
       ],
     },
     catalog: 'GET /v1/x402/service — full agent-discoverable descriptor + the exact x402 payment flow',

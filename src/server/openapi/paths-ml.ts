@@ -8,12 +8,12 @@ import type { OpenapiPaths } from './types.js';
 /** 6-decimal USDC amount as the fixed-point string (10000 -> '0.010000'). */
 const usdAmount = (units: number): string => (units / USDC_SCALE).toFixed(6);
 
-const ML_ANALYSIS_PRICE_USDC_UNITS = 10_000; // $0.01
-
 /**
  * ML analysis paths (POST /v1/x402/analyze, POST /v1/x402/analyze/batch).
+ * Price tracks config.x402ExtractPriceUsdcUnits (same tier as extract).
  */
 export function mlPaths(config: WebcapConfig, ctx: PathContext): OpenapiPaths {
+  const priceUnits = config.x402ExtractPriceUsdcUnits;
   return {
     '/v1/x402/analyze': {
       post: {
@@ -21,8 +21,9 @@ export function mlPaths(config: WebcapConfig, ctx: PathContext): OpenapiPaths {
         summary: 'AI-powered visual analysis of a web page (paid, x402)',
         description:
           'Capture a screenshot and analyze it with AI. Supports classification, accessibility audit, ' +
-          'layout analysis, entity extraction, and sentiment analysis. Requires model configuration ' +
-          '(MODEL_API_BASE_URL, MODEL_API_KEY, MODEL_NAME).',
+          'layout analysis, entity extraction, and sentiment analysis. Uses a configured vision model when ' +
+          'MODEL_API_BASE_URL/MODEL_API_KEY/MODEL_NAME are set; otherwise falls back to a deterministic ' +
+          'DOM-based analysis (no model required).',
         requestBody: {
           required: true,
           content: {
@@ -45,7 +46,7 @@ export function mlPaths(config: WebcapConfig, ctx: PathContext): OpenapiPaths {
         },
         responses: {
           200: {
-            description: 'Analysis result',
+            description: 'Analysis result (result carries mode: "model" for vision-model output, "deterministic" for the no-model DOM fallback)',
             content: jsonContent({
               type: 'object',
               properties: {
@@ -66,10 +67,9 @@ export function mlPaths(config: WebcapConfig, ctx: PathContext): OpenapiPaths {
           402: jsonError('402', 'Payment required (x402 challenge)'),
           400: ctx.badInput,
           502: ctx.captureFailed,
-          503: jsonError('503', 'Model not configured (MODEL_API_BASE_URL, MODEL_API_KEY, MODEL_NAME required)'),
         },
         'x-payment-info': {
-          price: { mode: 'fixed', currency: 'USD', amount: usdAmount(ML_ANALYSIS_PRICE_USDC_UNITS) },
+          price: { mode: 'fixed', currency: 'USD', amount: usdAmount(priceUnits) },
           protocols: [{ x402: {} }, { mpp: { method: 'evm' } }],
         },
       },
@@ -107,7 +107,7 @@ export function mlPaths(config: WebcapConfig, ctx: PathContext): OpenapiPaths {
         },
         responses: {
           200: {
-            description: 'Batch analysis results',
+            description: 'Batch analysis results (each ok result carries mode: "model" or "deterministic")',
             content: jsonContent({
               type: 'object',
               properties: {
@@ -140,7 +140,7 @@ export function mlPaths(config: WebcapConfig, ctx: PathContext): OpenapiPaths {
           502: ctx.captureFailed,
         },
         'x-payment-info': {
-          price: { mode: 'fixed', currency: 'USD', amount: usdAmount(ML_ANALYSIS_PRICE_USDC_UNITS) },
+          price: { mode: 'fixed', currency: 'USD', amount: usdAmount(priceUnits) },
           protocols: [{ x402: {} }, { mpp: { method: 'evm' } }],
         },
       },

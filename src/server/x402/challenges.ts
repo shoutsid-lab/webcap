@@ -24,6 +24,7 @@ export const X402_TOPUP_DESCRIPTION =
 export const X402_AUDIT_DESCRIPTION = 'Audit a URL for SEO basics + link/OG health in one call';
 export const X402_MAP_LITE_DESCRIPTION = 'Map a site to its URL list via sitemap/robots plus a 1-hop same-host crawl in one call';
 export const X402_VIDEO_DESCRIPTION = 'Scroll-capture a URL as an MP4/WebM video in one call';
+export const X402_ANALYZE_DESCRIPTION = 'AI-powered visual analysis of a page screenshot (classification, accessibility, entities, sentiment, layout)';
 export const X402_MIME_TYPE = 'application/json';
 
 export const BAZAAR_SERVICE_NAME = 'Webcap';
@@ -284,6 +285,41 @@ export function buildVideoBazaarExtension(): BodyDiscoveryExtension {
         input: { url: 'https://example.com' },
         inputSchema: VIDEO_INPUT_SCHEMA,
         output: { example: VIDEO_OUTPUT_EXAMPLE },
+      }),
+    ),
+  );
+}
+
+/** Bazaar input schema for POST /v1/x402/analyze — mirrors the analyze handler (url + task + optional context). */
+export const ANALYZE_INPUT_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    url: { type: 'string', description: 'The page to analyze' },
+    task: {
+      type: 'string',
+      enum: ['classification', 'accessibility', 'layout', 'entities', 'sentiment'],
+      description: 'Analysis task type',
+    },
+    context: { type: 'string', description: 'Optional focus context for the analysis' },
+  },
+  required: ['url', 'task'],
+};
+
+export const ANALYZE_OUTPUT_EXAMPLE: Record<string, unknown> = {
+  task: 'classification',
+  result: { category: 'landing-page', confidence: 0.9, tags: ['marketing'] },
+  payment: { payer: BAZAAR_EXAMPLE_PAYER, priceUsdcUnits: 10_000 },
+  latency_ms: 1200,
+};
+
+export function buildAnalyzeBazaarExtension(): BodyDiscoveryExtension {
+  return withRoutedMethod(
+    bazaarFromDeclared(
+      declareDiscoveryExtension({
+        bodyType: 'json',
+        input: { url: 'https://example.com', task: 'classification' },
+        inputSchema: ANALYZE_INPUT_SCHEMA,
+        output: { example: ANALYZE_OUTPUT_EXAMPLE },
       }),
     ),
   );

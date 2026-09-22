@@ -19,6 +19,7 @@ import {
   X402_EXTRACT_DESCRIPTION,
   X402_MAP_LITE_DESCRIPTION,
   X402_VIDEO_DESCRIPTION,
+  X402_ANALYZE_DESCRIPTION,
   X402_MIME_TYPE,
   X402_TOPUP_DESCRIPTION,
   buildCaptureBazaarExtension,
@@ -28,6 +29,7 @@ import {
   buildTopUpBazaarExtension,
   buildUnpaidBody,
   buildVideoBazaarExtension,
+  buildAnalyzeBazaarExtension,
   type UnpaidBazaarMetadata,
 } from './challenges.js';
 
@@ -45,6 +47,10 @@ export const X402_TOPUP_PATTERN = 'POST /v1/x402/watches/topup';
 export const X402_TOPUP_PATH = '/v1/x402/watches/topup';
 export const X402_JOBS_PATTERN = 'POST /v1/capture/jobs';
 export const X402_JOBS_PATH = '/v1/capture/jobs';
+export const X402_ANALYZE_PATTERN = 'POST /v1/x402/analyze';
+export const X402_ANALYZE_PATH = '/v1/x402/analyze';
+export const X402_ANALYZE_BATCH_PATTERN = 'POST /v1/x402/analyze/batch';
+export const X402_ANALYZE_BATCH_PATH = '/v1/x402/analyze/batch';
 
 /**
  * The challenge amount for a top-up request: 100 x the watch's mode unit
@@ -182,6 +188,8 @@ export function buildX402Routes(config: WebcapConfig): Record<string, RouteConfi
   const auditReq = buildX402Requirement(config, config.x402AuditPriceUsdcUnits);
   const mapLiteReq = buildX402Requirement(config, config.x402AuditPriceUsdcUnits);
   const videoReq = buildX402Requirement(config, config.x402VideoPriceUsdcUnits);
+  // Analyze shares the extract price tier ($0.01): same "meaning" work above raw capture.
+  const analyzeReq = buildX402Requirement(config, config.x402ExtractPriceUsdcUnits);
   const iconUrl = `${config.publicBaseUrl}/icon.png`;
   // Register both POST and GET for each route. POST is the real payment method;
   // GET returns an identical 402 challenge so GET-based crawlers (402index, search
@@ -253,6 +261,42 @@ export function buildX402Routes(config: WebcapConfig): Record<string, RouteConfi
       tags: BAZAAR_TAGS,
       iconUrl,
       bazaar: buildCaptureBazaarExtension(),
+    }),
+    [X402_ANALYZE_PATTERN]: x402RouteConfig({
+      requirement: analyzeReq,
+      resourceUrl: `${config.publicBaseUrl}${X402_ANALYZE_PATH}`,
+      description: X402_ANALYZE_DESCRIPTION,
+      serviceName: BAZAAR_SERVICE_NAME,
+      tags: BAZAAR_TAGS,
+      iconUrl,
+      bazaar: buildAnalyzeBazaarExtension(),
+    }),
+    [`GET ${X402_ANALYZE_PATH}`]: x402RouteConfig({
+      requirement: analyzeReq,
+      resourceUrl: `${config.publicBaseUrl}${X402_ANALYZE_PATH}`,
+      description: X402_ANALYZE_DESCRIPTION,
+      serviceName: BAZAAR_SERVICE_NAME,
+      tags: BAZAAR_TAGS,
+      iconUrl,
+      bazaar: buildAnalyzeBazaarExtension(),
+    }),
+    [X402_ANALYZE_BATCH_PATTERN]: x402RouteConfig({
+      requirement: analyzeReq,
+      resourceUrl: `${config.publicBaseUrl}${X402_ANALYZE_BATCH_PATH}`,
+      description: X402_ANALYZE_DESCRIPTION,
+      serviceName: BAZAAR_SERVICE_NAME,
+      tags: BAZAAR_TAGS,
+      iconUrl,
+      bazaar: buildAnalyzeBazaarExtension(),
+    }),
+    [`GET ${X402_ANALYZE_BATCH_PATH}`]: x402RouteConfig({
+      requirement: analyzeReq,
+      resourceUrl: `${config.publicBaseUrl}${X402_ANALYZE_BATCH_PATH}`,
+      description: X402_ANALYZE_DESCRIPTION,
+      serviceName: BAZAAR_SERVICE_NAME,
+      tags: BAZAAR_TAGS,
+      iconUrl,
+      bazaar: buildAnalyzeBazaarExtension(),
     }),
   };
   // Startup guard: flag malformed bazaar metadata at boot (the fastify middleware

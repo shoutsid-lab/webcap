@@ -24,6 +24,7 @@ import { previewFallback } from '../capture/preview-fallback.js';
 import { HttpError, unprocessable } from '../util/errors.js';
 import { RateLimiter, rejectRateLimited } from '../util/ratelimit.js';
 import { extractPage, storeArtifact } from '../extract/service.js';
+import { classifyPage } from '../ml/deterministic.js';
 import type { PageStructure } from '../capture/pipeline.js';
 import { pinoServiceLogger } from '../util/logger.js';
 import { getCachedPreview, cachePreview } from '../db/preview-cache.js';
@@ -141,7 +142,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         }
         const extracted = filterExtractedBySchema(captured.structure, typedSchema);
         assertTypedExtractValid(extracted, typedSchema, spans, [captured.structure.markdown]);
-        results.push({ url, status: 'ok', data: { ...captured.structure, extracted } });
+        results.push({ url, status: 'ok', data: { ...captured.structure, extracted, classification: classifyPage({ structure: captured.structure, pageUrl: url }) } });
       }
       if (failures === urls.length) {
         throw new HttpError(502, 'extract_failed', 'all urls failed to extract');
@@ -211,7 +212,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         // model usage details are available via the internal __usage__ marker
         // but are not propagated to the public ExtractedContent shape in the batch path.
       }
-      results.push({ url, status: 'ok', data });
+      results.push({ url, status: 'ok', data: { ...data, classification: classifyPage({ structure: data, pageUrl: url }) } });
     }
     if (failures === urls.length) {
       throw new HttpError(502, 'extract_failed', 'all urls failed to extract');
@@ -309,7 +310,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         cached: true,
         upgrade: {
           endpoint: 'POST /v1/x402/extract',
-          note: 'paid: full paragraphs + images + batch (up to 50 URLs) + optional model extraction + AI classification',
+          note: 'paid: full paragraphs + images + batch (up to 50 URLs) + optional model extraction + page classification',
         },
         paidUpgrade: {
           endpoint: 'POST /v1/x402/extract',
@@ -347,7 +348,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       // - Browser fallback (no model): ~12s
       // - Total: ~36s worst case (within 45s client budget)
       try {
-        const fallback = await previewFallback(normalizedUrl);
+        const fallback = await (deps.previewFallback ?? previewFallback)(normalizedUrl);
         structure = {
           title: fallback.title,
           description: fallback.description,
@@ -452,7 +453,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           ],
           paragraphs: [
             'Welcome to Hacker News. This is a demo of the full extract output \u2014 showing what you get when you pay $0.01 for a complete structured extraction.',
-            'The free preview gives you titles, a few headings, and truncated markdown. The full extract gives you EVERYTHING: all paragraphs, all links with text, all images, full markdown, and optional AI classification.',
+            'The free preview gives you titles, a few headings, and truncated markdown. The full extract gives you EVERYTHING: all paragraphs, all links with text, all images, full markdown, and page classification.',
             'Compare this to the free preview. Notice how much more data you get \u2014 complete text content, every navigation link, word count, and structured classification.',
             'This is perfect for content monitoring, competitive analysis, SEO audits, research automation, and building data pipelines. All from a single API call.',
           ],
@@ -551,6 +552,30 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         },
         {
           method: 'POST',
+          path: '/v1/x402/analyze',
+          body: {
+            url: 'string (required)',
+            task: 'classification|accessibility|layout|entities|sentiment (required)',
+            context: 'string (optional) — focus context for the analysis',
+          },
+          priceUsdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE,
+          atomicUnits: String(config.x402ExtractPriceUsdcUnits),
+          note: 'AI-powered visual analysis of a page (model when configured, deterministic DOM fallback otherwise)',
+        },
+        {
+          method: 'POST',
+          path: '/v1/x402/analyze/batch',
+          body: {
+            urls: 'string[] (required, at most 10) — one payment covers the batch',
+            task: 'classification|accessibility|layout|entities|sentiment (required)',
+            context: 'string (optional)',
+          },
+          priceUsdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE,
+          atomicUnits: String(config.x402ExtractPriceUsdcUnits),
+          note: 'batch AI analysis of up to 10 URLs under one payment',
+        },
+        {
+          method: 'POST',
           path: '/v1/x402/watches/topup',
           body: { watchId: 'string (required)', runs: `${WATCH_TOPUP_RUNS} (required; one pack)` },
           priceUsdc: watchTopUpPriceUsdcUnits('capture', config) / USDC_SCALE,
@@ -566,7 +591,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         scheme: 'exact',
       },
       howToPay:
-        'POST /v1/x402/capture, /v1/x402/extract, /v1/x402/audit, /v1/x402/map-lite, or /v1/x402/video unpaid -> HTTP 402 with a base64 x402 v2 challenge (payment-required header) -> sign a gasless EIP-3009 transferWithAuthorization (from=your wallet, to=price.payTo, value=price.atomicUnits) -> retry with the PAYMENT-SIGNATURE header. The facilitator verifies + settles on-chain; USDC lands in the merchant wallet and the result is returned. Works with any x402 v2 client (@x402/axios) or scripts/x402-pay.ts (capture) / scripts/extract-pay.ts (extract). Free, no-payment preview: GET /v1/extract/preview?url=... (rate-limited).',
+        'POST /v1/x402/capture, /v1/x402/extract, /v1/x402/audit, /v1/x402/map-lite, /v1/x402/video, /v1/x402/analyze, or /v1/x402/analyze/batch unpaid -> HTTP 402 with a base64 x402 v2 challenge (payment-required header) -> sign a gasless EIP-3009 transferWithAuthorization (from=your wallet, to=price.payTo, value=price.atomicUnits) -> retry with the PAYMENT-SIGNATURE header. The facilitator verifies + settles on-chain; USDC lands in the merchant wallet and the result is returned. Works with any x402 v2 client (@x402/axios) or scripts/x402-pay.ts (capture) / scripts/extract-pay.ts (extract). Free, no-payment preview: GET /v1/extract/preview?url=... (rate-limited).',
       facilitator: config.x402FacilitatorUrl,
       freeEndpoints: [
         { method: 'GET', path: '/v1/og?url=...', note: 'free OG metadata, no payment' },

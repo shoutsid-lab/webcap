@@ -141,6 +141,8 @@ describe('GET /v1/x402/service (canonical agent descriptor)', () => {
         '/v1/x402/audit',
         '/v1/x402/map-lite',
         '/v1/x402/video',
+        '/v1/x402/analyze',
+        '/v1/x402/analyze/batch',
         '/v1/x402/watches/topup',
       ]);
       const capture = body.paidEndpoints[0];
@@ -178,6 +180,8 @@ describe('GET /v1/x402/service (canonical agent descriptor)', () => {
         '/v1/x402/audit',
         '/v1/x402/map-lite',
         '/v1/x402/video',
+        '/v1/x402/analyze',
+        '/v1/x402/analyze/batch',
         '/v1/x402/watches/topup',
       ]);
       const video = body.paidEndpoints.find((e) => e.path === '/v1/x402/video');
