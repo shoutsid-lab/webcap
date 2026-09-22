@@ -22,6 +22,7 @@
   "files": [
     "dist",
     "public",
+    "scripts/copy-assets.mjs",
     ".env.example",
     "AGENT.md",
     "Dockerfile",

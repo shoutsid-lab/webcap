@@ -7,6 +7,9 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json tsconfig.check.json ./
 COPY src ./src
+# `npm run build` runs scripts/copy-assets.mjs, so the build stage needs that
+# one file (the rest of scripts/ stays out of the context — see .dockerignore).
+COPY scripts/copy-assets.mjs ./scripts/copy-assets.mjs
 # `npm run build` also copies non-TS runtime assets (e.g. dist/db/schema.sql,
 # which the DB reads next to dist/db/index.js) — see scripts/copy-assets.mjs.
 RUN npm run build && npm prune --omit=dev

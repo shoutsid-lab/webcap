@@ -10,6 +10,9 @@ cache
 tests
 docs
 scripts
+# `npm run build` needs exactly this asset copier (see the Dockerfile); the rest
+# of scripts/ is host-side tooling that has no business in the image.
+!scripts/copy-assets.mjs
 contracts
 foundry.toml
 .env
