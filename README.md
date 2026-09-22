@@ -225,9 +225,13 @@ Agent discovery: `GET /.well-known/x402`, `GET /v1/x402/service`, `GET /llms.txt
 ## Tests
 
 ```bash
-npm test           # 993 tests (99 files)
+npm test           # full vitest suite (tests/**/*.test.ts, no exclusions)
 npm run typecheck  # Type checking
 ```
+
+Both must pass before a change ships. Deliberately no test/file counts here: they
+have gone stale twice (a reader caught the second one in issue #1), and a number
+nobody regenerates is worse than no number. `npm test` prints the current totals.
 
 ## License
 
