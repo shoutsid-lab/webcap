@@ -33,6 +33,7 @@
     "mcp": "tsx src/mcp/stdio.ts",
     "typecheck": "tsc -p tsconfig.check.json",
     "test": "vitest run",
+    "audit:claims": "tsx scripts/claim-audit.ts",
     "test:watch": "vitest",
     "dev": "tsx src/main.ts",
     "start": "tsx src/main.ts",

@@ -237,6 +237,20 @@ Both must pass before a change ships. Deliberately no test/file counts here: the
 have gone stale twice (a reader caught the second one in issue #1), and a number
 nobody regenerates is worse than no number. `npm test` prints the current totals.
 
+### Claim audit
+
+```bash
+npm run audit:claims                                        # against localhost:8080
+npm run audit:claims -- --base-url https://webcap.shoutsid.fyi  # against a deployment
+```
+
+The tests check the code; this checks the **claims** — it reads `README.md`,
+`/skill.md` and `/llms.txt` and verifies every `METHOD /path` they advertise is
+actually served, that every documented price equals the 402 challenge amount, and
+that the free trial menu quotes the same prices as the paid routes. It exits
+non-zero on any failure, so it can gate a deploy. Issue #1 was filed by an agent
+that did this by hand; this is the same check as a command.
+
 ## License
 
 MIT — see [LICENSE](LICENSE) for details.
