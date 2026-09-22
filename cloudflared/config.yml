@@ -10,7 +10,7 @@
 #   5. Add to cron: * * * * * /home/shoutsid/code/webcap/bin/cf-tunnel-watchdog.sh
 #      plus @reboot for the same script.
 tunnel: webcap
-credentials-file: /home/shoutsid/.cloudflared/<TUNNEL_ID>.json
+credentials-file: /home/shoutsid/.cloudflared/796f09ef-ecbd-4baa-8eaa-e0803b3f8b6b.json
 ingress:
   - hostname: webcap.shoutsid.fyi
     service: http://localhost:8080

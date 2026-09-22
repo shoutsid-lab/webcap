@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/webcap.svg)](https://www.npmjs.com/package/webcap)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Try%20It%20Now-brightgreen)](https://nickname-trident-driveway.ngrok-free.dev)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Try%20It%20Now-brightgreen)](https://webcap.shoutsid.fyi)
 
 **Screenshot any URL, extract structured data, monitor pages for changes** — all via a single HTTP API call. Pay-per-call with no accounts, no API keys.
 
@@ -54,7 +54,7 @@ POST /v1/watches                  →  Scheduled monitoring with webhook alerts
 
 ```bash
 # 1. POST without payment → HTTP 402 + a PAYMENT-REQUIRED header
-curl -si -X POST "https://nickname-trident-driveway.ngrok-free.dev/v1/x402/capture" \
+curl -si -X POST "https://webcap.shoutsid.fyi/v1/x402/capture" \
   -H 'content-type: application/json' \
   -d '{"url":"https://example.com/"}'
 
@@ -73,7 +73,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 const payer = privateKeyToAccount(process.env.PAYER_KEY);
 const client = new x402Client().register('eip155:*', new ExactEvmScheme(payer));
 const api = wrapAxiosWithPayment(
-  axios.create({ baseURL: 'https://nickname-trident-driveway.ngrok-free.dev' }),
+  axios.create({ baseURL: 'https://webcap.shoutsid.fyi' }),
   client,
 );
 
@@ -94,7 +94,7 @@ payer = Account.from_key(os.environ["PAYER_KEY"])
 client = X402Client().register("eip155:*", ExactEvmScheme(payer))
 
 response = client.post(
-    "https://nickname-trident-driveway.ngrok-free.dev/v1/x402/capture",
+    "https://webcap.shoutsid.fyi/v1/x402/capture",
     json={"url": "https://example.com", "format": "png"},
 )
 print(response.json()["artifact"]["url"])  # persistent public screenshot link
@@ -104,12 +104,12 @@ print(response.json()["artifact"]["url"])  # persistent public screenshot link
 
 ```bash
 # Single URL
-curl -s -X POST "https://nickname-trident-driveway.ngrok-free.dev/v1/x402/extract" \
+curl -s -X POST "https://webcap.shoutsid.fyi/v1/x402/extract" \
   -H 'content-type: application/json' \
   -d '{"url":"https://example.com"}'
 
 # Batch (up to 50 URLs, one payment covers the whole batch)
-curl -s -X POST "https://nickname-trident-driveway.ngrok-free.dev/v1/x402/extract" \
+curl -s -X POST "https://webcap.shoutsid.fyi/v1/x402/extract" \
   -H 'content-type: application/json' \
   -d '{"urls":["https://a.com","https://b.com"],"schema":"company name + tagline"}'
 ```
@@ -187,7 +187,7 @@ All environment variables are documented in [`.env.example`](.env.example). Key 
 
 ## API reference
 
-Full OpenAPI 3.1 spec: [`GET /openapi.json`](https://nickname-trident-driveway.ngrok-free.dev/openapi.json)
+Full OpenAPI 3.1 spec: [`GET /openapi.json`](https://webcap.shoutsid.fyi/openapi.json)
 
 Agent discovery: `GET /.well-known/x402`, `GET /v1/x402/service`, `GET /llms.txt`, `GET /skill.md`
 
@@ -204,7 +204,7 @@ MIT — see [LICENSE](LICENSE) for details.
 
 ## Links
 
-- **Live API**: https://nickname-trident-driveway.ngrok-free.dev
+- **Live API**: https://webcap.shoutsid.fyi
 - **GitHub**: https://github.com/shoutsid-lab/webcap
 - **npm**: https://www.npmjs.com/package/webcap
-- **OpenAPI docs**: https://nickname-trident-driveway.ngrok-free.dev/openapi.json
+- **OpenAPI docs**: https://webcap.shoutsid.fyi/openapi.json

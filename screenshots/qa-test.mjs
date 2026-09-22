@@ -9,7 +9,7 @@ import path from 'path';
 
 const BASE = 'http://localhost:8080';
 const out = '/home/shoutsid/code/webcap/screenshots/qa';
-const NGROK_BASE = 'https://nickname-trident-driveway.ngrok-free.dev';
+const NGROK_BASE = 'https://webcap.shoutsid.fyi';
 
 // Ensure output directory exists
 fs.mkdirSync(out, { recursive: true });
