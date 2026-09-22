@@ -1,5 +1,37 @@
 # Webcap Development Guide
 
+## Customer mandate (non-negotiable)
+
+**The customer is an autonomous agent** — an LLM, bot, or automated system that
+calls the API and pays for the call programmatically, with no human in the
+loop. Everything in this repo exists to make that loop happen more often.
+
+Read [`docs/strategy/agent-first.md`](docs/strategy/agent-first.md) before
+changing product behaviour, pricing, or any agent-facing surface. It is
+authoritative and supersedes any dated plan.
+
+Standing rules every agent or human owner must follow:
+
+1. Optimise the **machine** path (402 → sign → retry → settled), never the
+   human landing-page path.
+2. Every machine-readable surface (`llms.txt`, `skill.md`, `openapi.json`,
+   `/.well-known/x402`, agent card, MCP/OpenAI tool manifests,
+   `/v1/x402/service`) must agree on paths, methods, prices, and the payment
+   flow. A surface that lies to an agent costs a real call.
+3. A change is not done until its effect is measurable in `revenue_ledger`,
+   `trial_claims`, or `endpoint_hits` attribution (see
+   `docs/strategy/metrics.md`).
+4. Never introduce friction a bot cannot clear (accounts, email, waitlists,
+   CAPTCHAs, sales contact) into the paid path.
+5. Do not plan human launch campaigns (HN/Reddit/Dev.to/SEO) as the growth
+   engine, and never rewrite archived history. Dated docs live under
+   `docs/archive/`.
+6. Never report a target as a result. Metrics come from the database.
+
+If you believe the customer is no longer an agent, change
+`docs/strategy/agent-first.md` first, in a commit that says so — do not fork a
+new plan or quietly drift.
+
 ## Project Structure
 - `src/server/pages/` - HTML page generators (TypeScript)
   - `css.ts` - All CSS styles with light/dark theme support

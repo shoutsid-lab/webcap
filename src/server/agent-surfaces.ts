@@ -13,23 +13,39 @@
  */
 import type { FastifyInstance } from 'fastify';
 import { USDC_SCALE, watchTopUpPriceUsdcUnits, type WebcapConfig } from '../config.js';
+import { loadMppConfig, realmOf } from '../mpp/config.js';
 
 /**
  * Register the agent-facing discovery routes: GET /llms.txt and GET /skill.md.
  * Both are free (no x402 challenge, no auth) and served as text/markdown.
+ *
+ * MPP is advertised in both documents only when this deployment enables it
+ * (MPP_SECRET_KEY set), so x402-only deployments keep a truthful story. A
+ * malformed key is ignored here — the MPP plugin fails the boot before this
+ * matters, and a discovery document must never 500.
  */
 export function registerAgentSurfaces(app: FastifyInstance, config: WebcapConfig): void {
+  const mppEnabled = mppEnabledFor(config);
   app.get('/llms.txt', async (_req, reply) => {
     reply.header('content-type', 'text/markdown; charset=utf-8');
     reply.header('cache-control', 'public, max-age=300');
-    return reply.send(llmsTxt(config));
+    return reply.send(llmsTxt(config, mppEnabled));
   });
 
   app.get('/skill.md', async (_req, reply) => {
     reply.header('content-type', 'text/markdown; charset=utf-8');
     reply.header('cache-control', 'public, max-age=300');
-    return reply.send(skillMd(config));
+    return reply.send(skillMd(config, mppEnabled));
   });
+}
+
+/** True when MPP_SECRET_KEY enables the second payment rail on this deployment. */
+function mppEnabledFor(config: WebcapConfig): boolean {
+  try {
+    return loadMppConfig(process.env, config.publicBaseUrl, config.chainId).enabled;
+  } catch {
+    return false;
+  }
 }
 
 /** Atomic 6-decimal USDC units → "$X.YYY" (1000 → "$0.001", 1000000 → "$1"). */
@@ -37,8 +53,38 @@ function usdc(units: number): string {
   return `$${units / USDC_SCALE}`;
 }
 
+/** Bare host for the MPP realm line; falls back to the configured base URL. */
+function mppRealm(config: WebcapConfig): string {
+  try {
+    return realmOf(config.publicBaseUrl);
+  } catch {
+    return config.publicBaseUrl;
+  }
+}
+
+/**
+ * llms.txt MPP paragraph: '' when MPP is disabled, else a `\n## `-prefixed
+ * section so the surrounding template's newlines render a clean block.
+ */
+function mppBlockLlms(config: WebcapConfig, mppEnabled: boolean): string {
+  if (!mppEnabled) return '';
+  return `\n## Paying with MPP (optional second rail)
+
+Every paid route also answers the unpaid 402 with a \`WWW-Authenticate: Payment\` challenge (Machine Payments Protocol, method="evm", realm = ${mppRealm(config)}) priced identically to the x402 \`accepts[0]\` terms — same amount, same USDC asset, same merchant wallet, same network. If your stack speaks MPP rather than x402, read that header and charge the same gasless EIP-3009 authorization through your MPP client. Deployments without MPP_SECRET_KEY are x402-only.
+`;
+}
+
+/** skill.md MPP section: '' when MPP is disabled, else a `\n## `-prefixed section. */
+function mppBlockSkill(config: WebcapConfig, mppEnabled: boolean): string {
+  if (!mppEnabled) return '';
+  return `\n## Paying with MPP (optional)
+
+If your stack speaks MPP instead of x402, read the 402's \`WWW-Authenticate: Payment\` header (method="evm", intent="charge", realm = ${mppRealm(config)}): it prices the identical USDC terms as \`accepts[0]\` on the same network and merchant wallet, so sign the same gasless EIP-3009 authorization and settle it through your MPP client. This deployment has MPP enabled; deployments without MPP_SECRET_KEY are x402-only.
+`;
+}
+
 /** The llms.txt convention document (https://llmstxt.org) for this deployment. */
-function llmsTxt(config: WebcapConfig): string {
+function llmsTxt(config: WebcapConfig, mppEnabled = false): string {
   return `# webcap — pay-per-call web capture
 
 webcap turns any URL into a screenshot (PNG/JPEG/PDF) or structured text/JSON,
@@ -136,7 +182,7 @@ POST /v1/x402/watches/topup
 4. The facilitator verifies and settles on-chain; the 200 response carries the result plus a PAYMENT-RESPONSE settlement header (transaction hash, payer, amount).
 
 Any x402 v2 client does steps 1–3 for you (e.g. @x402/axios with wrapAxiosWithPayment) — a ready-to-paste example lives in ${config.publicBaseUrl}/skill.md.
-
+${mppBlockLlms(config, mppEnabled)}
 ## Spend caps
 
 Deployments may cap spend per payer (x402, atomic USDC units) or per account
@@ -179,7 +225,7 @@ oneOf/anyOf/allOf/$ref/format).
 }
 
 /** The installable agent skill file (YAML frontmatter + usage instructions). */
-function skillMd(config: WebcapConfig): string {
+function skillMd(config: WebcapConfig, mppEnabled = false): string {
   return `---
 name: webcap
 description: Pay-per-call web capture API — a PNG/JPEG/PDF screenshot or structured JSON from any URL, paid gaslessly in USDC on Base via x402 (HTTP 402).
@@ -256,6 +302,7 @@ const { title, headings, paragraphs, links, images } = page.data.results[0].data
 2. Sign TransferWithAuthorization (EIP-712): from = your EOA, to = the challenge payTo, value = accepts[0].amount, nonce + validAfter/validBefore per EIP-3009; domain = the USDC contract (name + version from accepts[0].extra, chainId = the numeric suffix of accepts[0].network — eip155:8453 → 8453, verifyingContract = accepts[0].asset).
 3. Retry the identical request with header PAYMENT-SIGNATURE: <base64 payment payload> (authorization + signature).
 
+${mppBlockSkill(config, mppEnabled)}
 ## Free preview (no wallet, no payment)
 
 GET ${config.publicBaseUrl}/v1/extract/preview?url=https://example.com returns a truncated

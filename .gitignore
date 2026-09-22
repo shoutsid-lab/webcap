@@ -6,7 +6,8 @@ artifacts/
 out/
 cache/
 .env
-.env.bak-*
+.env.bak*
+*.bak
 *.log
 *.pid
 state/
@@ -15,10 +16,3 @@ backups/
 .DS_Store
 coverage/
 .omo/
-marketing/
-PROFIT-STRATEGY.md
-MARKETING_PLAN.md
-MARKETING_RECOMMENDATIONS.md
-MARKETING_METRICS.md
-ML_RESEARCH_AND_ROADMAP.md
-PRODUCTION-CHECKLIST.md

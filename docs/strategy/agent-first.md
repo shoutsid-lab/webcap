@@ -1,0 +1,183 @@
+# webcap is agent-first — the customer charter
+
+**Status:** authoritative. If any other document, plan, or stale draft disagrees
+with this file, this file wins.
+**Owner:** whoever holds the repo. **Last rewritten:** 2026-09-22 (takeover).
+
+---
+
+## 1. The customer (non-negotiable)
+
+webcap's customer is an **autonomous agent** — an LLM, bot, or automated system
+that calls the API on its own behalf, without a human in the loop, and pays for
+the call programmatically.
+
+That means, concretely:
+
+- The buyer is software: an agent runtime, an MCP client, a scheduler, a
+  CI/data pipeline, an agent framework loading tool manifests.
+- The **decision to pay** is made by code, on-machine, using a machine
+  protocol (x402 / MPP) — not by a human reading a pricing page.
+- The **unit of value** is a single unattended call that returns usable output
+  (a PNG artifact URL, structured JSON, a diff/webhook), not a dashboard,
+  trial signup, or sales call.
+- The **humans we serve** are the ones who *operate agent fleets* (developers
+  wiring tools into agents, teams running monitoring bots). They are a
+  distribution channel to agents, not a separate consumer product.
+
+**Not the customer:** humans browsing a landing page, Hacker News readers,
+SEO consultants clicking a web UI, "Show HN" upvotes, Discord communities.
+Those audiences may exist incidentally. They are never the plan.
+
+### The one-sentence test
+
+Before any change, ask: **"Does this make it more likely that an autonomous
+agent discovers webcap, pays for a call, and calls again — with no human
+involved?"** If the answer is no, it is not a priority, however good it looks
+in a marketing deck.
+
+---
+
+## 2. What the data actually says
+
+These are the numbers at takeover (2026-09-22), read from the live container's
+`/data/webcap.db` and `/v1/status`. They are the reason this charter exists.
+
+| Signal | Value | Meaning |
+|---|---|---|
+| Lifetime endpoint hits | 52,066 | Discovery is **not** the bottleneck |
+| Lifetime paid calls | **1** (`revenue_ledger`) | Income is ~zero |
+| Lifetime revenue | **$0.01** USDC (`revenue_ledger`) | One $0.01 extract on 2026-09-14 |
+| Stripe payments / invoices | 0 / 0 | Card rail unused |
+| Trial claims | 2 (1 capture, 1 extract) | Trials are almost untouched |
+| Watches active | 0 | The recurring rail has no demand |
+| `POST /v1/x402/capture` hits | 11,099 of 11,348 are `402` | Probed constantly, paid ~never |
+| Capture probe rate | steady ~720/day | A **monitoring heartbeat**, not customers |
+| Human landing funnel (24h) | 14 views → 0 previews | The human path is dead |
+| Waitlist | 2 emails | Human signups are noise |
+
+Clients seen in `endpoint_hits.user_agent`: `CarbonMonitor/0.1`,
+`402explorer/0.1`, `x402-observer/1.0`, `x402-census-probe/2.1`,
+`forum-labs-trust-prober/1.0`, `Gold-402-Verifier/1.0`, plus `curl`/`node`.
+Every named client is a discovery/trust **crawler**, not a paying agent.
+
+### The conclusion, stated plainly
+
+webcap has solved **discovery** (it is registered with 402index, x402scan,
+mppscan, CDP Bazaar, and crawled continuously) and has **zero paying demand**.
+
+The steady ~720 capture 402s per day are robots verifying that the endpoint
+exists. Optimising the challenge body for them cannot create revenue. The
+problem to solve is **demand from agents that hold a wallet and a task** — and
+the operators who fund them. Discovery work from here is only worth doing when
+it lands webcap inside a runtime where a funded agent will actually call it.
+
+---
+
+## 3. North-star metric
+
+**Primary: paid agent calls per week** — the count of settled paid invocations
+by distinct payer wallets. Tracked from `revenue_ledger` (one row per settled
+call, payer present).
+
+**Guardrail: distinct paying wallets.** A single wallet looping is not demand.
+Report both. A week with 100 calls from 1 wallet is a worse week than 5 calls
+from 5 wallets.
+
+**Secondary (funnel health, not vanity):**
+
+| Stage | Definition | Source |
+|---|---|---|
+| Reach | distinct discovery clients hitting a discovery surface | `endpoint_hits.user_agent` on `/.well-known/*`, `/llms.txt`, `/skill.md`, `/v1/x402/service` |
+| Challenge | 402 responses on a paid route | `endpoint_hits.status = 402` |
+| Try | trial claims (free, wallet-signed) | `trial_claims` |
+| First pay | wallets with exactly one `revenue_ledger` row | `revenue_ledger` |
+| Repeat | wallets with >1 `revenue_ledger` row | `revenue_ledger` |
+| Recurring | active watches with credits > 0 | `watches` |
+
+**Anti-metrics (never present these as progress):** raw endpoint hits, raw 402
+count, discovery-crawler request volume, landing-page views, HN/Reddit upvotes,
+"MRR" computed from a target rather than from settled calls.
+
+---
+
+## 4. Decision rules for anyone who owns this repo
+
+These are the standing rules. They exist so the project's focus survives a
+change of agent, human, or mood.
+
+**Do:**
+
+1. **Make the machine path shorter, not the human path prettier.** Every paid
+   route must be reachable and payable by an autonomous client with no account,
+   no email, and no API key. Keep the flow: `402` → sign → retry → settled.
+2. **Keep every machine-readable surface true.** `/.well-known/x402`,
+   agent card, `llms.txt`, `skill.md`, `openapi.json`, `/v1/x402/service`, and
+   the MCP/OpenAI tool manifests must agree on paths, methods, prices, and the
+   payment flow. A surface that lies to an agent costs a real call.
+3. **Instrument the agent funnel.** A change is not "done" until its effect is
+   visible in `revenue_ledger`, `trial_claims`, or `endpoint_hits` attribution.
+4. **Price for unattended spend.** Prefer flat, per-call, batch-friendly, and
+   prepaid-credits pricing that a bot can budget. Never introduce a
+   subscription or seat a machine cannot buy.
+5. **Favour rails that let an agent pay without assumptions**: x402 USDC
+   (Base) and MPP. Card/Stripe is a fallback for human operators funding a bot,
+   never the primary rail.
+6. **Land inside runtimes.** Distribution that matters is being loadable by an
+   agent framework (MCP server, OpenAI function manifest, A2A card, npm
+   package, directory listing). Directory registration is worth doing only
+   because runtimes read those directories.
+
+**Don't:**
+
+7. **Don't plan human launch campaigns** (HN/Reddit/Dev.to/SEO-pro) as the
+   growth engine. Dated launch copy is archived history; do not rewrite it and
+   do not resurrect it as strategy.
+8. **Don't add friction a bot cannot clear** — email capture, waitlists,
+   "contact sales", dashboards, CAPTCHAs, or account creation in the paid path.
+9. **Don't report targets as results.** `£1,000 MRR` was a goal, not a metric.
+   Metrics come from the database.
+10. **Don't chase probe traffic.** Optimising for the crawler heartbeat
+    (hundreds of 402s/day that never pay) is false progress. Verify it still
+    works, then ignore it.
+
+**Open risk (flagged, not silently changed):** the 402 challenge served on a
+`GET` probe advertises `info.input.method = "GET"`, while the only payable verb
+is `POST`. The behaviour is deliberate and covered by
+`tests/e2e/x402.capture.test.ts` ("GET 402 method parity"). It is a real risk
+that a machine-readable directory could teach an agent to replay `GET` forever.
+Any fix must preserve x402 spec compliance and the header/body invariant, and
+must update that test with an explicit rationale.
+
+---
+
+## 5. Strategy in one paragraph
+
+Discovery is done; **demand is the job**. The next phase is therefore to (a)
+put webcap where funded agents already run — MCP registries, agent frameworks,
+tool manifests, and the directories those runtimes read; (b) shrink the
+distance from "agent sees the endpoint" to "agent's first settled call" (free
+trials that need only a signature, MPP as a second rail, prepaid credit packs);
+and (c) measure all of it from `revenue_ledger` and `trial_claims` rather than
+from hit counts. Everything else — human marketing, landing-page polish, probe
+optimisation — is out of scope until a paying agent loop exists.
+
+---
+
+## 6. Owner protocol
+
+Every new owner of webcap (agent or human) must:
+
+1. **Read this charter first.** It supersedes dated plans.
+2. **Start from the evidence**, not from the previous plan's optimism:
+   `/v1/status`, `revenue_ledger`, `trial_claims`, and
+   `endpoint_hits.user_agent`.
+3. **Keep exactly one strategy source of truth** — this file. Update its
+   evidence section when the numbers move; do not fork a new master plan.
+4. **Archive, never silently rewrite, superseded docs.** Dated launch copy and
+   human-first strategy live under `docs/archive/` as historical record.
+5. **Re-run the test suite before claiming a change works.** See `AGENTS.md`.
+
+If a future owner believes the customer is no longer an agent, that is a
+company-level decision. It requires changing **this file first**, in a commit
+that says so, so the change is visible and deliberate.

@@ -20,7 +20,7 @@ Token) with **Account | Cloudflare Tunnel | Edit**, **Zone | DNS | Edit**,
 **Zone | Zone | Read** for `shoutsid.fyi`, then:
 
 ```bash
-CF_TOKEN=<token> CF_ZONE=shoutsid.fyi ./bin/cf-cutover.sh
+WEBCAP_AI_TOKEN=<token> CF_ZONE=shoutsid.fyi ./bin/cf-cutover.sh
 ```
 
 That single command does Steps 1–4 + README/GitHub automatically
@@ -86,8 +86,8 @@ forum-labs-trust-prober, x402-census-probe) that poll those registries, crawl
 | GitHub | `gh repo edit shoutsid-lab/webcap --homepage https://webcap.shoutsid.fyi` + README link swap (ngrok -> new domain) | README + `screenshots/qa-test.mjs` NGROK_BASE |
 | npm `webcap` | `homepage`/repo URLs on next publish | cosmetic |
 
-Dated launch docs (`LAUNCH_CONTENT.md`, `REDDIT_POSTS_READY.md`, etc.) keep
-the old URL as historical record — do not rewrite.
+Dated launch docs (`docs/marketing/archive-2026-09-launch/`, e.g. `launch-content.md`,
+`reddit-posts-ready.md`) keep the old URL as historical record — do not rewrite.
 
 ## Step 5 — retire quick tunnel
 

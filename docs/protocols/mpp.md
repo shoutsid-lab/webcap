@@ -7,13 +7,18 @@ the body/header credential flow the client already uses. webcap speaks MPP
 alongside x402 so MPP-first directories (mppscan) can list the same paid
 routes x402 clients already pay for.
 
-Status (2026-09-06): fully live. The 3 paid 402s emit `WWW-Authenticate:
+Status (2026-09-22): fully live. Every paid 402 emits `WWW-Authenticate:
 Payment …method="evm"…` (bare-host realm) alongside the unchanged x402
 `PAYMENT-REQUIRED`, MPP EIP-3009 credentials verify and settle through the
 same facilitator, and mppscan registration succeeded (`registered: 22,
 failed: 0`) — down from the earlier `registered=0 failed=3 "No MPP protocol
 support" plus a `REALM_MISMATCH` round (realm must be the bare host, not the
-origin). Everything below describes this shipped shape.
+origin). As of 2026-09-22 MPP is also advertised in the two agent-facing
+documents (`/llms.txt`, `/skill.md`), but only when `MPP_SECRET_KEY` is set,
+so x402-only deployments keep a truthful story. The primary domain moved to
+`webcap.shoutsid.fyi`; listings key on host, so the ngrok-era registration
+must be re-asserted for the new realm (see `docs/strategy/roadmap.md`, Phase 0).
+Everything below describes this shipped shape.
 
 ## Why dual-protocol
 
@@ -50,12 +55,13 @@ Rules (`src/mpp/config.ts`, `MPP_MIN_SECRET_BYTES = 32`):
 `realm` is the bare host of `WEBCAP_PUBLIC_BASE_URL` (scheme and path
 stripped, explicit port kept — `realmOf`). mppscan rejects scheme-qualified
 realms (`REALM_MISMATCH`) and attributes on-chain stats to the origin host.
-For this deployment:
+For this deployment (post-cutover primary):
 
 ```text
-realm = nickname-trident-driveway.ngrok-free.dev
+realm = webcap.shoutsid.fyi
 ```
 
+(The ngrok fallback edge keeps its old realm and old listings alive.)
 The MPP session is bound to that host. If the public base URL changes
 (tunnel restart with a new host), the realm changes with it and anything
 bound to the old realm (directory listings, in-flight challenges) must be
@@ -76,9 +82,10 @@ WWW-Authenticate: Payment id="<redacted session id>", realm="https://nickname-tr
 Fields: `id` is the opaque session id, `realm` is the origin above,
 `method="evm"` selects EVM settlement, `intent="charge"` marks a one-shot
 charge (not a subscription), `request` carries the signed price terms,
-`expires` bounds the challenge lifetime. Paid routes:
-`POST /v1/x402/capture`, `POST /v1/x402/extract`,
-`POST /v1/x402/watches/topup`.
+`expires` bounds the challenge lifetime. Paid routes (GET probes included):
+`/v1/x402/capture`, `/v1/x402/extract`, `/v1/x402/audit`,
+`/v1/x402/map-lite`, `/v1/x402/video`, `/v1/x402/analyze`,
+`/v1/x402/analyze/batch`, `/v1/capture/jobs`, `/v1/x402/watches/topup`.
 
 ## Paying under MPP (EIP-3009 credential flow)
 
@@ -107,7 +114,7 @@ plus guidance on) before registering, otherwise the registration call wastes
 a round trip.
 
 ```bash
-BASE=https://nickname-trident-driveway.ngrok-free.dev
+BASE=https://webcap.shoutsid.fyi
 
 # 1. Pre-probe: paid ops advertise both protocols, 402s document WWW-Authenticate.
 curl -fsS "$BASE/openapi.json" | python3 -c '
@@ -144,11 +151,13 @@ and never auto-runs the audition.
   `x-payment-info` protocol entry.
 - Full suite stays green either way. MPP tests live under `tests/mpp/`.
 
-## Appendix: ready-to-paste agent-surface pointers
+## Appendix: agent-surface pointers (applied 2026-09-22)
 
-`/llms.txt` and `/skill.md` are served from `src/server/agent-surfaces.ts`
-(runtime text, so this copy is staged here for the orchestrator to apply).
-One paragraph each, in the terse how-to-pay voice of that file:
+`/llms.txt` and `/skill.md` are served from `src/server/agent-surfaces.ts`;
+the MPP paragraph below is now emitted at runtime whenever `MPP_SECRET_KEY`
+enables the rail (see `mppBlockLlms` / `mppBlockSkill`, covered by
+`tests/api/agent-surfaces-mpp.test.ts`). The staged copy is kept for the
+record. One paragraph each, in the terse how-to-pay voice of that file:
 
 llms.txt pointer: `MPP note: the same 3 paid routes also answer 402 with a
 WWW-Authenticate: Payment challenge (Machine Payments Protocol,
