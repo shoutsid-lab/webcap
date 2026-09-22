@@ -87,6 +87,31 @@ describe('agent discovery aliases + trust surface (agent.json, x402.json, securi
     }
   });
 
+  it('402index-verify.txt: absent by default (no claim in progress -> 404)', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await fx.app.inject({ method: 'GET', url: '/.well-known/402index-verify.txt' });
+      expect(res.statusCode).toBe(404);
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('402index-verify.txt: serves the configured hash verbatim as text/plain when set', async () => {
+    const hash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+    const fx = makeApiFixture({ indexVerifyHash: hash });
+    try {
+      const res = await fx.app.inject({ method: 'GET', url: '/.well-known/402index-verify.txt' });
+      expect(res.statusCode).toBe(200);
+      expect(String(res.headers['content-type'])).toContain('text/plain');
+      expect(res.headers['cache-control']).toBe('no-store');
+      // exactly the hash, no wrapper text (the registry hashes the body)
+      expect(res.payload).toBe(hash);
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
   it('openapi.json documents the new discovery paths', async () => {
     const fx = makeApiFixture();
     try {

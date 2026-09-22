@@ -58,6 +58,8 @@ export interface FixtureOverrides {
   readonly loggerOptions?: FastifyServerOptions['logger'];
   /** Optional owner contact email (surfaced as info.contact.email in the OpenAPI doc). */
   readonly contactEmail?: string;
+  /** 402index domain-ownership proof hash (served at /.well-known/402index-verify.txt). */
+  readonly indexVerifyHash?: string;
 }
 
 export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
@@ -90,6 +92,7 @@ export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
     // Matches the C-S2 RED contract in signed-artifacts.test.ts, which signs with this literal.
     artifactHmacSecret: (process.env.WEBCAP_ARTIFACT_HMAC_SECRET ?? '').trim() || 'test-artifact-signing-secret',
     ...(overrides.contactEmail !== undefined ? { contactEmail: overrides.contactEmail } : {}),
+    ...(overrides.indexVerifyHash !== undefined ? { indexVerifyHash: overrides.indexVerifyHash } : {}),
   };
   const accounts = makeAccountsRepo(db);
   const keys = makeApiKeysRepo(db);

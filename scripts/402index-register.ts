@@ -40,6 +40,11 @@ if (base === '') {
   fail('base URL unknown — set X402INDEX_BASE_URL or WEBCAP_PUBLIC_BASE_URL in .env');
 }
 
+// Sent on every upsert: the registry keeps a per-service contact email, and a
+// re-assert without it can blank the field (same reason the name/description
+// are re-sent). Empty string omits the key.
+const contactEmail = (process.env.WEBCAP_CONTACT_EMAIL ?? envLine('WEBCAP_CONTACT_EMAIL') ?? '').trim();
+
 type RouteSpec = {
   route: string;
   path: string;
@@ -149,6 +154,7 @@ for (const r of routes) {
         payment_network: r.paymentNetwork,
         category: r.category,
         provider: 'webcap',
+        ...(contactEmail !== '' ? { contact_email: contactEmail } : {}),
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });

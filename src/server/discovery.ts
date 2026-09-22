@@ -144,6 +144,19 @@ export function registerDiscoveryRoutes(app: FastifyInstance, deps: AppDeps): vo
     return reply.send(mcpTools(config));
   });
 
+  // 402index domain-ownership proof: the SHA-256 of the registry's claim token,
+  // served verbatim (no redirect, well under 1KB) at the exact URL it fetches.
+  // Registered only while a claim is in progress (hash configured), so an
+  // unconfigured deployment cleanly 404s.
+  const indexVerifyHash = (config.indexVerifyHash ?? '').trim();
+  if (indexVerifyHash !== '') {
+    app.get('/.well-known/402index-verify.txt', async (_req, reply) => {
+      reply.header('content-type', 'text/plain; charset=utf-8');
+      reply.header('cache-control', 'no-store');
+      return reply.send(indexVerifyHash);
+    });
+  }
+
   // RFC 9116 contact point for security researchers (probed by trust crawlers).
   app.get('/.well-known/security.txt', async (_req, reply) => {
     const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();

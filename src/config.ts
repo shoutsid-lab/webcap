@@ -55,6 +55,12 @@ export interface WebcapConfig {
   readonly computeCostUsdcUnitsPerRequest: number;
   /** Optional owner contact email, surfaced as info.contact.email in the OpenAPI document (directory ownership verification). */
   readonly contactEmail?: string;
+  /**
+   * Optional 402index domain-ownership proof (WEBCAP_402INDEX_VERIFY_HASH): the
+   * SHA-256 of the registry's claim token, served verbatim at
+   * /.well-known/402index-verify.txt. Empty/absent = no claim in progress.
+   */
+  readonly indexVerifyHash?: string;
   /** Optional LLM endpoint for model-based extraction (OpenAI-compatible); empty = deterministic only. */
   readonly modelApiBaseUrl: string;
   readonly modelApiKey: string;
@@ -317,6 +323,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WebcapConfig {
       DEFAULT_COMPUTE_COST_USDC_UNITS_PER_REQUEST,
     ),
     contactEmail: (env.WEBCAP_CONTACT_EMAIL ?? '').trim() || undefined,
+    indexVerifyHash: (env.WEBCAP_402INDEX_VERIFY_HASH ?? '').trim() || undefined,
     modelApiBaseUrl: (env.MODEL_API_BASE_URL ?? '').trim(),
     modelApiKey: (env.MODEL_API_KEY ?? '').trim(),
     modelName: (env.MODEL_NAME ?? '').trim(),
