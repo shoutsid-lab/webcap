@@ -114,7 +114,15 @@ POST /v1/x402/watches/topup
 ## Free endpoints (no payment)
 
 - GET /v1/extract/preview?url=… — bounded structured preview (title, headings, links, truncated markdown); rate-limited per IP
-- POST /v1/x402/trial {"url", "payer", "signature"} — one FREE full PNG capture per wallet; signature = EIP-191 personal_sign of exactly "Claim one free webcap trial capture for <payer>" with <payer> your lowercase 0x address; second claim 409
+- GET /v1/x402/trial/status?payer=<lowercase-0x> — trial menu: claimed/available endpoints + the exact claim recipe (check before signing)
+- GET /v1/x402/trial/quick?url=… — no-wallet JPEG thumbnail, 3/day per IP (zero-friction hook; full trials need a wallet signature)
+- POST /v1/x402/trial {"url", "payer", "signature"} — FREE full PNG capture, one per wallet; signature = EIP-191 personal_sign of exactly "Claim one free webcap trial capture for <payer>"
+- POST /v1/x402/trial/extract {"url", "payer", "signature"} — FREE single-URL extraction (no schema/model/batch), one per wallet; message endpoint "extract"
+- POST /v1/x402/trial/audit {"url", "payer", "signature"} — FREE SEO + link/OG audit, one per wallet; message endpoint "audit"
+- POST /v1/x402/trial/map-lite {"url", "payer", "signature"} — FREE site map capped at 10 URLs, one per wallet; message endpoint "map-lite"
+- POST /v1/x402/trial/analyze {"url", "task", "payer", "signature"} — FREE deterministic analysis, one per wallet; message endpoint "analyze"; task: classification|accessibility|layout|entities|sentiment
+- Trial messages are endpoint-bound: "Claim one free webcap trial {endpoint} for <payer>" with <payer> your lowercase 0x address (the legacy capture-only message still works for the capture trial). A repeat claim answers 409 with a paidNext pointer + the remaining list. Video has no trial (scroll-capture compute) — the capture trial is its free sample.
+- Tool manifests for framework wiring: ${config.publicBaseUrl}/.well-known/openai-tools.json (OpenAI functions shape) and ${config.publicBaseUrl}/.well-known/mcp-tools.json (MCP tools/list shape + the HTTPS endpoint per tool). Agent card (A2A v1.0): ${config.publicBaseUrl}/.well-known/agent-card.json.
 - GET /v1/og?url=… — Open Graph metadata (title, description, image, icon)
 - POST /v1/watches — create a scheduled re-capture watch (free; starts with 0 credits — top up via /v1/x402/watches/topup)
 - GET /v1/watches/:id — watch state + recent runs · DELETE /v1/watches/:id — remove it
@@ -208,10 +216,16 @@ Base URL: ${config.publicBaseUrl}
 | Analyze batch (up to 10 URLs, one payment) | POST /v1/x402/analyze/batch {"urls": string[], "task"} | ${usdc(config.x402ExtractPriceUsdcUnits)} |
 | Watch top-up (100 runs) | POST /v1/x402/watches/topup {"watchId", "runs": 100} | ${usdc(watchTopUpPriceUsdcUnits('capture', config))} (capture watch) / ${usdc(watchTopUpPriceUsdcUnits('extract', config))} (extract watch) |
 | Structured preview (truncated) | GET /v1/extract/preview?url=… | free, rate-limited per IP |
-| Trial capture (full PNG, one per wallet) | POST /v1/x402/trial {"url", "payer", "signature"} where signature = personal_sign of "Claim one free webcap trial capture for <payer>" (lowercase address) | free, one claim per wallet |
+| Trial menu (claimed/available + recipe) | GET /v1/x402/trial/status?payer=\<lowercase-0x\> | free |
+| No-wallet thumbnail (3/day per IP) | GET /v1/x402/trial/quick?url=… | free |
+| Trial capture (full PNG, one per wallet) | POST /v1/x402/trial {"url", "payer", "signature"} where signature = personal_sign of "Claim one free webcap trial capture for \<payer\>" (lowercase address) | free, one claim per wallet per endpoint |
+| Trial extract (single URL, no schema/model) | POST /v1/x402/trial/extract {"url", "payer", "signature"} with endpoint "extract" in the message | free, one claim per wallet per endpoint |
+| Trial audit (SEO + OG + links) | POST /v1/x402/trial/audit {"url", "payer", "signature"} with endpoint "audit" in the message | free, one claim per wallet per endpoint |
+| Trial map-lite (capped at 10 URLs) | POST /v1/x402/trial/map-lite {"url", "payer", "signature"} with endpoint "map-lite" in the message | free, one claim per wallet per endpoint |
+| Trial analyze (deterministic, one URL) | POST /v1/x402/trial/analyze {"url", "task", "payer", "signature"} with endpoint "analyze" in the message; task: classification\|accessibility\|layout\|entities\|sentiment | free, one claim per wallet per endpoint |
 | OG metadata | GET /v1/og?url=… | free |
 
-Machine-readable catalog: ${config.publicBaseUrl}/v1/x402/service · Full spec: ${config.publicBaseUrl}/openapi.json
+Machine-readable catalog: ${config.publicBaseUrl}/v1/x402/service · Full spec: ${config.publicBaseUrl}/openapi.json · Tool manifests: ${config.publicBaseUrl}/.well-known/openai-tools.json + ${config.publicBaseUrl}/.well-known/mcp-tools.json · Agent card: ${config.publicBaseUrl}/.well-known/agent-card.json
 
 ## Quick start (Node.js, @x402/axios)
 
@@ -250,17 +264,31 @@ rate-limited per IP — use it to peek at a page before paying; the paid
 extract returns the full text plus images, batches, and optional model
 extraction.
 
-## Free trial capture (one per wallet, no payment)
+## Free trials (one per wallet per endpoint, no payment)
 
-POST ${config.publicBaseUrl}/v1/x402/trial {"url", "payer", "signature"} serves
-one full PNG capture free. signature is the EIP-191 personal_sign of exactly
+GET ${config.publicBaseUrl}/v1/x402/trial/status?payer=\<lowercase-0x\> tells you
+which trials a wallet claimed and which are still available, plus the exact
+claim recipe — check it before signing. No wallet at all? GET
+${config.publicBaseUrl}/v1/x402/trial/quick?url=… serves a free JPEG thumbnail
+(3/day per IP).
 
-Claim one free webcap trial capture for <payer>
+Each wallet gets one free result per endpoint: capture (full PNG) at POST
+${config.publicBaseUrl}/v1/x402/trial, extract (single URL, no schema/model)
+at …/trial/extract, audit at …/trial/audit, map-lite (capped at 10 URLs) at
+…/trial/map-lite, and deterministic analysis at …/trial/analyze {"url",
+"task"}. signature is the EIP-191 personal_sign of exactly
 
-with <payer> your lowercase 0x address (ethers: wallet.signMessage(message)).
-A wallet that already claimed gets 409 already_claimed with a paidNext
-pointer at POST /v1/x402/capture; the 200 response carries the artifact plus
-the same paidNext pointer for the second capture.
+Claim one free webcap trial {endpoint} for <payer>
+
+with {endpoint} one of capture|extract|audit|map-lite|analyze and \<payer\>
+your lowercase 0x address (ethers: wallet.signMessage(message)). The message
+is endpoint-bound — a signature for one trial cannot be replayed for another
+(the legacy capture-only message still works for the capture trial). A wallet
+that already claimed an endpoint gets 409 already_claimed with a paidNext
+pointer plus the remaining list; every 200 carries the result, a
+trial:{payer, endpoint, priceUsdcUnits:0} receipt, paidNext, and remaining.
+Video has no trial (scroll-capture compute) — the capture trial is its free
+sample.
 
 ## Failure modes
 

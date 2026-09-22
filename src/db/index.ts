@@ -26,6 +26,7 @@ export function openDb(path: string): Db {
   migrateTrackingEvents(db);
   migratePreviewCache(db);
   migrateTrialClaims(db);
+  migrateFaucetDays(db);
   return db;
 }
 
@@ -228,13 +229,48 @@ function migrateTrackingEvents(db: Db): void {
 }
 
 /**
- * Trial claims: one free capture per wallet. Fresh databases carry the table
- * via schema.sql; pre-existing databases gain it here (idempotent).
+ * Trial claims: one free trial per wallet per endpoint (capture, extract,
+ * audit, map-lite, analyze). Fresh databases carry the table via schema.sql;
+ * pre-existing v1 databases (payer PRIMARY KEY, capture-only) are migrated
+ * here, preserving each row as a 'capture' claim (idempotent). Exported for
+ * the migration unit test; production goes through openDb.
  */
-function migrateTrialClaims(db: Db): void {
+export function migrateTrialClaims(db: Db): void {
   db.exec(
     'CREATE TABLE IF NOT EXISTS trial_claims (' +
-      'payer TEXT PRIMARY KEY, ' +
-      'created_at TEXT NOT NULL)',
+      'payer TEXT NOT NULL, ' +
+      'endpoint TEXT NOT NULL, ' +
+      'created_at TEXT NOT NULL, ' +
+      'PRIMARY KEY (payer, endpoint))',
+  );
+  const cols = db.prepare<[], { name: string }>('PRAGMA table_info(trial_claims)').all();
+  if (!cols.some((c) => c.name === 'endpoint')) {
+    db.exec(
+      'CREATE TABLE IF NOT EXISTS trial_claims_v2 (' +
+        'payer TEXT NOT NULL, ' +
+        'endpoint TEXT NOT NULL, ' +
+        'created_at TEXT NOT NULL, ' +
+        'PRIMARY KEY (payer, endpoint))',
+    );
+    db.exec(
+      "INSERT OR IGNORE INTO trial_claims_v2 (payer, endpoint, created_at) " +
+        "SELECT payer, 'capture', created_at FROM trial_claims",
+    );
+    db.exec('DROP TABLE trial_claims');
+    db.exec('ALTER TABLE trial_claims_v2 RENAME TO trial_claims');
+  }
+}
+
+/**
+ * No-wallet faucet budget: daily per-IP-hash thumbnail count. Fresh databases
+ * carry the table here (idempotent); rows for past days are pruned on read.
+ */
+function migrateFaucetDays(db: Db): void {
+  db.exec(
+    'CREATE TABLE IF NOT EXISTS faucet_days (' +
+      'ip_hash TEXT NOT NULL, ' +
+      'day TEXT NOT NULL, ' +
+      'count INTEGER NOT NULL, ' +
+      'PRIMARY KEY (ip_hash, day))',
   );
 }

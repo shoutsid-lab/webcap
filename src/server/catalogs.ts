@@ -124,6 +124,13 @@ export async function x402WellKnown(config: WebcapConfig) {
       { path: 'GET /v1/extract/preview?url=...', note: 'bounded structured preview (rate-limited)' },
       { path: 'GET /v1/og?url=...', note: 'Open Graph metadata' },
       { path: 'GET /v1/health', note: 'liveness + chain' },
+      { path: 'GET /v1/x402/trial/status?payer=...', note: 'trial menu per wallet (claimed/available + claim recipe)' },
+      { path: 'GET /v1/x402/trial/quick?url=...', note: 'no-wallet JPEG thumbnail, 3/day per IP' },
+      { path: 'POST /v1/x402/trial', note: 'free full PNG capture trial, one per wallet (EIP-191 proof)' },
+      { path: 'POST /v1/x402/trial/extract', note: 'free single-URL extraction trial, one per wallet' },
+      { path: 'POST /v1/x402/trial/audit', note: 'free SEO + link/OG audit trial, one per wallet' },
+      { path: 'POST /v1/x402/trial/map-lite', note: 'free site-map trial capped at 10 URLs, one per wallet' },
+      { path: 'POST /v1/x402/trial/analyze', note: 'free deterministic analysis trial, one per wallet' },
     ],
     openapi: `${base}/openapi.json`,
     sitemap: `${base}/sitemap.xml`,
@@ -132,18 +139,84 @@ export async function x402WellKnown(config: WebcapConfig) {
   };
 }
 
-/** A2A-style agent card with an x402/AP2 payments section, for agent-card consumers. */
+/** A2A v1.0 agent card with x402 payments info, for agent-card consumers. */
 export async function agentCard(config: WebcapConfig) {
   const base = httpsBase(config.publicBaseUrl);
+  const paid = (id: string, name: string, description: string, tags: string[]) => ({ id, name, description, tags });
   return {
-    protocolVersion: '0.3.0',
+    protocolVersion: '1.0',
     name: 'webcap',
     description: (await x402WellKnown(config)).description,
+    // Compat: v0.x readers use top-level url; v1.0 readers use supportedInterfaces[0].
     url: base,
-    icon: `${base}/icon.png`,
-    version: '1.0.0',
-    roles: ['merchant'],
-    capabilities: { streaming: false, pushNotifications: true },
+    supportedInterfaces: [{ url: base, protocolBinding: 'HTTP+JSON', protocolVersion: '1.0' }],
+    iconUrl: `${base}/icon.png`,
+    version: '1.1.0',
+    provider: { organization: 'webcap', url: 'https://github.com/shoutsid-lab/webcap' },
+    documentationUrl: `${base}/skill.md`,
+    capabilities: { streaming: false, pushNotifications: false },
+    defaultInputModes: ['application/json', 'text/plain'],
+    defaultOutputModes: ['application/json'],
+    securitySchemes: {
+      x402: { type: 'http', scheme: 'x402', description: 'Paid endpoints answer HTTP 402 with an x402 v2 challenge; retry with the PAYMENT-SIGNATURE header after a gasless EIP-3009 USDC signature.' },
+    },
+    skills: [
+      paid(
+        'trial',
+        'Free product trials (no USDC)',
+        'One free result per wallet per endpoint — capture (full PNG), extract (single URL), audit, map-lite, analyze — proven by EIP-191 personal_sign of "Claim one free webcap trial {endpoint} for {lowercase-0x}". Menu: GET /v1/x402/trial/status?payer=0x…. Claim: POST /v1/x402/trial (+/extract, +/audit, +/map-lite, +/analyze). No-wallet thumbnail: GET /v1/x402/trial/quick?url=… (3/day/IP).',
+        ['free', 'trial', 'screenshot', 'extraction', 'audit', 'sitemap', 'analysis'],
+      ),
+      paid(
+        'preview',
+        'Free structured preview',
+        'Bounded title/headings/links/markdown preview, rate-limited per IP: GET /v1/extract/preview?url=…. Free OG metadata: GET /v1/og?url=….',
+        ['free', 'preview', 'scraping', 'extraction', 'opengraph'],
+      ),
+      paid(
+        'capture',
+        'Web capture',
+        `Screenshot any URL as PNG/JPEG/PDF + free OG metadata — ${config.x402PriceUsdcUnits / USDC_SCALE} USDC via x402`,
+        ['screenshot', 'capture', 'x402', 'usdc'],
+      ),
+      paid(
+        'extract',
+        'Structured extraction',
+        `Title, headings, paragraphs, links, images, document-order markdown; batch up to 50 URLs — ${config.x402ExtractPriceUsdcUnits / USDC_SCALE} USDC via x402`,
+        ['scraping', 'extraction', 'markdown', 'x402', 'usdc'],
+      ),
+      paid(
+        'audit',
+        'SEO audit',
+        `SEO basics + link/OG health in one call — ${config.x402AuditPriceUsdcUnits / USDC_SCALE} USDC via x402`,
+        ['seo', 'audit', 'links', 'opengraph', 'x402', 'usdc'],
+      ),
+      paid(
+        'map-lite',
+        'Site mapping',
+        `Sitemap/robots + 1-hop same-host crawl URL list in one call — ${config.x402AuditPriceUsdcUnits / USDC_SCALE} USDC via x402`,
+        ['sitemap', 'crawl', 'mapping', 'x402', 'usdc'],
+      ),
+      paid(
+        'video',
+        'Video capture',
+        `Scroll-capture a URL as an MP4/WebM video — ${config.x402VideoPriceUsdcUnits / USDC_SCALE} USDC via x402`,
+        ['video', 'capture', 'x402', 'usdc'],
+      ),
+      paid(
+        'analyze',
+        'Visual analysis',
+        `AI-powered page analysis: classification, accessibility, entities, sentiment — ${config.x402ExtractPriceUsdcUnits / USDC_SCALE} USDC via x402`,
+        ['ai', 'analysis', 'classification', 'accessibility', 'x402', 'usdc'],
+      ),
+      paid(
+        'watch',
+        'Scheduled monitoring',
+        `Pre-pay ${WATCH_TOPUP_RUNS} runs of a capture/extract monitor with change-detection webhooks — ${watchTopUpPriceUsdcUnits('capture', config) / USDC_SCALE}–${watchTopUpPriceUsdcUnits('extract', config) / USDC_SCALE} USDC per pack via x402`,
+        ['monitoring', 'diff', 'webhook', 'x402', 'usdc'],
+      ),
+    ],
+    // webcap extensions (non-A2A): payment + auth-scheme detail for x402 clients.
     authentication: { schemes: ['x402'] },
     payments: {
       provider: 'x402',
@@ -152,50 +225,70 @@ export async function agentCard(config: WebcapConfig) {
       payTo: config.x402Network === undefined ? null : config.x402PayTo,
       facilitator: config.x402FacilitatorUrl,
     },
-    skills: [
-      {
-        id: 'capture',
-        name: 'Web capture',
-        description: `Screenshot any URL as PNG/JPEG/PDF + free OG metadata — ${config.x402PriceUsdcUnits / USDC_SCALE} USDC via x402`,
-        tags: ['screenshot', 'capture', 'x402', 'usdc'],
+  };
+}
+
+/** Prompt-friendly tool definitions (OpenAI functions shape) for copy-paste agent wiring. */
+export function openaiTools(config: WebcapConfig) {
+  const base = httpsBase(config.publicBaseUrl);
+  const urlParam = { type: 'object', properties: { url: { type: 'string', description: 'Target page URL (https)' } }, required: ['url'] };
+  const claimParams = {
+    type: 'object',
+    properties: {
+      url: { type: 'string', description: 'Target page URL (https)' },
+      payer: { type: 'string', description: 'Your lowercase 0x EVM address' },
+      signature: {
+        type: 'string',
+        description:
+          'EIP-191 personal_sign of exactly "Claim one free webcap trial {endpoint} for {payer}" (e.g. endpoint "extract"). One claim per wallet per endpoint; second claim answers 409 with a paidNext pointer.',
       },
-      {
-        id: 'extract',
-        name: 'Structured extraction',
-        description: `Title, headings, paragraphs, links, images, document-order markdown; batch up to 50 URLs — ${config.x402ExtractPriceUsdcUnits / USDC_SCALE} USDC via x402`,
-        tags: ['scraping', 'extraction', 'markdown', 'x402', 'usdc'],
-      },
-      {
-        id: 'audit',
-        name: 'SEO audit',
-        description: `SEO basics + link/OG health in one call — ${config.x402AuditPriceUsdcUnits / USDC_SCALE} USDC via x402`,
-        tags: ['seo', 'audit', 'links', 'opengraph', 'x402', 'usdc'],
-      },
-      {
-        id: 'map-lite',
-        name: 'Site mapping',
-        description: `Sitemap/robots + 1-hop same-host crawl URL list in one call — ${config.x402AuditPriceUsdcUnits / USDC_SCALE} USDC via x402`,
-        tags: ['sitemap', 'crawl', 'mapping', 'x402', 'usdc'],
-      },
-      {
-        id: 'video',
-        name: 'Video capture',
-        description: `Scroll-capture a URL as an MP4/WebM video — ${config.x402VideoPriceUsdcUnits / USDC_SCALE} USDC via x402`,
-        tags: ['video', 'capture', 'x402', 'usdc'],
-      },
-      {
-        id: 'analyze',
-        name: 'Visual analysis',
-        description: `AI-powered page analysis: classification, accessibility, entities, sentiment — ${config.x402ExtractPriceUsdcUnits / USDC_SCALE} USDC via x402`,
-        tags: ['ai', 'analysis', 'classification', 'accessibility', 'x402', 'usdc'],
-      },
-      {
-        id: 'watch',
-        name: 'Scheduled monitoring',
-        description: `Pre-pay ${WATCH_TOPUP_RUNS} runs of a capture/extract monitor with change-detection webhooks — ${watchTopUpPriceUsdcUnits('capture', config) / USDC_SCALE}–${watchTopUpPriceUsdcUnits('extract', config) / USDC_SCALE} USDC per pack via x402`,
-        tags: ['monitoring', 'diff', 'webhook', 'x402', 'usdc'],
-      },
+    },
+    required: ['url', 'payer', 'signature'],
+  };
+  const fn = (name: string, description: string, parameters: unknown, path: string) => ({
+    type: 'function',
+    endpoint: { method: name === 'webcap_preview' || name === 'webcap_og' || name === 'webcap_trial_status' || name === 'webcap_quick_thumbnail' ? 'GET' : 'POST', path },
+    function: { name, description, parameters },
+  });
+  return {
+    format: 'openai-functions',
+    name: 'webcap',
+    baseUrl: base,
+    openapi: `${base}/openapi.json`,
+    skill: `${base}/skill.md`,
+    tools: [
+      fn('webcap_preview', 'Free bounded structured preview of a URL (title, headings, links, truncated markdown).', urlParam, '/v1/extract/preview?url=...'),
+      fn('webcap_og', 'Free Open Graph metadata for a URL.', urlParam, '/v1/og?url=...'),
+      fn(
+        'webcap_trial_status',
+        'Which free trials a wallet claimed / can still claim, plus the exact claim recipe.',
+        { type: 'object', properties: { payer: { type: 'string', description: 'Lowercase 0x address to look up' } }, required: ['payer'] },
+        '/v1/x402/trial/status?payer=...',
+      ),
+      fn('webcap_trial_claim_capture', 'Free full PNG capture trial (one per wallet).', claimParams, '/v1/x402/trial'),
+      fn('webcap_trial_claim_extract', 'Free single-URL structured extraction trial (one per wallet; no schema/model/batch).', claimParams, '/v1/x402/trial/extract'),
+      fn('webcap_trial_claim_audit', 'Free single-URL SEO + link/OG health audit trial (one per wallet).', claimParams, '/v1/x402/trial/audit'),
+      fn('webcap_trial_claim_map_lite', 'Free site-map trial, capped at 10 URLs (one per wallet).', claimParams, '/v1/x402/trial/map-lite'),
+      fn('webcap_trial_claim_analyze', 'Free deterministic single-URL visual analysis trial (one per wallet; model-backed analysis stays paid).', claimParams, '/v1/x402/trial/analyze'),
+      fn('webcap_quick_thumbnail', 'No-wallet free JPEG thumbnail (3/day per IP; full trials need a wallet signature).', urlParam, '/v1/x402/trial/quick?url=...'),
     ],
+  };
+}
+
+/** Tool-router-friendly manifest (MCP tools/list shape + the HTTPS endpoint each tool maps to). */
+export function mcpTools(config: WebcapConfig) {
+  const base = httpsBase(config.publicBaseUrl);
+  const tools = openaiTools(config).tools.map((t) => ({
+    name: t.function.name,
+    description: t.function.description,
+    inputSchema: t.function.parameters,
+    endpoint: t.endpoint,
+  }));
+  return {
+    format: 'mcp-tools-list',
+    server: { name: 'webcap', version: '1.1.0', url: base, openapi: `${base}/openapi.json`, skill: `${base}/skill.md` },
+    payment: 'Paid endpoints settle gasless USDC via x402 (HTTP 402); every 409/402 response carries a paidNext pointer.',
+    tools,
   };
 }
 
@@ -210,7 +303,13 @@ export function frontDoorPayload(config: WebcapConfig) {
         { path: 'GET /v1/extract/preview?url=...', note: 'bounded structured preview (rate-limited)' },
         { path: 'GET /v1/og?url=...', note: 'OG metadata' },
         { path: 'GET /v1/health', note: 'liveness + chain' },
-        { path: 'POST /v1/x402/trial', note: 'free: one full PNG capture per wallet (EIP-191 personal_sign proof)' },
+        { path: 'GET /v1/x402/trial/status?payer=...', note: 'trial menu per wallet (claimed/available + claim recipe)' },
+        { path: 'GET /v1/x402/trial/quick?url=...', note: 'no-wallet JPEG thumbnail, 3/day per IP' },
+        { path: 'POST /v1/x402/trial', note: 'free full PNG capture trial, one per wallet (EIP-191 proof)' },
+        { path: 'POST /v1/x402/trial/extract', note: 'free single-URL extraction trial, one per wallet' },
+        { path: 'POST /v1/x402/trial/audit', note: 'free SEO + link/OG audit trial, one per wallet' },
+        { path: 'POST /v1/x402/trial/map-lite', note: 'free site-map trial capped at 10 URLs, one per wallet' },
+        { path: 'POST /v1/x402/trial/analyze', note: 'free deterministic analysis trial, one per wallet' },
       ],
       paid: [
         { path: 'POST /v1/x402/capture', usdc: config.x402PriceUsdcUnits / USDC_SCALE, note: 'PNG/JPEG/PDF screenshot + free OG' },

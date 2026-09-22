@@ -179,30 +179,61 @@ describe('GET /.well-known/x402 + GET /.well-known/agent-card.json (machine disc
     }
   });
 
-  it('agent card: 200 JSON, merchant role, x402 payments section, one skill per paid endpoint', async () => {
+  it('agent card: 200 JSON, A2A v1.0 shape, trial + preview skills first, x402 payments section', async () => {
     const fx = makeApiFixture();
     try {
       const res = await fx.app.inject({ method: 'GET', url: '/.well-known/agent-card.json' });
       expect(res.statusCode).toBe(200);
       expect(String(res.headers['content-type'])).toContain('application/json');
       const card = res.json() as {
+        protocolVersion: string;
         name: string;
         url: string;
-        roles: string[];
+        supportedInterfaces: Array<{ url: string; protocolBinding: string; protocolVersion: string }>;
+        capabilities: { streaming: boolean; pushNotifications: boolean };
+        defaultInputModes: string[];
+        defaultOutputModes: string[];
         authentication: { schemes: string[] };
         payments: { provider: string; network: string | null; payTo: string | null };
-        skills: Array<{ id: string }>;
+        skills: Array<{ id: string; name: string; description: string; tags: string[] }>;
       };
       expect(card.name).toBe('webcap');
+      expect(card.protocolVersion).toBe('1.0');
       expect(card.url).toBe(fx.config.publicBaseUrl.replace(/^http:\/\//, 'https://'));
-      expect(card.roles).toContain('merchant');
+      expect(card.supportedInterfaces[0]?.url).toBe(card.url);
+      expect(card.capabilities).toEqual({ streaming: false, pushNotifications: false });
+      expect(card.defaultInputModes).toContain('application/json');
+      for (const skill of card.skills) {
+        expect(skill.tags.length).toBeGreaterThan(0);
+      }
       expect(card.authentication.schemes).toContain('x402');
       expect(card.payments.provider).toBe('x402');
       expect(card.payments.network).toBe(fx.config.x402Network ?? null);
       expect(card.payments.payTo).toBe(
         fx.config.x402Network === undefined ? null : fx.config.x402PayTo,
       );
-      expect(card.skills.map((s) => s.id)).toEqual(['capture', 'extract', 'audit', 'map-lite', 'video', 'analyze', 'watch']);
+      expect(card.skills.map((s) => s.id)).toEqual(['trial', 'preview', 'capture', 'extract', 'audit', 'map-lite', 'video', 'analyze', 'watch']);
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('tool manifests: openai-tools + mcp-tools 200 JSON, nine tools each naming an HTTPS endpoint', async () => {
+    const fx = makeApiFixture();
+    try {
+      for (const path of ['/.well-known/openai-tools.json', '/.well-known/mcp-tools.json']) {
+        const res = await fx.app.inject({ method: 'GET', url: path });
+        expect(res.statusCode).toBe(200);
+        expect(String(res.headers['content-type'])).toContain('application/json');
+        const body = res.json() as { tools: Array<{ endpoint?: { path: string }; function?: { name: string }; name?: string }> };
+        expect(body.tools.length).toBe(9);
+        for (const tool of body.tools) {
+          expect(tool.endpoint?.path ?? '').toContain('/v1/');
+        }
+        const names = body.tools.map((t) => t.function?.name ?? t.name ?? '');
+        expect(names).toContain('webcap_trial_status');
+        expect(names).toContain('webcap_quick_thumbnail');
+      }
     } finally {
       await closeApiFixture(fx);
     }

@@ -410,10 +410,19 @@ describe('mppscan/x402gle discovery metadata', () => {
     ['get', '/sitemap.xml'],
     ['get', '/.well-known/x402'],
     ['get', '/.well-known/agent-card.json'],
+    ['get', '/.well-known/openai-tools.json'],
+    ['get', '/.well-known/mcp-tools.json'],
     ['get', '/llms.txt'],
     ['get', '/skill.md'],
     ['post', '/v1/register'],
     ['get', '/v1/og'],
+    ['post', '/v1/x402/trial'],
+    ['post', '/v1/x402/trial/extract'],
+    ['post', '/v1/x402/trial/audit'],
+    ['post', '/v1/x402/trial/map-lite'],
+    ['post', '/v1/x402/trial/analyze'],
+    ['get', '/v1/x402/trial/status'],
+    ['get', '/v1/x402/trial/quick'],
   ];
 
   // The non-free ops: 3 paid x402 + 4 Bearer-auth account ops -> no security key at all.
@@ -530,10 +539,10 @@ describe('mppscan/x402gle discovery metadata', () => {
     }
   });
 
-  it('declares security: [] on every free/public op (the explicit 19-list)', async () => {
+  it('declares security: [] on every free/public op (the explicit 29-list)', async () => {
     const fx = makeApiFixture();
     try {
-      expect(FREE_OPS.length).toBe(20);
+      expect(FREE_OPS.length).toBe(29);
       const res = await getDoc(fx.app);
       const doc = res.json() as OpenapiDocView;
       for (const [method, path] of FREE_OPS) {

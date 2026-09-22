@@ -163,44 +163,67 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
     '/.well-known/agent-card.json': {
       get: {
         tags: ['discovery'],
-        summary: 'A2A-style agent card with the x402 payments section',
+        summary: 'A2A v1.0 agent card with the x402 payments section',
         description:
-          'One document for agent-card consumers: service capabilities and the x402 payment parameters ' +
-          '(network, asset, payTo, facilitator). network/asset/payTo are null when x402 is disabled.',
+          'One document for agent-card consumers: service capabilities, skills (free trials first), and the x402 ' +
+          'payment parameters (network, asset, payTo, facilitator). network/asset/payTo are null when x402 is disabled.',
         responses: {
           200: {
             description: 'The agent card (application/json; charset=utf-8)',
             content: jsonContent({
               type: 'object',
               properties: {
-                protocolVersion: { type: 'string', example: '0.3.0' },
+                protocolVersion: { type: 'string', example: '1.0' },
                 name: { type: 'string', example: 'webcap' },
                 description: { type: 'string' },
                 url: { type: 'string' },
-                icon: { type: 'string' },
-                version: { type: 'string', example: '1.0.0' },
-                roles: { type: 'array', items: { type: 'string' }, example: ['merchant'] },
+                supportedInterfaces: { type: 'array', items: { type: 'object' } },
+                iconUrl: { type: 'string' },
+                version: { type: 'string', example: '1.1.0' },
+                provider: { type: 'object' },
+                documentationUrl: { type: 'string' },
                 capabilities: {
                   type: 'object',
                   properties: { streaming: { type: 'boolean' }, pushNotifications: { type: 'boolean' } },
                 },
-                authentication: {
-                  type: 'object',
-                  properties: { schemes: { type: 'array', items: { type: 'string' }, example: ['x402'] } },
-                },
-                payments: {
-                  type: 'object',
-                  properties: {
-                    provider: { type: 'string', example: 'x402' },
-                    network: { type: ['string', 'null'], example: config.x402Network ?? null },
-                    asset: { type: ['string', 'null'], example: config.x402Network === undefined ? null : config.x402Asset },
-                    payTo: { type: ['string', 'null'], example: config.x402Network === undefined ? null : config.x402PayTo },
-                    facilitator: { type: 'string', example: config.x402FacilitatorUrl },
-                  },
-                },
+                defaultInputModes: { type: 'array', items: { type: 'string' } },
+                defaultOutputModes: { type: 'array', items: { type: 'string' } },
+                securitySchemes: { type: 'object' },
                 skills: { type: 'array', items: { type: 'object' } },
               },
             }),
+          },
+        },
+        security: [],
+      },
+    },
+    '/.well-known/openai-tools.json': {
+      get: {
+        tags: ['discovery'],
+        summary: 'Copy-paste tool definitions for LLM agents (OpenAI functions shape)',
+        description:
+          'One tool per free surface (preview, OG, trial status, the five wallet-trial claims, no-wallet thumbnail), ' +
+          'each naming the exact HTTPS endpoint it maps to. Free, no payment.',
+        responses: {
+          200: {
+            description: 'The tool manifest (application/json; charset=utf-8)',
+            content: jsonContent({ type: 'object' }),
+          },
+        },
+        security: [],
+      },
+    },
+    '/.well-known/mcp-tools.json': {
+      get: {
+        tags: ['discovery'],
+        summary: 'Tool-router manifest (MCP tools/list shape + HTTPS endpoint per tool)',
+        description:
+          'Same tool set as openai-tools.json in MCP tools/list shape, each with the HTTPS endpoint it maps to, ' +
+          'for tool routers and MCP server configs. Free, no payment.',
+        responses: {
+          200: {
+            description: 'The tool manifest (application/json; charset=utf-8)',
+            content: jsonContent({ type: 'object' }),
           },
         },
         security: [],

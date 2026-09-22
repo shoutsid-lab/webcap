@@ -13,7 +13,7 @@ import { isRecord } from './capture-parse.js';
 import type { AppDeps } from './server.js';
 import { landingHtml, compareHtml, quickstartHtml, buyHtml, artifactPageHtml, transparencyHtml, type TransparencyStats } from './pages.js';
 import { openapiDocument } from './openapi.js';
-import { agentCard, frontDoorPayload, sitemapXml, x402WellKnown } from './catalogs.js';
+import { agentCard, frontDoorPayload, mcpTools, openaiTools, sitemapXml, x402WellKnown } from './catalogs.js';
 
 export function registerDiscoveryRoutes(app: FastifyInstance, deps: AppDeps): void {
   const { config, artifacts } = deps;
@@ -127,6 +127,21 @@ export function registerDiscoveryRoutes(app: FastifyInstance, deps: AppDeps): vo
     reply.header('content-type', 'application/json; charset=utf-8');
     reply.header('cache-control', 'public, max-age=300');
     return reply.send(await x402WellKnown(config));
+  });
+
+  // Agent-framework tool manifests: copy-paste tool definitions so an LLM
+  // agent (OpenAI functions, MCP tool routers, LangChain-style wiring) can
+  // call the free surfaces without hand-writing schemas.
+  app.get('/.well-known/openai-tools.json', async (_req, reply) => {
+    reply.header('content-type', 'application/json; charset=utf-8');
+    reply.header('cache-control', 'public, max-age=300');
+    return reply.send(openaiTools(config));
+  });
+
+  app.get('/.well-known/mcp-tools.json', async (_req, reply) => {
+    reply.header('content-type', 'application/json; charset=utf-8');
+    reply.header('cache-control', 'public, max-age=300');
+    return reply.send(mcpTools(config));
   });
 
   // RFC 9116 contact point for security researchers (probed by trust crawlers).

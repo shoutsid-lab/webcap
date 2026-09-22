@@ -140,8 +140,10 @@ CREATE TABLE IF NOT EXISTS endpoint_hits (
 );
 
 CREATE TABLE IF NOT EXISTS trial_claims (
-  payer TEXT PRIMARY KEY,
-  created_at TEXT NOT NULL
+  payer TEXT NOT NULL,
+  endpoint TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (payer, endpoint)
 );
 
 CREATE INDEX IF NOT EXISTS idx_endpoint_hits_endpoint_created ON endpoint_hits(endpoint, created_at);
