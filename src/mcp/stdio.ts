@@ -6,11 +6,12 @@
  *
  *   {
  *     "mcpServers": {
- *       "webcap": { "command": "npx", "args": ["-y", "-p", "webcap", "webcap-mcp"] }
+ *       "webcap": { "command": "node", "args": ["/path/to/webcap/dist/mcp/stdio.js"] }
  *     }
  *   }
  *
- * Or from this repo: `npm run mcp` (or `node dist/mcp/stdio.js`).
+ * From this repo: `npm run mcp` (or `node dist/mcp/stdio.js`). Not on npm yet:
+ * the unscoped `webcap` name is an unrelated package, so a publish must be scoped.
  *
  * Free tools work with no configuration. To let paid tools (capture, extract,
  * audit, map-lite, video, analyze) settle automatically, set

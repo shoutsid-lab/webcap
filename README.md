@@ -1,6 +1,5 @@
 # webcap
 
-[![npm version](https://img.shields.io/npm/v/webcap.svg)](https://www.npmjs.com/package/webcap)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Try%20It%20Now-brightgreen)](https://webcap.shoutsid.fyi)
 
@@ -62,15 +61,22 @@ With no key, paid tools return the x402 402 challenge for the host to pay.
 {
   "mcpServers": {
     "webcap": {
-      "command": "npx",
-      "args": ["-y", "-p", "webcap", "webcap-mcp"],
+      "command": "node",
+      "args": ["/absolute/path/to/webcap/dist/mcp/stdio.js"],
       "env": { "WEBCAP_MCP_WALLET_KEY": "0x..." }
     }
   }
 }
 ```
 
-From this repo: `npm run mcp`. Tools: `webcap_preview`, `webcap_og`,
+The host needs a built server: `npm ci && npm run build` (or install the packed
+tarball / a checkout and point `args` at its `dist/mcp/stdio.js`). From this repo,
+`npm run mcp` runs the TypeScript directly, so no build step is needed.
+
+It is **not on npm yet**: the unscoped `webcap` name belongs to an unrelated
+package, so the publishable name must be scoped (e.g. `@shoutsid/webcap`).
+
+Tools: `webcap_preview`, `webcap_og`,
 `webcap_service`, `webcap_health`, `webcap_agent_funnel` (free) and
 `webcap_capture`, `webcap_extract`, `webcap_audit`, `webcap_map_lite`,
 `webcap_video`, `webcap_analyze` (paid).
@@ -231,5 +237,4 @@ MIT — see [LICENSE](LICENSE) for details.
 
 - **Live API**: https://webcap.shoutsid.fyi
 - **GitHub**: https://github.com/shoutsid-lab/webcap
-- **npm**: https://www.npmjs.com/package/webcap
 - **OpenAPI docs**: https://webcap.shoutsid.fyi/openapi.json

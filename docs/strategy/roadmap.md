@@ -37,8 +37,13 @@ Goal: one funded agent, calling unattended, more than once.
 - [~] **Publish to where agents load tools.** An installable stdio MCP server
       now ships (`src/mcp/`, `npm run mcp` / the `webcap-mcp` bin), exposing all
       six paid endpoints plus five free ones as tools, auto-paying via x402 when
-      a wallet key is configured. Remaining: publish to npm and register with
-      the MCP registry / agent-tool directories (needs npm auth).
+      a wallet key is configured. Packaging is now verified end-to-end: the
+      tarball is 333 kB / 250 files (was 20 MB / 582 — a `files` whitelist),
+      `npm run build` copies `dist/db/schema.sql` so `node dist/main.js` boots
+      (previously the Dockerfile patched that by hand), and an installed tarball
+      passes a real MCP handshake. Remaining: publish under a **scoped** name
+      (unscoped `webcap` is taken on npm by an unrelated package) and register
+      with the MCP registry / agent-tool directories — needs npm auth.
       *Acceptance: a third-party agent runtime can wire webcap without reading
       our docs.*
 - [ ] **Shorten trial → first pay.** A claimed trial currently returns a

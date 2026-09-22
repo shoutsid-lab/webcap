@@ -7,9 +7,9 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json tsconfig.check.json ./
 COPY src ./src
-# tsc only emits JS; the DB reads schema.sql (a non-TS asset) next to dist/db/index.js,
-# so copy it into dist/ or the container fails to boot (ENOENT dist/db/schema.sql).
-RUN npm run build && cp src/db/schema.sql dist/db/schema.sql && npm prune --omit=dev
+# `npm run build` also copies non-TS runtime assets (e.g. dist/db/schema.sql,
+# which the DB reads next to dist/db/index.js) — see scripts/copy-assets.mjs.
+RUN npm run build && npm prune --omit=dev
 
 # Runtime: Debian-based node:24 (not Alpine) — the capture pipeline launches
 # the `chrome` channel (Google Chrome), which has no musl/Alpine build.
