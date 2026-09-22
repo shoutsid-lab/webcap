@@ -7,6 +7,7 @@ import { CaptureError, VideoBusyError } from '../capture/errors.js';
 import { captureVideo } from '../capture/video.js';
 import { parseVideoRequest } from './video-parse.js';
 import { x402Payer } from './x402.js';
+import { registerPaidRoute } from './query-body.js';
 
 export interface VideoRouteDeps {
   readonly db: Db;
@@ -23,7 +24,7 @@ export interface VideoRouteDeps {
 export function registerVideoRoute(app: FastifyInstance, deps: VideoRouteDeps): void {
   const { config } = deps;
   const allowHosts = deps.captureAllowHosts;
-  app.post('/v1/x402/video', async (req) => {
+  registerPaidRoute(app, '/v1/x402/video', async (req) => {
     if (config.x402Network === undefined) {
       throw new HttpError(503, 'x402_disabled', 'x402 payment requires WEBCAP_CHAIN=base-sepolia or base');
     }

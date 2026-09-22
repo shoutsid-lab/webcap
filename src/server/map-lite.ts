@@ -9,6 +9,7 @@ import { validateCaptureUrl } from '../util/url.js';
 import { isRecord, validatedUrl } from './capture-parse.js';
 import { checkTrialClaim, howToPayFor, remainingTrials, reserveTrialClaim, trialPaidNextFor, type TrialGate } from './trial-auth.js';
 import { x402Payer } from './x402.js';
+import { registerPaidRoute } from './query-body.js';
 
 /** Trial map-lite caps the crawl at 10 URLs (paid goes to 50). */
 export const TRIAL_MAP_LITE_MAX_URLS = 10;
@@ -228,7 +229,7 @@ export function registerMapLiteRoute(app: FastifyInstance, deps: MapLiteRouteDep
       howToPay: howToPayFor(config),
     };
   });
-  app.post('/v1/x402/map-lite', async (req) => {
+  registerPaidRoute(app, '/v1/x402/map-lite', async (req) => {
     if (config.x402Network === undefined) {
       throw new HttpError(503, 'x402_disabled', 'x402 payment requires WEBCAP_CHAIN=base-sepolia or base');
     }

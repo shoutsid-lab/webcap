@@ -181,6 +181,8 @@ POST /v1/x402/watches/topup
 3. Retry the identical request with the header PAYMENT-SIGNATURE: <base64 payment payload>.
 4. The facilitator verifies and settles on-chain; the 200 response carries the result plus a PAYMENT-RESPONSE settlement header (transaction hash, payer, amount).
 
+Every paid path answers the challenge for GET as well as POST, and both are payable: POST takes the JSON body documented below, GET takes the same parameters in the query string (\`GET /v1/x402/map-lite?url=…&maxUrls=5\`, \`GET /v1/x402/extract?url=…&options={"maxContentWords":800}\`) — numeric and boolean parameters arrive typed, and arrays/objects are JSON-encoded, so the query stands in for the body. The challenge is advertised per method, so sign the challenge you were actually given and retry that same method: a payload signed for a POST is rejected on a GET (the bazaar extension echoes the request method).
+
 Any x402 v2 client does steps 1–3 for you (e.g. @x402/axios with wrapAxiosWithPayment) — a ready-to-paste example lives in ${config.publicBaseUrl}/skill.md.
 ${mppBlockLlms(config, mppEnabled)}
 ## Spend caps
@@ -309,6 +311,13 @@ const { title, headings, paragraphs, links, images } = page.data.results[0].data
 1. POST the endpoint with the JSON body → HTTP 402 challenge (JSON body; base64 in the PAYMENT-REQUIRED header).
 2. Sign TransferWithAuthorization (EIP-712): from = your EOA, to = the challenge payTo, value = accepts[0].amount, nonce + validAfter/validBefore per EIP-3009; domain = the USDC contract (name + version from accepts[0].extra, chainId = the numeric suffix of accepts[0].network — eip155:8453 → 8453, verifyingContract = accepts[0].asset).
 3. Retry the identical request with header PAYMENT-SIGNATURE: <base64 payment payload> (authorization + signature).
+
+Every paid path answers that challenge for GET as well as POST and both are payable: POST
+takes the JSON body, GET takes the same parameters in the query string
+(\`GET ${config.publicBaseUrl}/v1/x402/map-lite?url=https://example.com&maxUrls=5\`), with numbers
+and booleans typed on the wire and arrays/objects JSON-encoded. The challenge is advertised per
+method — sign the challenge you were actually given and retry that same method, since a payload
+signed for a POST is rejected on a GET.
 
 ${mppBlockSkill(config, mppEnabled)}
 ## Free preview (no wallet, no payment)

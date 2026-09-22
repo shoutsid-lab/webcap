@@ -2,8 +2,11 @@
  * OpenAPI path definitions for ML analysis routes.
  */
 import { USDC_SCALE, type WebcapConfig } from '../../config.js';
-import { jsonContent, jsonError, type PathContext } from './shared.js';
+import { jsonContent, jsonError, withPaidGetForms, type PathContext } from './shared.js';
 import type { OpenapiPaths } from './types.js';
+
+/** Paid paths that answer the x402 challenge for GET as well as POST. */
+const PAID_GET_PATHS = ['/v1/x402/analyze', '/v1/x402/analyze/batch'] as const;
 
 /** 6-decimal USDC amount as the fixed-point string (10000 -> '0.010000'). */
 const usdAmount = (units: number): string => (units / USDC_SCALE).toFixed(6);
@@ -14,7 +17,7 @@ const usdAmount = (units: number): string => (units / USDC_SCALE).toFixed(6);
  */
 export function mlPaths(config: WebcapConfig, ctx: PathContext): OpenapiPaths {
   const priceUnits = config.x402ExtractPriceUsdcUnits;
-  return {
+  const paths: OpenapiPaths = {
     '/v1/x402/analyze': {
       post: {
         tags: ['ml'],
@@ -146,4 +149,5 @@ export function mlPaths(config: WebcapConfig, ctx: PathContext): OpenapiPaths {
       },
     },
   };
+  return withPaidGetForms(paths, PAID_GET_PATHS);
 }

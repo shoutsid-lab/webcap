@@ -22,15 +22,25 @@ import {
   watchTopUpBody,
   watchTopUpResponse,
 } from './schemas.js';
-import { jsonContent, jsonError, x402Challenge, type PathContext } from './shared.js';
+import { jsonContent, jsonError, withPaidGetForms, x402Challenge, type PathContext } from './shared.js';
 import type { OpenapiPaths } from './types.js';
+
+/** Paid paths that answer the x402 challenge for GET as well as POST. */
+const PAID_GET_PATHS = [
+  '/v1/x402/capture',
+  '/v1/x402/extract',
+  '/v1/x402/audit',
+  '/v1/x402/map-lite',
+  '/v1/x402/video',
+  '/v1/x402/watches/topup',
+] as const;
 
 /** 6-decimal USDC amount as the fixed-point string mppscan's x-payment-info expects (1000 -> '0.001000'). */
 const usdAmount = (units: number): string => (units / USDC_SCALE).toFixed(6);
 
 /** The x402 paid-route path docs (the first five paths of the table). */
 export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths {
-  return {
+  const paths: OpenapiPaths = {
     '/v1/x402/capture': {
       post: {
         tags: ['capture'],
@@ -269,4 +279,5 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
       },
     },
   };
+  return withPaidGetForms(paths, PAID_GET_PATHS);
 }

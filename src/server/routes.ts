@@ -34,6 +34,7 @@ import { getCachedPreview, cachePreview } from '../db/preview-cache.js';
 import { parseExtractSchema, parseExtractUrls, assertSupportedSchema, assertTypedExtractValid, filterExtractedBySchema, parseExtractSpans, parseTypedSchema, type ExtractedContent, type ExtractResult } from './extract-parse.js';
 import { isRecord, parseFormat, parseOptions, validatedUrl } from './capture-parse.js';
 import { x402Payer } from './x402.js';
+import { registerPaidRoute } from './query-body.js';
 import { computeAudit } from '../audit/checks.js';
 import type { AppDeps } from './server.js';
 import type { OgResult } from '../capture/og.js';
@@ -81,7 +82,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       }));
   });
 
-  app.post('/v1/x402/capture', async (req) => {
+  registerPaidRoute(app, '/v1/x402/capture', async (req) => {
     if (config.x402Network === undefined) {
       throw new HttpError(503, 'x402_disabled', 'x402 payment requires WEBCAP_CHAIN=base-sepolia or base');
     }
@@ -279,7 +280,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     };
   });
 
-  app.post('/v1/x402/extract', async (req) => {
+  registerPaidRoute(app, '/v1/x402/extract', async (req) => {
     if (config.x402Network === undefined) {
       throw new HttpError(503, 'x402_disabled', 'x402 payment requires WEBCAP_CHAIN=base-sepolia or base');
     }
@@ -404,7 +405,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     };
   });
 
-  app.post('/v1/x402/audit', async (req) => {
+  registerPaidRoute(app, '/v1/x402/audit', async (req) => {
     if (config.x402Network === undefined) {
       throw new HttpError(503, 'x402_disabled', 'x402 payment requires WEBCAP_CHAIN=base-sepolia or base');
     }

@@ -5,7 +5,7 @@
  * x402 routes. Split out of openapi.ts as a pure move (no behavior change).
  */
 import { USDC_SCALE, type WebcapConfig } from '../../config.js';
-import type { Json, OpenapiResponse } from './types.js';
+import type { Json, OpenapiOperation, OpenapiParameter, OpenapiPaths, OpenapiResponse } from './types.js';
 
 export const jsonContent = (schema: Json) => ({ 'application/json': { schema } });
 
@@ -126,6 +126,67 @@ function x402Challenge(config: WebcapConfig, spec: X402ChallengeSpec): OpenapiRe
       },
     },
     content: jsonContent(paymentRequiredSchema(config, spec.priceUsdcUnits, spec.resourcePath)),
+  };
+}
+
+/**
+ * Every paid path is served for GET as well as POST: the x402 challenge is
+ * advertised per method, and a paying client retries the method it was
+ * challenged on, so a GET must be payable into a working response
+ * (src/server/query-body.ts turns the query string into the POST body). The
+ * catalog has to describe what the server serves, so each paid POST gets a GET
+ * sibling here — derived from the POST operation, so price, status codes and
+ * payment terms can never disagree between the two forms.
+ */
+export function withPaidGetForms(
+  paths: OpenapiPaths,
+  pathNames: readonly string[],
+): OpenapiPaths {
+  const out: Record<string, Record<string, OpenapiOperation>> = {};
+  for (const [path, methods] of Object.entries(paths)) {
+    out[path] = { ...methods };
+  }
+  for (const name of pathNames) {
+    const entry = out[name];
+    const post = entry?.['post'];
+    if (entry === undefined || post === undefined) {
+      throw new Error(`withPaidGetForms: no POST operation documented for ${name}`);
+    }
+    entry['get'] = paidGetForm(post);
+  }
+  return out;
+}
+
+/** The GET sibling of a paid POST: same responses and terms, body -> query. */
+function paidGetForm(post: OpenapiOperation): OpenapiOperation {
+  const bodySchema = post.requestBody?.content['application/json']?.schema;
+  const properties =
+    typeof bodySchema === 'object' && bodySchema !== null && 'properties' in bodySchema
+      ? (bodySchema as { properties?: Record<string, Json> }).properties
+      : undefined;
+  const required =
+    typeof bodySchema === 'object' && bodySchema !== null && 'required' in bodySchema
+      ? (bodySchema as { required?: readonly string[] }).required
+      : undefined;
+  const parameters: OpenapiParameter[] = Object.entries(properties ?? {}).map(([name, schema]) => ({
+    name,
+    in: 'query' as const,
+    ...(required?.includes(name) === true ? { required: true } : {}),
+    description: `Same value as the POST body field \`${name}\`; encode arrays and objects as JSON.`,
+    schema,
+  }));
+  return {
+    ...(post.tags !== undefined ? { tags: post.tags } : {}),
+    summary: `(GET form) ${post.summary ?? ''}`.trim(),
+    description:
+      'GET form of this paid route: identical work, price and responses, with the POST body fields passed as ' +
+      'query parameters instead. Numbers and booleans are typed on the wire (?maxUrls=5, ?fullPage=true) and arrays ' +
+      'or objects are JSON-encoded (?urls=["https://…"], ?options={"maxContentWords":800}). The 402 challenge is ' +
+      'advertised per method, so sign the challenge you received for this method and retry with it.',
+    ...(parameters.length > 0 ? { parameters } : {}),
+    responses: post.responses,
+    ...(post['x-payment-info'] !== undefined ? { 'x-payment-info': post['x-payment-info'] } : {}),
+    ...(post.security !== undefined ? { security: post.security } : {}),
   };
 }
 

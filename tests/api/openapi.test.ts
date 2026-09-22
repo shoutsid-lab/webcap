@@ -6,6 +6,12 @@ import { closeApiFixture, makeApiFixture } from './fixture.js';
 interface OpenapiOperationView {
   readonly responses: Record<string, unknown>;
   readonly security?: readonly unknown[];
+  readonly summary?: string;
+  readonly parameters?: readonly {
+    readonly name: string;
+    readonly in: string;
+    readonly required?: boolean;
+  }[];
   readonly requestBody?: {
     readonly required?: boolean;
     readonly content: Record<string, { readonly schema: unknown }>;
@@ -157,6 +163,45 @@ describe('GET /openapi.json (machine-readable catalog)', () => {
           expect(success, `${method.toUpperCase()} ${path} must document a 2xx success response`).toBe(true);
         }
       }
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('documents the GET form of every paid route, with the same payment terms', async () => {
+    // Every paid path is served for GET as well as POST (the challenge is
+    // advertised per method, and a client retries the method it was given), so
+    // the catalog must describe both — with one price, not two.
+    const fx = makeApiFixture();
+    try {
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      const paidPaths = [
+        '/v1/x402/capture',
+        '/v1/x402/extract',
+        '/v1/x402/audit',
+        '/v1/x402/map-lite',
+        '/v1/x402/video',
+        '/v1/x402/analyze',
+        '/v1/x402/analyze/batch',
+        '/v1/x402/watches/topup',
+      ] as const;
+      for (const path of paidPaths) {
+        const methods = doc.paths[path];
+        const post = methods?.['post'];
+        const get = methods?.['get'];
+        expect(post?.['x-payment-info'], `${path} must stay priced`).toBeDefined();
+        expect(get, `${path} must document its GET form`).toBeDefined();
+        expect(get?.['x-payment-info'], `${path} GET must carry the same price info`).toEqual(post?.['x-payment-info']);
+        expect(get?.responses['402'], `${path} GET must document the 402 challenge`).toBeDefined();
+        expect(get?.summary).toContain('GET form');
+        expect(get?.requestBody, `${path} GET must not declare a request body`).toBeUndefined();
+        expect(get?.parameters?.length ?? 0, `${path} GET must list the query parameters`).toBeGreaterThan(0);
+        expect(get?.parameters?.every((p) => p.in === 'query'), `${path} GET parameters must be query params`).toBe(true);
+      }
+      // The async submit is the one paid path that is POST-only: its GET is the
+      // free per-job poll at /v1/capture/jobs/{id}, so no GET form is offered.
+      expect(doc.paths['/v1/capture/jobs']?.['get'], 'POST /v1/capture/jobs must stay POST-only').toBeUndefined();
     } finally {
       await closeApiFixture(fx);
     }

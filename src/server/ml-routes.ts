@@ -14,6 +14,7 @@ import { RateLimiter } from '../util/ratelimit.js';
 import { isRecord, validatedUrl } from './capture-parse.js';
 import { checkTrialClaim, howToPayFor, remainingTrials, reserveTrialClaim, trialPaidNextFor, type TrialGate } from './trial-auth.js';
 import { x402Payer } from './x402.js';
+import { registerPaidRoute } from './query-body.js';
 import { OpenAICompatibleVisionAdapter, VisionError } from '../ml/vision/adapter.js';
 import { validateTask } from '../ml/vision/contracts.js';
 import { deterministicAnalyze } from '../ml/deterministic.js';
@@ -124,7 +125,7 @@ export function registerMLRoutes(app: FastifyInstance, deps: AppDeps): void {
    * Optional:
    *   { "url": "...", "task": "accessibility", "context": "focus on forms" }
    */
-  app.post('/v1/x402/analyze', async (req) => {
+  registerPaidRoute(app, '/v1/x402/analyze', async (req) => {
     if (config.x402Network === undefined) {
       throw new HttpError(503, 'x402_disabled', 'x402 payment requires WEBCAP_CHAIN=base-sepolia or base');
     }
@@ -201,7 +202,7 @@ export function registerMLRoutes(app: FastifyInstance, deps: AppDeps): void {
    * Request body:
    *   { "urls": ["https://...", "..."], "task": "classification" }
    */
-  app.post('/v1/x402/analyze/batch', async (req) => {
+  registerPaidRoute(app, '/v1/x402/analyze/batch', async (req) => {
     if (config.x402Network === undefined) {
       throw new HttpError(503, 'x402_disabled', 'x402 payment requires WEBCAP_CHAIN=base-sepolia or base');
     }

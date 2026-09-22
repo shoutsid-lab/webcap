@@ -70,9 +70,38 @@ Goal: one funded agent, calling unattended, more than once.
       agent reads first — got the same treatment (article/main scope, tag-level
       chrome removal) plus `content` in its response.
       *Acceptance: met — an agent can see what it is paying for and cap it.*
-- [ ] **Make `402` impossible to misread.** Ensure every discovery surface
-      agrees on method (`POST`), price, and network; see the GET-method risk
-      flagged in the charter. Fix it only with spec compliance and tests.
+- [x] **Make `402` impossible to misread.** The flagged risk was real and
+      already had a victim: the x402 middleware challenges GET as well as POST
+      on every paid path (deliberately — indexers probe with GET), but only POST
+      was registered, so a client that answered the GET challenge retried GET
+      and got `405 method_not_allowed` *after* signing. `GET /v1/x402/*`
+      answered a payable 402 with nothing behind it. A real agent hit this four
+      times in one session and left (endpoint_hits: payer-tagged `GET
+      /v1/x402/watches/topup`, all 405). No money was taken — the middleware
+      cancels settlement on any response `>= 400` — but for an automated buyer
+      that is indistinguishable from a broken endpoint, and a wrapper cannot
+      reason its way to the right method.
+      Now every paid path serves both forms from one handler: POST keeps the
+      JSON body, GET takes the same parameters in the query string (numbers and
+      booleans typed, arrays/objects JSON-encoded), and `exposeHeadRoute: false`
+      keeps HEAD unserved because HEAD is not in the route table and would run
+      unpaid. The catalog describes both forms (derived from the POST op, so the
+      price cannot disagree), `skill.md` / `llms.txt` / `openapi.json` explain
+      the convention, and the claim audit probes the GET form too.
+      Two guards: a test that every GET-challenged path has a GET route and no
+      HEAD route (verified to fail when one is reverted to POST-only), and a
+      byte-check that the catalog documents every route the router serves.
+      *Acceptance: met — method, price and network now agree on every surface.*
+- [ ] **Sell the paid products on the prepaid rail, not just x402.** The
+      credits rail (API key + credit packs + invoices) already exists and is
+      funded by a normal USDC transfer, but it meters exactly one product:
+      `POST /v1/capture`. Everything else — extract, audit, map-lite, video,
+      analyze, batch — is x402-only, which means an agent runtime that holds a
+      bearer token but no signing key cannot buy them at all. Most automated
+      consumers can send a header; far fewer can sign EIP-712 per call. This is
+      the cheapest remaining conversion lever: wire the existing metered path
+      to the existing handlers (and decide the credit price per product, since
+      packs span $0.0012–$0.005 per credit against a $0.01 extract).
 
 ## Phase 2 — Recurring agent demand
 

@@ -19,6 +19,7 @@ import { parseChannel, parseConditionsField, type WatchChannel, type WatchCondit
 import { WATCH_EVERIES, type WatchEvery } from '../watch/intervals.js';
 import { isRecord } from './capture-parse.js';
 import { x402Payer } from './x402.js';
+import { registerPaidRoute } from './query-body.js';
 import type { AppDeps } from './server.js';
 
 const RUNS_PER_PAGE = 10;
@@ -104,7 +105,7 @@ export function registerWatchRoutes(app: FastifyInstance, deps: AppDeps): void {
     return reply.status(204).send();
   });
 
-  app.post('/v1/x402/watches/topup', async (req) => {
+  registerPaidRoute(app, '/v1/x402/watches/topup', async (req) => {
     if (config.x402Network === undefined) {
       throw new HttpError(503, 'x402_disabled', 'x402 payment requires WEBCAP_CHAIN=base-sepolia or base');
     }

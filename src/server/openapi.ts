@@ -59,7 +59,9 @@ export async function openapiDocument(config: WebcapConfig): Promise<OpenapiDocu
     `${usd(watchTopUpPriceUsdcUnits('capture', config))}-${usd(watchTopUpPriceUsdcUnits('extract', config))} USDC ` +
     `per ${WATCH_TOPUP_RUNS}-run watch pack). Payment (x402 v2 "exact"): on HTTP 402 read the base64 ` +
     'PAYMENT-REQUIRED header, sign the gasless EIP-3009 USDC transferWithAuthorization, and retry with ' +
-    'the PAYMENT-SIGNATURE header. No API keys or accounts. Free entry point: GET /v1/extract/preview ' +
+    'the PAYMENT-SIGNATURE header. Every paid path also answers and accepts the challenge for GET, with ' +
+    'the same parameters in the query string (sign the challenge for the method you then retry). ' +
+    'No API keys or accounts. Free entry point: GET /v1/extract/preview ' +
     'samples the extract output without paying; full catalog at GET /openapi.json, agent skill at GET /skill.md.';
   return {
     openapi: '3.1.0',
