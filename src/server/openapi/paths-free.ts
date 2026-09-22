@@ -65,6 +65,58 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
         security: [],
       },
     },
+    '/v1/x402/trial': {
+      post: {
+        tags: ['capture'],
+        summary: 'Free trial capture: one full PNG per wallet (EIP-191 proof, no payment)',
+        description:
+          'One free full-page PNG capture per wallet, proven by EIP-191 personal_sign of exactly ' +
+          '"Claim one free webcap trial capture for <payer>" (<payer> = the lowercase 0x address). ' +
+          'A wallet that already claimed gets 409 already_claimed. Rate-limited per client; ' +
+          'the 200 and 409 responses carry a paidNext pointer at the paid capture endpoint. ' +
+          'Never touches the revenue ledger. Free, no payment.',
+        responses: {
+          200: {
+            description: 'Trial artifact + trial receipt + paidNext pointer',
+            content: jsonContent({
+              type: 'object',
+              properties: {
+                artifact: {
+                  type: 'object',
+                  properties: {
+                    format: { type: 'string', example: 'png' },
+                    bytes: { type: 'integer' },
+                    data: { type: 'string', description: 'Base64 PNG bytes' },
+                    url: { type: 'string', description: 'Persistent public artifact URL' },
+                  },
+                },
+                trial: {
+                  type: 'object',
+                  properties: {
+                    payer: { type: 'string' },
+                    priceUsdcUnits: { type: 'integer', example: 0 },
+                  },
+                },
+                paidNext: {
+                  type: 'object',
+                  properties: {
+                    endpoint: { type: 'string', example: 'POST /v1/x402/capture' },
+                    priceUsdcUnits: { type: 'integer' },
+                    guide: { type: 'string' },
+                  },
+                },
+              },
+            }),
+          },
+          401: jsonError('401', 'Trial signature invalid (malformed EIP-191 signature, or does not recover to payer)'),
+          409: jsonError('409', 'Wallet already claimed its trial (code already_claimed; detail.paidNext points at the paid capture endpoint)'),
+          422: ctx.unprocessable('Missing/invalid url, payer (must be a 0x EVM address), or signature'),
+          429: jsonError('429', 'Trial rate limit exceeded (error envelope, code rate_limited; detail.paidNext points at the paid capture endpoint)'),
+          502: ctx.captureFailed,
+        },
+        security: [],
+      },
+    },
     '/og-debugger': {
       get: {
         tags: ['discovery'],

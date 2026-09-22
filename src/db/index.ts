@@ -25,6 +25,7 @@ export function openDb(path: string): Db {
   migratePaymentWebhooks(db);
   migrateTrackingEvents(db);
   migratePreviewCache(db);
+  migrateTrialClaims(db);
   return db;
 }
 
@@ -224,4 +225,16 @@ function migrateTrackingEvents(db: Db): void {
     );
     db.exec('CREATE INDEX IF NOT EXISTS idx_tracking_events_event_created ON tracking_events(event, created_at)');
   }
+}
+
+/**
+ * Trial claims: one free capture per wallet. Fresh databases carry the table
+ * via schema.sql; pre-existing databases gain it here (idempotent).
+ */
+function migrateTrialClaims(db: Db): void {
+  db.exec(
+    'CREATE TABLE IF NOT EXISTS trial_claims (' +
+      'payer TEXT PRIMARY KEY, ' +
+      'created_at TEXT NOT NULL)',
+  );
 }

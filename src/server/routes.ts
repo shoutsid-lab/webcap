@@ -7,6 +7,7 @@
  */
 import { createHash } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
+import { verifyMessage } from 'ethers';
 import {
   DEFAULT_MODEL_TIMEOUT_MS,
   DEFAULT_PREVIEW_HEADINGS_LIMIT,
@@ -16,8 +17,10 @@ import {
   USDC_SCALE,
   WATCH_TOPUP_RUNS,
   watchTopUpPriceUsdcUnits,
+  type WebcapConfig,
 } from '../config.js';
 import { makeRevenueRepo } from '../db/revenue.js';
+import { makeTrialsRepo, trialMessage } from '../db/trials.js';
 import { recordHit } from '../db/hits.js';
 import { CaptureError } from '../capture/errors.js';
 import { previewFallback } from '../capture/preview-fallback.js';
@@ -39,6 +42,17 @@ import { ogDebuggerHtml } from './pages/og-debugger.js';
 // Fixed 60s window for the preview per-peer budget; the preview limit itself
 // is configurable (WEBCAP_PREVIEW_RATE_LIMIT, default DEFAULT_PREVIEW_RATE_LIMIT).
 const RATE_LIMIT_WINDOW_MS = 60_000;
+// Trial claims per peer IP per minute: the DB one-claim-per-wallet bound is
+// the real sybil defense; this only protects the browser pool from bursts.
+const TRIAL_RATE_LIMIT_PER_MINUTE = 5;
+
+function trialPaidNext(config: WebcapConfig): { endpoint: string; priceUsdcUnits: number; guide: string } {
+  return {
+    endpoint: 'POST /v1/x402/capture',
+    priceUsdcUnits: config.x402PriceUsdcUnits,
+    guide: `${config.publicBaseUrl}/skill.md`,
+  };
+}
 
 export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
   const { db, config } = deps;
@@ -49,6 +63,10 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
   // fixed-window per-peer budget family as the preview route (separate
   // instance so the two free surfaces don't share one budget).
   const ogDebuggerLimiter = new RateLimiter(config.previewRateLimit ?? DEFAULT_PREVIEW_RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
+  // Trial captures burn real browser compute, so the free-trial budget is a
+  // fixed small window of its own (one claim per wallet is enforced in the DB).
+  const trialLimiter = new RateLimiter(TRIAL_RATE_LIMIT_PER_MINUTE, RATE_LIMIT_WINDOW_MS);
+  const trials = makeTrialsRepo(db);
 
   // --- SEO: AI plugin manifest for ChatGPT/Claude/other AI assistants ---
   app.get('/.well-known/ai-plugin.json', async (_req, reply) => {
@@ -113,6 +131,61 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         priceUsdcUnits: config.x402PriceUsdcUnits,
         costUsdcUnits: config.computeCostUsdcUnitsPerRequest,
       },
+    };
+  });
+
+  // Free trial capture: one PNG per wallet, proven by EIP-191 personal_sign.
+  // Lets a funded (or soon-funded) agent experience the product before paying;
+  // the claim is reserved before capture runs and released if capture fails,
+  // so a transient browser error never burns the wallet's one trial.
+  app.post('/v1/x402/trial', async (req, reply) => {
+    const body = isRecord(req.body) ? req.body : undefined;
+    const rawUrl = body?.url;
+    if (typeof rawUrl !== 'string') throw unprocessable('url is required');
+    const rawPayer = body?.payer;
+    if (typeof rawPayer !== 'string') throw unprocessable('payer is required');
+    const signature = body?.signature;
+    if (typeof signature !== 'string') throw unprocessable('signature is required');
+    if (!/^0x[0-9a-fA-F]{40}$/.test(rawPayer)) throw unprocessable('payer must be a 0x EVM address');
+    const payer = rawPayer.toLowerCase();
+    if (!trialLimiter.allow(req.ip)) {
+      rejectRateLimited(reply, trialLimiter, req.ip, 'trial rate limit exceeded; use the paid capture endpoint', {
+        paidNext: trialPaidNext(config),
+      });
+    }
+    if (trials.claimed(payer)) {
+      throw new HttpError(409, 'already_claimed', 'this wallet already claimed its free trial capture', {
+        paidNext: trialPaidNext(config),
+      });
+    }
+    let recovered: string;
+    try {
+      recovered = verifyMessage(trialMessage(payer), signature);
+    } catch {
+      throw new HttpError(401, 'unauthorized', 'trial signature is not a valid EIP-191 signature');
+    }
+    if (recovered.toLowerCase() !== payer) {
+      throw new HttpError(401, 'unauthorized', 'trial signature does not recover to payer');
+    }
+    const normalized = validatedUrl(rawUrl, allowHosts);
+    if (!trials.tryClaim(payer)) {
+      throw new HttpError(409, 'already_claimed', 'this wallet already claimed its free trial capture', {
+        paidNext: trialPaidNext(config),
+      });
+    }
+    let result;
+    try {
+      result = await deps.capture({ url: normalized });
+    } catch (err) {
+      trials.release(payer);
+      if (err instanceof CaptureError) throw new HttpError(502, 'capture_failed', err.message);
+      throw err;
+    }
+    const url = storeArtifact(deps.artifacts, config, normalized, result);
+    return {
+      artifact: { format: result.format, bytes: result.bytes, data: result.buffer.toString('base64'), url },
+      trial: { payer, priceUsdcUnits: 0 },
+      paidNext: trialPaidNext(config),
     };
   });
 

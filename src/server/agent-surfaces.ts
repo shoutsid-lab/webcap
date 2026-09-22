@@ -114,6 +114,7 @@ POST /v1/x402/watches/topup
 ## Free endpoints (no payment)
 
 - GET /v1/extract/preview?url=… — bounded structured preview (title, headings, links, truncated markdown); rate-limited per IP
+- POST /v1/x402/trial {"url", "payer", "signature"} — one FREE full PNG capture per wallet; signature = EIP-191 personal_sign of exactly "Claim one free webcap trial capture for <payer>" with <payer> your lowercase 0x address; second claim 409
 - GET /v1/og?url=… — Open Graph metadata (title, description, image, icon)
 - POST /v1/watches — create a scheduled re-capture watch (free; starts with 0 credits — top up via /v1/x402/watches/topup)
 - GET /v1/watches/:id — watch state + recent runs · DELETE /v1/watches/:id — remove it
@@ -207,6 +208,7 @@ Base URL: ${config.publicBaseUrl}
 | Analyze batch (up to 10 URLs, one payment) | POST /v1/x402/analyze/batch {"urls": string[], "task"} | ${usdc(config.x402ExtractPriceUsdcUnits)} |
 | Watch top-up (100 runs) | POST /v1/x402/watches/topup {"watchId", "runs": 100} | ${usdc(watchTopUpPriceUsdcUnits('capture', config))} (capture watch) / ${usdc(watchTopUpPriceUsdcUnits('extract', config))} (extract watch) |
 | Structured preview (truncated) | GET /v1/extract/preview?url=… | free, rate-limited per IP |
+| Trial capture (full PNG, one per wallet) | POST /v1/x402/trial {"url", "payer", "signature"} where signature = personal_sign of "Claim one free webcap trial capture for <payer>" (lowercase address) | free, one claim per wallet |
 | OG metadata | GET /v1/og?url=… | free |
 
 Machine-readable catalog: ${config.publicBaseUrl}/v1/x402/service · Full spec: ${config.publicBaseUrl}/openapi.json
@@ -247,6 +249,18 @@ structured preview (title, headings, links, a markdown slice) and is
 rate-limited per IP — use it to peek at a page before paying; the paid
 extract returns the full text plus images, batches, and optional model
 extraction.
+
+## Free trial capture (one per wallet, no payment)
+
+POST ${config.publicBaseUrl}/v1/x402/trial {"url", "payer", "signature"} serves
+one full PNG capture free. signature is the EIP-191 personal_sign of exactly
+
+Claim one free webcap trial capture for <payer>
+
+with <payer> your lowercase 0x address (ethers: wallet.signMessage(message)).
+A wallet that already claimed gets 409 already_claimed with a paidNext
+pointer at POST /v1/x402/capture; the 200 response carries the artifact plus
+the same paidNext pointer for the second capture.
 
 ## Failure modes
 

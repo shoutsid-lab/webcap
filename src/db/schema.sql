@@ -139,6 +139,11 @@ CREATE TABLE IF NOT EXISTS endpoint_hits (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS trial_claims (
+  payer TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_endpoint_hits_endpoint_created ON endpoint_hits(endpoint, created_at);
 
 CREATE TABLE IF NOT EXISTS payment_webhooks (
