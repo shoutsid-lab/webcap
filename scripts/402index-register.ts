@@ -108,6 +108,17 @@ const routes: RouteSpec[] = [
     paymentNetwork: 'Base',
   },
   {
+    route: 'analyze',
+    path: '/v1/x402/analyze',
+    name: 'webcap — analyze (AI visual analysis)',
+    description:
+      'AI-powered visual analysis of any URL: classification, accessibility, layout, entities, sentiment. Gasless x402 USDC payment on Base.',
+    probeBody: '{"url":"https://example.com","task":"classification"}',
+    priceUsd: 0.01,
+    category: 'web-scraping',
+    paymentNetwork: 'Base',
+  },
+  {
     route: 'topup',
     path: '/v1/x402/watches/topup',
     name: 'webcap — watch top-up (prepaid runs)',
