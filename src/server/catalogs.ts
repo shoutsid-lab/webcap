@@ -24,6 +24,7 @@ const SITEMAP_PATHS = [
   '/v1/extract/preview',
   '/og-debugger',
   '/compare',
+  '/transparency',
 ] as const;
 
 /** XML-escape a value before embedding it in the sitemap (fixed list, stay correct). */

@@ -7,11 +7,11 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { readFileSync } from 'node:fs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { CREDITS_PER_USDC, PRICE_PER_CREDIT, type WebcapConfig } from '../config.js';
+import { CREDITS_PER_USDC, PRICE_PER_CREDIT, USDC_SCALE, type WebcapConfig } from '../config.js';
 import { HttpError, unprocessable } from '../util/errors.js';
 import { isRecord } from './capture-parse.js';
 import type { AppDeps } from './server.js';
-import { landingHtml, compareHtml, quickstartHtml, buyHtml, artifactPageHtml } from './pages.js';
+import { landingHtml, compareHtml, quickstartHtml, buyHtml, artifactPageHtml, transparencyHtml, type TransparencyStats } from './pages.js';
 import { openapiDocument } from './openapi.js';
 import { agentCard, frontDoorPayload, sitemapXml, x402WellKnown } from './catalogs.js';
 
@@ -101,6 +101,37 @@ export function registerDiscoveryRoutes(app: FastifyInstance, deps: AppDeps): vo
     return reply.send(await agentCard(config));
   });
 
+  // Alias probes seen from agent crawlers: same payloads under the alternate
+  // well-known names (byte-identical to the canonical paths above).
+  app.get('/.well-known/agent.json', async (_req, reply) => {
+    reply.header('content-type', 'application/json; charset=utf-8');
+    reply.header('cache-control', 'public, max-age=300');
+    return reply.send(await agentCard(config));
+  });
+
+  app.get('/.well-known/x402.json', async (_req, reply) => {
+    reply.header('content-type', 'application/json; charset=utf-8');
+    reply.header('cache-control', 'public, max-age=300');
+    return reply.send(await x402WellKnown(config));
+  });
+
+  // RFC 9116 contact point for security researchers (probed by trust crawlers).
+  app.get('/.well-known/security.txt', async (_req, reply) => {
+    const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+    reply.header('content-type', 'text/plain; charset=utf-8');
+    reply.header('cache-control', 'public, max-age=86400');
+    return reply.send(
+      `Contact: https://github.com/shoutsid-lab/webcap/security/advisories/new\nExpires: ${expires}\nPreferred-Languages: en\n`,
+    );
+  });
+
+  // Public trust page: live revenue stats + prices + merchant wallet.
+  app.get('/transparency', async (_req, reply) => {
+    reply.header('content-type', 'text/html; charset=utf-8');
+    reply.header('cache-control', 'public, max-age=300');
+    return reply.send(transparencyHtml(config, transparencyStats(deps)));
+  });
+
   app.get('/v1/artifacts/:id', async (req, reply) => {
     const rawId = isRecord(req.params) ? req.params.id : undefined;
     if (typeof rawId !== 'string') throw unprocessable('id is required');
@@ -148,6 +179,52 @@ export function registerDiscoveryRoutes(app: FastifyInstance, deps: AppDeps): vo
     reply.header('content-type', 'text/html; charset=utf-8');
     return reply.send(artifactPageHtml(config, artifact));
   });
+}
+
+// Live numbers for GET /transparency. Aggregate queries are best-effort:
+// unknown tables (older DBs) degrade to zeros rather than failing the page.
+function transparencyStats(deps: AppDeps): TransparencyStats {
+  const { config } = deps;
+  let paidCalls = 0;
+  let revenueUnits = 0;
+  let challengesServed = 0;
+  try {
+    const row = deps.db.prepare('SELECT COUNT(*) c, COALESCE(SUM(revenue_usdc),0) s FROM revenue_ledger').get() as {
+      c: number;
+      s: number;
+    };
+    paidCalls = row.c;
+    revenueUnits = row.s;
+  } catch {
+    paidCalls = 0;
+    revenueUnits = 0;
+  }
+  try {
+    const row = deps.db.prepare('SELECT COUNT(*) c FROM endpoint_hits WHERE status = 402').get() as { c: number };
+    challengesServed = row.c;
+  } catch {
+    challengesServed = 0;
+  }
+  const usdc = (units: number): string => {
+    const whole = Math.trunc(units / USDC_SCALE);
+    const frac = String(units % USDC_SCALE).padStart(6, '0').replace(/0+$/, '');
+    return frac === '' ? String(whole) : `${whole}.${frac}`;
+  };
+  return {
+    paidCalls,
+    revenueUsdc: usdc(revenueUnits),
+    challengesServed,
+    chainName: config.chain.name,
+    merchant: config.x402PayTo,
+    prices: [
+      { label: 'capture (screenshot + OG metadata)', path: 'POST /v1/x402/capture', usdc: usdc(config.x402PriceUsdcUnits) },
+      { label: 'extract (structured content)', path: 'POST /v1/x402/extract', usdc: usdc(config.x402ExtractPriceUsdcUnits) },
+      { label: 'audit (SEO + link/OG health)', path: 'POST /v1/x402/audit', usdc: usdc(config.x402AuditPriceUsdcUnits) },
+      { label: 'map-lite (single-URL site map)', path: 'POST /v1/x402/map-lite', usdc: usdc(config.x402AuditPriceUsdcUnits) },
+      { label: 'video (scroll-capture)', path: 'POST /v1/x402/video', usdc: usdc(config.x402VideoPriceUsdcUnits) },
+      { label: 'analyze (AI visual analysis)', path: 'POST /v1/x402/analyze', usdc: usdc(config.x402ExtractPriceUsdcUnits) },
+    ],
+  };
 }
 
 // Secret for signed artifact URLs: explicit WEBCAP_ARTIFACT_HMAC_SECRET first,

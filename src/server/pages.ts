@@ -28,6 +28,73 @@ export { quickstartHtml } from './pages/quickstart.js';
 export { buyHtml } from './pages/buy.js';
 
 // ---------------------------------------------------------------------------
+// GET /transparency — public trust page (live revenue + pricing + merchant)
+// ---------------------------------------------------------------------------
+
+export interface TransparencyPriceRow {
+  readonly label: string;
+  readonly path: string;
+  readonly usdc: string;
+}
+
+export interface TransparencyStats {
+  readonly paidCalls: number;
+  readonly revenueUsdc: string;
+  readonly challengesServed: number;
+  readonly chainName: string;
+  readonly merchant: string;
+  readonly prices: readonly TransparencyPriceRow[];
+}
+
+export function transparencyHtml(config: WebcapConfig, stats: TransparencyStats): string {
+  const bazaarCatalogUrl = config.bazaarCatalogUrl ?? DEFAULT_BAZAAR_CATALOG_URL;
+  const title = 'Transparency — webcap';
+  const description =
+    'Live webcap service stats: paid x402 calls settled, USDC revenue, payment challenges served, per-endpoint prices, and the merchant wallet.';
+  const priceRows = stats.prices
+    .map((p) => `    <div><dt>${esc(p.label)} <code>${esc(p.path)}</code></dt><dd>$${esc(p.usdc)} USDC</dd></div>`)
+    .join('\n');
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)}</title>
+<meta name="description" content="${esc(description)}">
+<link rel="icon" href="/icon.png">
+<style>${BASE_CSS}${ARTIFACT_CSS}</style>
+</head>
+<body>
+${topBar(bazaarCatalogUrl)}
+<main class="wrap artifact-main">
+  <p class="crumb"><a href="/">webcap</a> / transparency</p>
+  <div class="artifact-head">
+  <h1>Transparency</h1>
+  <p>Live numbers from this deployment — no accounts, no hidden fees. Every paid call settles on-chain in USDC.</p>
+  </div>
+  <h2>Service stats</h2>
+  <dl class="meta">
+    <div><dt>paid calls settled</dt><dd>${esc(String(stats.paidCalls))}</dd></div>
+    <div><dt>USDC revenue</dt><dd>$${esc(stats.revenueUsdc)}</dd></div>
+    <div><dt>payment challenges served (402s)</dt><dd>${esc(String(stats.challengesServed))}</dd></div>
+    <div><dt>chain</dt><dd>${esc(stats.chainName)}</dd></div>
+    <div><dt>merchant wallet</dt><dd><code>${esc(stats.merchant)}</code></dd></div>
+  </dl>
+  <h2>Prices</h2>
+  <dl class="meta">
+${priceRows}
+  </dl>
+  <p class="get"><a href="/openapi.json">OpenAPI spec</a>
+    &nbsp;·&nbsp; <a href="/.well-known/x402">x402 catalog</a>
+    &nbsp;·&nbsp; <a href="/">← back to webcap</a></p>
+</main>
+${footer(bazaarCatalogUrl)}
+</body>
+</html>`;
+}
+
+// ---------------------------------------------------------------------------
 // GET /v1/artifacts/:id/page — shareable artifact page
 // ---------------------------------------------------------------------------
 

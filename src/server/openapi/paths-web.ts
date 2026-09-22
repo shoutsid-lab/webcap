@@ -206,8 +206,67 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
         security: [],
       },
     },
-    '/.well-known/ai-plugin.json': {
+    '/.well-known/agent.json': {
       get: {
+        tags: ['discovery'],
+        summary: 'Agent card alias (byte-identical to agent-card.json)',
+        description:
+          'Same payload as /.well-known/agent-card.json, served under the alternate well-known name some agent crawlers probe. Free, no payment.',
+        responses: {
+          200: {
+            description: 'The agent card (application/json; charset=utf-8)',
+            content: jsonContent({ type: 'object' }),
+          },
+        },
+        security: [],
+      },
+    },
+    '/.well-known/x402.json': {
+      get: {
+        tags: ['discovery'],
+        summary: 'x402 catalog alias (byte-identical to the extensionless catalog)',
+        description:
+          'Same payload as /.well-known/x402, served under the .json name some discovery crawlers probe. Free, no payment.',
+        responses: {
+          200: {
+            description: 'The x402 discovery catalog',
+            content: jsonContent({ type: 'object' }),
+          },
+        },
+        security: [],
+      },
+    },
+    '/.well-known/security.txt': {
+      get: {
+        tags: ['discovery'],
+        summary: 'RFC 9116 security contact point',
+        description: 'Security researcher contact (GitHub advisories) with a rolling 1-year expiry. Free, no payment.',
+        responses: {
+          200: {
+            description: 'text/plain; charset=utf-8 — Contact / Expires / Preferred-Languages',
+            content: { 'text/plain': { schema: { type: 'string' } } },
+          },
+        },
+        security: [],
+      },
+    },
+    '/transparency': {
+      get: {
+        tags: ['discovery'],
+        summary: 'Public trust page: live revenue stats, prices, merchant wallet',
+        description:
+          'Human-readable trust page with live numbers from this deployment (paid calls settled, USDC revenue, ' +
+          '402 challenges served), the per-endpoint price list, and the merchant wallet. Free, no payment.',
+        responses: {
+          200: {
+            description: 'text/html; charset=utf-8 — the transparency page',
+            content: { 'text/html': { schema: { type: 'string' } } },
+          },
+        },
+        security: [],
+      },
+    },
+    '/.well-known/ai-plugin.json': {      get: {
         tags: ['discovery'],
         summary: 'AI plugin manifest (ChatGPT/Claude plugin discovery)',
         description:
