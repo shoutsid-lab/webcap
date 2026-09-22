@@ -115,6 +115,20 @@ export function registerDiscoveryRoutes(app: FastifyInstance, deps: AppDeps): vo
     return reply.send(await x402WellKnown(config));
   });
 
+  // Prober convention seen in the wild (crawler 404s): same catalog under
+  // the x402-resources names, byte-identical to the canonical path above.
+  app.get('/.well-known/x402-resources', async (_req, reply) => {
+    reply.header('content-type', 'application/json; charset=utf-8');
+    reply.header('cache-control', 'public, max-age=300');
+    return reply.send(await x402WellKnown(config));
+  });
+
+  app.get('/x402-resources', async (_req, reply) => {
+    reply.header('content-type', 'application/json; charset=utf-8');
+    reply.header('cache-control', 'public, max-age=300');
+    return reply.send(await x402WellKnown(config));
+  });
+
   // RFC 9116 contact point for security researchers (probed by trust crawlers).
   app.get('/.well-known/security.txt', async (_req, reply) => {
     const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();

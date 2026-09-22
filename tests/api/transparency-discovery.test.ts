@@ -71,13 +71,29 @@ describe('agent discovery aliases + trust surface (agent.json, x402.json, securi
     }
   });
 
+  it('x402-resources aliases: 200, byte-identical to the extensionless x402 catalog', async () => {
+    const fx = makeApiFixture();
+    try {
+      const canonical = await fx.app.inject({ method: 'GET', url: '/.well-known/x402' });
+      expect(canonical.statusCode).toBe(200);
+      for (const path of ['/.well-known/x402-resources', '/x402-resources']) {
+        const alias = await fx.app.inject({ method: 'GET', url: path });
+        expect(alias.statusCode).toBe(200);
+        expect(String(alias.headers['content-type'])).toContain('application/json');
+        expect(alias.payload).toBe(canonical.payload);
+      }
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
   it('openapi.json documents the new discovery paths', async () => {
     const fx = makeApiFixture();
     try {
       const res = await fx.app.inject({ method: 'GET', url: '/openapi.json' });
       expect(res.statusCode).toBe(200);
       const doc = res.json() as { paths: Record<string, unknown> };
-      for (const p of ['/.well-known/agent.json', '/.well-known/x402.json', '/.well-known/security.txt', '/transparency']) {
+      for (const p of ['/.well-known/agent.json', '/.well-known/x402.json', '/.well-known/x402-resources', '/x402-resources', '/.well-known/security.txt', '/transparency']) {
         expect(doc.paths, `openapi must document ${p}`).toHaveProperty(p);
       }
     } finally {

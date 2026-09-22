@@ -236,8 +236,37 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
         security: [],
       },
     },
-    '/.well-known/security.txt': {
+    '/.well-known/x402-resources': {
       get: {
+        tags: ['discovery'],
+        summary: 'x402 catalog alias (byte-identical to the extensionless catalog)',
+        description:
+          'Same payload as /.well-known/x402, served under the x402-resources name some discovery crawlers probe. Free, no payment.',
+        responses: {
+          200: {
+            description: 'The x402 discovery catalog',
+            content: jsonContent({ type: 'object' }),
+          },
+        },
+        security: [],
+      },
+    },
+    '/x402-resources': {
+      get: {
+        tags: ['discovery'],
+        summary: 'x402 catalog alias (byte-identical to the extensionless catalog)',
+        description:
+          'Same payload as /.well-known/x402, served at the bare path some discovery crawlers probe. Free, no payment.',
+        responses: {
+          200: {
+            description: 'The x402 discovery catalog',
+            content: jsonContent({ type: 'object' }),
+          },
+        },
+        security: [],
+      },
+    },
+    '/.well-known/security.txt': {      get: {
         tags: ['discovery'],
         summary: 'RFC 9116 security contact point',
         description: 'Security researcher contact (GitHub advisories) with a rolling 1-year expiry. Free, no payment.',
