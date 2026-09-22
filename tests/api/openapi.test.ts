@@ -464,6 +464,20 @@ describe('mppscan/x402gle discovery metadata', () => {
     }
   });
 
+  it('documents x-payment-info on POST /v1/capture/jobs (the async submit is a paid route)', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      expect(doc.paths['/v1/capture/jobs']?.post?.['x-payment-info']).toEqual({
+        price: { mode: 'fixed', currency: 'USD', amount: (fx.config.x402PriceUsdcUnits / USDC_SCALE).toFixed(6) },
+        protocols: [{ x402: {} }, { mpp: { method: 'evm' } }],
+      });
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
   it('documents x-payment-info on POST /v1/x402/watches/topup with the dynamic min/max pack prices', async () => {
     const fx = makeApiFixture();
     try {
