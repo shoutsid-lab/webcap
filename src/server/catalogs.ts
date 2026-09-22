@@ -124,7 +124,7 @@ export async function x402WellKnown(config: WebcapConfig) {
       { path: 'GET /v1/extract/preview?url=...', note: 'bounded structured preview (rate-limited)' },
       { path: 'GET /v1/og?url=...', note: 'Open Graph metadata' },
       { path: 'GET /v1/health', note: 'liveness + chain' },
-      { path: 'GET /v1/x402/trial/status?payer=...', note: 'trial menu per wallet (claimed/available + claim recipe)' },
+      { path: 'GET /v1/x402/trial/status?payer=...', note: 'trial menu per wallet (claimed/available + claim recipe + the priced paid catalog and howToPay)' },
       { path: 'GET /v1/x402/trial/quick?url=...', note: 'no-wallet JPEG thumbnail, 3/day per IP' },
       { path: 'POST /v1/x402/trial', note: 'free full PNG capture trial, one per wallet (EIP-191 proof)' },
       { path: 'POST /v1/x402/trial/extract', note: 'free single-URL extraction trial, one per wallet' },
@@ -164,7 +164,7 @@ export async function agentCard(config: WebcapConfig) {
       paid(
         'trial',
         'Free product trials (no USDC)',
-        'One free result per wallet per endpoint — capture (full PNG), extract (single URL), audit, map-lite, analyze — proven by EIP-191 personal_sign of "Claim one free webcap trial {endpoint} for {lowercase-0x}". Menu: GET /v1/x402/trial/status?payer=0x…. Claim: POST /v1/x402/trial (+/extract, +/audit, +/map-lite, +/analyze). No-wallet thumbnail: GET /v1/x402/trial/quick?url=… (3/day/IP).',
+        'One free result per wallet per endpoint — capture (full PNG), extract (single URL), audit, map-lite, analyze — proven by EIP-191 personal_sign of "Claim one free webcap trial {endpoint} for {lowercase-0x}". Menu (also lists every paid endpoint with its price and how to pay): GET /v1/x402/trial/status?payer=0x…. Claim: POST /v1/x402/trial (+/extract, +/audit, +/map-lite, +/analyze). No-wallet thumbnail: GET /v1/x402/trial/quick?url=… (3/day/IP).',
         ['free', 'trial', 'screenshot', 'extraction', 'audit', 'sitemap', 'analysis'],
       ),
       paid(
@@ -261,7 +261,7 @@ export function openaiTools(config: WebcapConfig) {
       fn('webcap_og', 'Free Open Graph metadata for a URL.', urlParam, '/v1/og?url=...'),
       fn(
         'webcap_trial_status',
-        'Which free trials a wallet claimed / can still claim, plus the exact claim recipe.',
+        'Which free trials a wallet claimed / can still claim, the exact claim recipe, and the priced paid catalog with how to pay (x402) once the free calls are used.',
         { type: 'object', properties: { payer: { type: 'string', description: 'Lowercase 0x address to look up' } }, required: ['payer'] },
         '/v1/x402/trial/status?payer=...',
       ),
@@ -303,7 +303,7 @@ export function frontDoorPayload(config: WebcapConfig) {
         { path: 'GET /v1/extract/preview?url=...', note: 'bounded structured preview (rate-limited)' },
         { path: 'GET /v1/og?url=...', note: 'OG metadata' },
         { path: 'GET /v1/health', note: 'liveness + chain' },
-        { path: 'GET /v1/x402/trial/status?payer=...', note: 'trial menu per wallet (claimed/available + claim recipe)' },
+        { path: 'GET /v1/x402/trial/status?payer=...', note: 'trial menu per wallet (claimed/available + claim recipe + the priced paid catalog and howToPay)' },
         { path: 'GET /v1/x402/trial/quick?url=...', note: 'no-wallet JPEG thumbnail, 3/day per IP' },
         { path: 'POST /v1/x402/trial', note: 'free full PNG capture trial, one per wallet (EIP-191 proof)' },
         { path: 'POST /v1/x402/trial/extract', note: 'free single-URL extraction trial, one per wallet' },

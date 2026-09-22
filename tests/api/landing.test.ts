@@ -102,7 +102,7 @@ describe('GET / (content negotiation: landing page + JSON front door)', () => {
             { path: 'GET /v1/extract/preview?url=...', note: 'bounded structured preview (rate-limited)' },
             { path: 'GET /v1/og?url=...', note: 'OG metadata' },
             { path: 'GET /v1/health', note: 'liveness + chain' },
-            { path: 'GET /v1/x402/trial/status?payer=...', note: 'trial menu per wallet (claimed/available + claim recipe)' },
+            { path: 'GET /v1/x402/trial/status?payer=...', note: 'trial menu per wallet (claimed/available + claim recipe + the priced paid catalog and howToPay)' },
             { path: 'GET /v1/x402/trial/quick?url=...', note: 'no-wallet JPEG thumbnail, 3/day per IP' },
             { path: 'POST /v1/x402/trial', note: 'free full PNG capture trial, one per wallet (EIP-191 proof)' },
             { path: 'POST /v1/x402/trial/extract', note: 'free single-URL extraction trial, one per wallet' },

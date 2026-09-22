@@ -7,7 +7,7 @@ import { HttpError, unprocessable } from '../util/errors.js';
 import { RateLimiter } from '../util/ratelimit.js';
 import { validateCaptureUrl } from '../util/url.js';
 import { isRecord, validatedUrl } from './capture-parse.js';
-import { checkTrialClaim, remainingTrials, reserveTrialClaim, trialPaidNextFor, type TrialGate } from './trial-auth.js';
+import { checkTrialClaim, howToPayFor, remainingTrials, reserveTrialClaim, trialPaidNextFor, type TrialGate } from './trial-auth.js';
 import { x402Payer } from './x402.js';
 
 /** Trial map-lite caps the crawl at 10 URLs (paid goes to 50). */
@@ -225,6 +225,7 @@ export function registerMapLiteRoute(app: FastifyInstance, deps: MapLiteRouteDep
       trial: { payer, endpoint: 'map-lite', priceUsdcUnits: 0, maxUrlsCap: TRIAL_MAP_LITE_MAX_URLS },
       paidNext: trialPaidNextFor(config, 'map-lite'),
       remaining: remainingTrials(trialGate.trials, payer),
+      howToPay: howToPayFor(config),
     };
   });
   app.post('/v1/x402/map-lite', async (req) => {

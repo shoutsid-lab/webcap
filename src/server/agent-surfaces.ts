@@ -160,7 +160,7 @@ POST /v1/x402/watches/topup
 ## Free endpoints (no payment)
 
 - GET /v1/extract/preview?url=… — bounded structured preview (title, headings, links, truncated markdown); rate-limited per IP
-- GET /v1/x402/trial/status?payer=<lowercase-0x> — trial menu: claimed/available endpoints + the exact claim recipe (check before signing)
+- GET /v1/x402/trial/status?payer=<lowercase-0x> — trial menu: claimed/available endpoints + the exact claim recipe, plus the full priced paid catalog, howToPay and the recurring watch path (check before signing, and again after your free calls run out)
 - GET /v1/x402/trial/quick?url=… — no-wallet JPEG thumbnail, 3/day per IP (zero-friction hook; full trials need a wallet signature)
 - POST /v1/x402/trial {"url", "payer", "signature"} — FREE full PNG capture, one per wallet; signature = EIP-191 personal_sign of exactly "Claim one free webcap trial capture for <payer>"
 - POST /v1/x402/trial/extract {"url", "payer", "signature"} — FREE single-URL extraction (no schema/model/batch), one per wallet; message endpoint "extract"
@@ -262,7 +262,7 @@ Base URL: ${config.publicBaseUrl}
 | Analyze batch (up to 10 URLs, one payment) | POST /v1/x402/analyze/batch {"urls": string[], "task"} | ${usdc(config.x402ExtractPriceUsdcUnits)} |
 | Watch top-up (100 runs) | POST /v1/x402/watches/topup {"watchId", "runs": 100} | ${usdc(watchTopUpPriceUsdcUnits('capture', config))} (capture watch) / ${usdc(watchTopUpPriceUsdcUnits('extract', config))} (extract watch) |
 | Structured preview (truncated) | GET /v1/extract/preview?url=… | free, rate-limited per IP |
-| Trial menu (claimed/available + recipe) | GET /v1/x402/trial/status?payer=\<lowercase-0x\> | free |
+| Trial menu (claimed/available + recipe + the paid catalog and howToPay) | GET /v1/x402/trial/status?payer=\<lowercase-0x\> | free |
 | No-wallet thumbnail (3/day per IP) | GET /v1/x402/trial/quick?url=… | free |
 | Trial capture (full PNG, one per wallet) | POST /v1/x402/trial {"url", "payer", "signature"} where signature = personal_sign of "Claim one free webcap trial capture for \<payer\>" (lowercase address) | free, one claim per wallet per endpoint |
 | Trial extract (single URL, no schema/model) | POST /v1/x402/trial/extract {"url", "payer", "signature"} with endpoint "extract" in the message | free, one claim per wallet per endpoint |
@@ -315,7 +315,12 @@ extraction.
 
 GET ${config.publicBaseUrl}/v1/x402/trial/status?payer=\<lowercase-0x\> tells you
 which trials a wallet claimed and which are still available, plus the exact
-claim recipe — check it before signing. No wallet at all? GET
+claim recipe — check it before signing. The same response always lists every
+paid endpoint with its price (field: paid) and how to pay it (field: howToPay —
+the x402 flow below, with the same scheme/network/asset/payTo the 402 challenge
+uses), so a wallet that has used all five trials is still handed the concrete
+next call rather than an empty menu. Receipts, the 409 and the 429s carry
+howToPay as well. No wallet at all? GET
 ${config.publicBaseUrl}/v1/x402/trial/quick?url=… serves a free JPEG thumbnail
 (3/day per IP).
 
@@ -332,8 +337,9 @@ your lowercase 0x address (ethers: wallet.signMessage(message)). The message
 is endpoint-bound — a signature for one trial cannot be replayed for another
 (the legacy capture-only message still works for the capture trial). A wallet
 that already claimed an endpoint gets 409 already_claimed with a paidNext
-pointer plus the remaining list; every 200 carries the result, a
-trial:{payer, endpoint, priceUsdcUnits:0} receipt, paidNext, and remaining.
+pointer, the remaining list and howToPay; every 200 carries the result, a
+trial:{payer, endpoint, priceUsdcUnits:0} receipt, paidNext, remaining, and
+howToPay.
 Video has no trial (scroll-capture compute) — the capture trial is its free
 sample.
 

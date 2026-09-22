@@ -20,7 +20,7 @@ import {
 } from '../config.js';
 import { makeRevenueRepo } from '../db/revenue.js';
 import { FAUCET_DAILY_LIMIT, makeFaucetRepo, makeTrialsRepo } from '../db/trials.js';
-import { checkTrialClaim, remainingTrials, reserveTrialClaim, trialPaidNextFor, trialStatusFor, type TrialGate } from './trial-auth.js';
+import { checkTrialClaim, howToPayFor, remainingTrials, reserveTrialClaim, trialPaidNextFor, trialStatusFor, type TrialGate } from './trial-auth.js';
 import { recordHit } from '../db/hits.js';
 import { CaptureError } from '../capture/errors.js';
 import { previewFallback } from '../capture/preview-fallback.js';
@@ -155,6 +155,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       trial: { payer, endpoint: 'capture', priceUsdcUnits: 0 },
       paidNext: trialPaidNextFor(config, 'capture'),
       remaining: remainingTrials(trials, payer),
+      howToPay: howToPayFor(config),
     };
   });
 
@@ -190,6 +191,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       trial: { payer, endpoint: 'extract', priceUsdcUnits: 0 },
       paidNext: trialPaidNextFor(config, 'extract'),
       remaining: remainingTrials(trials, payer),
+      howToPay: howToPayFor(config),
     };
   });
 
@@ -215,6 +217,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       trial: { payer, endpoint: 'audit', priceUsdcUnits: 0 },
       paidNext: trialPaidNextFor(config, 'audit'),
       remaining: remainingTrials(trials, payer),
+      howToPay: howToPayFor(config),
     };
   });
 
@@ -240,6 +243,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     if (!faucetLimiter.allow(req.ip)) {
       rejectRateLimited(reply, faucetLimiter, req.ip, 'faucet rate limit exceeded; use the paid capture endpoint', {
         paidNext: trialPaidNextFor(config, 'capture'),
+        howToPay: howToPayFor(config),
       });
     }
     const today = new Date().toISOString().slice(0, 10);
@@ -248,6 +252,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       throw new HttpError(429, 'faucet_exhausted', 'no-wallet thumbnail budget spent for today (3/day); claim a wallet trial or pay', {
         trial: 'POST /v1/x402/trial',
         paidNext: trialPaidNextFor(config, 'capture'),
+        howToPay: howToPayFor(config),
       });
     }
     const normalized = validatedUrl(rawUrl, allowHosts);
@@ -268,6 +273,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         note: 'full PNG + four more product trials per wallet (EIP-191 personal_sign proof); see GET /v1/x402/trial/status',
       },
       paidNext: trialPaidNextFor(config, 'capture'),
+      howToPay: howToPayFor(config),
     };
   });
 

@@ -46,12 +46,17 @@ Goal: one funded agent, calling unattended, more than once.
       with the MCP registry / agent-tool directories — needs npm auth.
       *Acceptance: a third-party agent runtime can wire webcap without reading
       our docs.*
-- [ ] **Shorten trial → first pay.** A claimed trial currently returns a
-      `paidNext` pointer; nothing drives the agent back. Add an explicit,
-      machine-readable "you have used your free call; next call is
-      `POST /v1/x402/...` at `$X`" in the trial receipt and in the 409 path,
-      plus a prepaid **credit pack** an operator can buy once and let the agent
-      spend without re-signing per call.
+- [~] **Shorten trial → first pay.** Shipped: every free surface now hands
+      over the paid path instead of dead-ending. `GET /v1/x402/trial/status`
+      always returns the full priced catalog (`paid`), the x402 payment flow
+      (`howToPay`, with the same scheme/network/asset/payTo the 402 challenge
+      carries), a concrete `nextStep`, and the recurring watch path — the case
+      that mattered most is the wallet that has burned all five trials, which
+      previously got `available: []` and nothing else. The five trial receipts,
+      the 409 and the 429s carry `howToPay` too. A test pins the advertised
+      prices to the live 402 challenge so the two cannot drift.
+      Remaining: a prepaid **credit pack** an operator can buy once and let the
+      agent spend without re-signing per call.
       *Acceptance: ≥1 wallet with a `revenue_ledger` row that previously
       appears in `trial_claims`.*
 - [ ] **Make `402` impossible to misread.** Ensure every discovery surface

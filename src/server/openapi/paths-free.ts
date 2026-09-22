@@ -308,19 +308,45 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
     '/v1/x402/trial/status': {
       get: {
         tags: ['discovery'],
-        summary: 'Trial menu for a wallet: claimed/available trials + the claim recipe',
+        summary: 'Trial menu for a wallet: claimed/available trials, the claim recipe, and the paid catalog to move on to',
+        description:
+          'Free trials + the paid path in one call. `available` lists the trials this wallet can still claim ' +
+          '(with the paid counterpart and price of each). `paid` is always the full priced catalog of paid ' +
+          'endpoints, and `howToPay` is the x402 flow (scheme/network/asset/payTo mirror the 402 challenge), ' +
+          'so a wallet that has used every trial still gets a concrete next call instead of an empty menu. ' +
+          '`recurring` points at the watch path (create free, top up in 100-run packs). Free, no payment.',
         parameters: [
           { name: 'payer', in: 'query', required: true, schema: { type: 'string' }, description: 'Lowercase 0x EVM address to look up' },
         ],
         responses: {
           200: {
-            description: 'Claimed + available trial endpoints with trial/paid paths, prices, and howToClaim',
+            description: 'Claimed + available trial endpoints with trial/paid paths and prices, plus the paid catalog, howToPay and recurring watch options',
             content: jsonContent({
               type: 'object',
               properties: {
                 payer: { type: 'string' },
                 claimed: { type: 'array', items: { type: 'string' } },
                 available: { type: 'array', items: { type: 'object' } },
+                allTrialsUsed: { type: 'boolean' },
+                nextStep: { type: 'string' },
+                paid: {
+                  type: 'array',
+                  description: 'Every paid endpoint with its price; always present, even when no trials remain',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      endpoint: { type: 'string', example: 'POST /v1/x402/capture' },
+                      priceUsdcUnits: { type: 'integer' },
+                      priceUsdc: { type: 'number' },
+                      note: { type: 'string' },
+                    },
+                  },
+                },
+                howToPay: {
+                  type: 'object',
+                  description: 'The x402 payment flow, with the same scheme/network/asset/payTo the 402 challenge carries',
+                },
+                recurring: { type: 'object', description: 'Create a watch free, then top it up in 100-run packs' },
                 howToClaim: { type: 'object' },
               },
             }),

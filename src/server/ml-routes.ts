@@ -12,7 +12,7 @@ import { makeTrialsRepo } from '../db/trials.js';
 import { HttpError, unprocessable } from '../util/errors.js';
 import { RateLimiter } from '../util/ratelimit.js';
 import { isRecord, validatedUrl } from './capture-parse.js';
-import { checkTrialClaim, remainingTrials, reserveTrialClaim, trialPaidNextFor, type TrialGate } from './trial-auth.js';
+import { checkTrialClaim, howToPayFor, remainingTrials, reserveTrialClaim, trialPaidNextFor, type TrialGate } from './trial-auth.js';
 import { x402Payer } from './x402.js';
 import { OpenAICompatibleVisionAdapter, VisionError } from '../ml/vision/adapter.js';
 import { validateTask } from '../ml/vision/contracts.js';
@@ -108,6 +108,7 @@ export function registerMLRoutes(app: FastifyInstance, deps: AppDeps): void {
       trial: { payer, endpoint: 'analyze', priceUsdcUnits: 0, model: 'deterministic (trial)' },
       paidNext: trialPaidNextFor(config, 'analyze'),
       remaining: remainingTrials(trialGate.trials, payer),
+      howToPay: howToPayFor(config),
     };
   });
 
