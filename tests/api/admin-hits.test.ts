@@ -85,4 +85,31 @@ describe('metrics: merchant-only hits summary view (RED)', () => {
       await closeApiFixture(fx);
     }
   });
+
+  it('analytics → 200 with topUserAgents attribution breakdown (merchant-only)', async () => {
+    const fx = makeApiFixture();
+    try {
+      recordHit(fx.db, { endpoint: 'POST /v1/x402/capture', status: 402, userAgent: 'probe/1.0' });
+      recordHit(fx.db, { endpoint: 'POST /v1/x402/capture', status: 402, userAgent: 'probe/1.0' });
+      recordHit(fx.db, { endpoint: 'POST /v1/x402/extract', status: 402, userAgent: 'buyer-agent/3' });
+
+      const res = await fx.app.inject({
+        method: 'GET',
+        url: '/v1/admin/analytics',
+        headers: { authorization: `Bearer ${merchantKeyOf(fx)}` },
+      });
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as {
+        totalRequests: number;
+        topUserAgents: Array<{ userAgent: string; requests: number }>;
+      };
+      expect(body.totalRequests).toBe(3);
+      expect(body.topUserAgents).toEqual([
+        { userAgent: 'probe/1.0', requests: 2 },
+        { userAgent: 'buyer-agent/3', requests: 1 },
+      ]);
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
 });

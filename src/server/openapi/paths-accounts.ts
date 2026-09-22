@@ -173,7 +173,7 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
         summary: 'Merchant time-series API usage analytics',
         description:
           'Merchant-only: hourly request counts, error rates, and latency over a configurable window ' +
-          '(?hours=N, default 24, max 168). Includes top endpoints and aggregate totals.',
+          '(?hours=N, default 24, max 168). Includes top endpoints, top user agents, and aggregate totals.',
         parameters: [
           {
             name: 'hours',
@@ -185,7 +185,7 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
         ],
         responses: {
           200: {
-            description: 'Time-series analytics: hourly buckets, top endpoints, aggregate totals',
+            description: 'Time-series analytics: hourly buckets, top endpoints, top user agents, aggregate totals',
             content: jsonContent({
               type: 'object',
               properties: {
@@ -215,6 +215,16 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
                       endpoint: { type: 'string' },
                       requests: { type: 'integer' },
                       avgDurationMs: { type: ['number', 'null'] },
+                    },
+                  },
+                },
+                topUserAgents: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      userAgent: { type: 'string', description: 'Normalized User-Agent (trimmed, capped at 200 chars; empty when absent)' },
+                      requests: { type: 'integer' },
                     },
                   },
                 },

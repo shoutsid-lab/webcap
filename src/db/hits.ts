@@ -8,6 +8,7 @@ export interface HitInput {
   readonly status: number;
   readonly payer?: string | undefined;
   readonly durationMs?: number | undefined;
+  readonly userAgent?: string | undefined;
 }
 
 export interface HitRow {
@@ -16,6 +17,7 @@ export interface HitRow {
   readonly status: number;
   readonly payer_hash: string;
   readonly duration_ms: number | null;
+  readonly user_agent: string;
   readonly created_at: string;
 }
 
@@ -39,6 +41,7 @@ export interface AnalyticsSummary {
   readonly avgDurationMs: number | null;
   readonly hourly: AnalyticsBucket[];
   readonly topEndpoints: { endpoint: string; requests: number; avgDurationMs: number | null }[];
+  readonly topUserAgents: UserAgentSummary[];
 }
 
 const ANONYMOUS = 'anonymous';
@@ -56,25 +59,64 @@ export function normalizeEndpoint(method: string, rawUrl: string): string {
   return `${method} ${withSlash}`;
 }
 
+const MAX_USER_AGENT_LENGTH = 200;
+
+/**
+ * Normalize a User-Agent for storage: trim, cap at 200 chars (bot UAs are
+ * short; overlong values are truncation, never a second column). Empty when
+ * absent. Stored raw (not hashed) — attribution needs the actual client
+ * identity to separate census bots from paying agents.
+ */
+export function normalizeUserAgent(raw: string | string[] | undefined): string {
+  const first = Array.isArray(raw) ? (raw[0] ?? '') : (raw ?? '');
+  const trimmed = first.trim();
+  return trimmed.length > MAX_USER_AGENT_LENGTH ? trimmed.slice(0, MAX_USER_AGENT_LENGTH) : trimmed;
+}
+
+export interface UserAgentSummary {
+  readonly userAgent: string;
+  readonly requests: number;
+}
+
 export interface HitsRepo {
   record(hit: HitInput): void;
   summary(limit?: number): EndpointSummary[];
   analytics(hoursBack?: number): AnalyticsSummary;
+  topUserAgents(hoursBack?: number, limit?: number): UserAgentSummary[];
 }
 
 export function makeHitsRepo(db: Db): HitsRepo {
-  const insertHit = db.prepare<[string, number, string, number | null, string], unknown>(
-    'INSERT INTO endpoint_hits (endpoint, status, payer_hash, duration_ms, created_at) VALUES (?, ?, ?, ?, ?)',
+  const insertHit = db.prepare<[string, number, string, number | null, string, string], unknown>(
+    'INSERT INTO endpoint_hits (endpoint, status, payer_hash, duration_ms, user_agent, created_at) VALUES (?, ?, ?, ?, ?, ?)',
   );
   const summarize = db.prepare<[number], EndpointSummary>(
     'SELECT endpoint, COUNT(*) AS hits FROM endpoint_hits GROUP BY endpoint ORDER BY hits DESC LIMIT ?',
   );
+  const summarizeAgents = db.prepare<[string, number], UserAgentSummary>(
+    'SELECT user_agent AS userAgent, COUNT(*) AS requests FROM endpoint_hits ' +
+      'WHERE created_at >= ? GROUP BY user_agent ORDER BY requests DESC LIMIT ?',
+  );
   return {
     record(hit: HitInput): void {
-      insertHit.run(hit.endpoint, hit.status, hashPayer(hit.payer), hit.durationMs ?? null, nowIso());
+      insertHit.run(
+        hit.endpoint,
+        hit.status,
+        hashPayer(hit.payer),
+        hit.durationMs ?? null,
+        normalizeUserAgent(hit.userAgent),
+        nowIso(),
+      );
     },
     summary(limit = 100): EndpointSummary[] {
       return summarize.all(limit);
+    },
+    topUserAgents(hoursBack = 24, limit = 20): UserAgentSummary[] {
+      const since = new Date(Date.now() - hoursBack * 3600_000).toISOString();
+      try {
+        return summarizeAgents.all(since, limit);
+      } catch {
+        return [];
+      }
     },
     analytics(hoursBack = 24): AnalyticsSummary {
       // Use direct queries since percentile_cont is not available in SQLite.
@@ -112,18 +154,25 @@ export function makeHitsRepo(db: Db): HitsRepo {
             'FROM endpoint_hits WHERE created_at >= ?',
         )
         .get(since);
+      let agents: UserAgentSummary[] = [];
+      try {
+        agents = summarizeAgents.all(since, 20);
+      } catch {
+        agents = [];
+      }
       return {
         totalRequests: totals?.totalRequests ?? 0,
         totalErrors: totals?.totalErrors ?? 0,
         avgDurationMs: totals?.avgDurationMs ?? null,
         hourly,
         topEndpoints,
+        topUserAgents: agents,
       };
     },
   };
 }
 
-/** One request → one row (endpoint, status, payer_hash, created_at). */
+/** One request → one row (endpoint, status, payer_hash, user_agent, created_at). */
 export function recordHit(db: Db, hit: HitInput): void {
   makeHitsRepo(db).record(hit);
 }
@@ -159,8 +208,8 @@ const INFRA_ENDPOINTS = new Set([
 
 /**
  * Additive, zero-risk onResponse hook: every settled request writes one
- * endpoint_hits row (normalized endpoint, status, hashed payer, duration_ms),
- * fire-and-forget — a throwing write path never 500s a paid request.
+ * endpoint_hits row (normalized endpoint, status, hashed payer, duration_ms,
+ * user agent), fire-and-forget — a throwing write path never 500s a paid request.
  *
  * Infrastructure endpoints (health, static assets, crawler files) are
  * excluded so that hit counts reflect genuine API usage, not uptime
@@ -188,6 +237,7 @@ export function registerHitsHook(app: FastifyInstance, db: Db): void {
         status: typeof replyStatus === 'number' ? replyStatus : 0,
         payer: hookPayer(req),
         durationMs,
+        userAgent: req.headers['user-agent'],
       });
     } catch {
       // Zero-risk on the hot path: the hit is telemetry, the response already settled.

@@ -8,6 +8,7 @@ import { openDb } from '../../src/db/index.js';
 import {
   hashPayer,
   normalizeEndpoint,
+  normalizeUserAgent,
   recordHit,
   registerHitsHook,
   summaryByEndpoint,
@@ -106,6 +107,75 @@ describe('metrics: endpoint_hits write path (RED)', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ endpoint: 'GET /v1/capture', status: 200 });
     await app.close();
+    db.close();
+  });
+
+  it('user agent is stored raw (attribution), trimmed and capped at 200 chars', () => {
+    const db = openDb(':memory:');
+    recordHit(db, { endpoint: 'POST /v1/x402/capture', status: 402, userAgent: '  x402-census-probe/1.0  ' });
+    recordHit(db, { endpoint: 'POST /v1/x402/capture', status: 402, userAgent: `bot/${'x'.repeat(300)}` });
+    recordHit(db, { endpoint: 'POST /v1/x402/capture', status: 402 });
+    const rows = db
+      .prepare<[], { user_agent: string }>('SELECT user_agent FROM endpoint_hits ORDER BY id')
+      .all();
+    expect(rows.map((r) => r.user_agent)).toEqual([
+      'x402-census-probe/1.0',
+      `bot/${'x'.repeat(196)}`,
+      '',
+    ]);
+    db.close();
+  });
+
+  it('normalizeUserAgent: arrays take the first value, whitespace-only becomes empty', () => {
+    expect(normalizeUserAgent(undefined)).toBe('');
+    expect(normalizeUserAgent('  ')).toBe('');
+    expect(normalizeUserAgent(['second-ignored', 'first-kept'].reverse())).toBe('first-kept');
+    expect(normalizeUserAgent('a'.repeat(201)).length).toBe(200);
+    expect(normalizeUserAgent('ok/1.0').length).toBe(6);
+  });
+
+  it('hook captures the request User-Agent header into the hit row', async () => {
+    const db = openDb(':memory:');
+    const app = Fastify();
+    registerHitsHook(app, db);
+    app.get('/v1/capture', () => ({ ok: true }));
+    const res = await app.inject({
+      method: 'GET',
+      url: '/v1/capture',
+      headers: { 'user-agent': 'carbon-monitor/2.1' },
+    });
+    expect(res.statusCode).toBe(200);
+    const row = db.prepare<[], { user_agent: string }>('SELECT user_agent FROM endpoint_hits').get();
+    expect(row?.user_agent).toBe('carbon-monitor/2.1');
+    await app.close();
+    db.close();
+  });
+
+  it('migration adds user_agent to a pre-existing table without wiping rows', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'webcap-hits-ua-'));
+    const path = join(dir, 'hits.db');
+    {
+      const raw = openDb(path);
+      raw.exec('DROP TABLE endpoint_hits');
+      raw.exec(
+        'CREATE TABLE endpoint_hits (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT NOT NULL, ' +
+          'status INTEGER NOT NULL, payer_hash TEXT NOT NULL DEFAULT \'anonymous\', ' +
+          'duration_ms INTEGER, created_at TEXT NOT NULL)',
+      );
+      raw.exec(
+        "INSERT INTO endpoint_hits (endpoint, status, payer_hash, created_at) VALUES ('GET /old', 200, 'anonymous', '2026-01-01T00:00:00.000Z')",
+      );
+      raw.close();
+    }
+    const db = openDb(path);
+    const cols = (db.prepare('PRAGMA table_info(endpoint_hits)').all() as Array<{ name: string }>).map(
+      (col) => col.name,
+    );
+    expect(cols).toContain('user_agent');
+    const rows = db.prepare<[], { endpoint: string; user_agent: string }>('SELECT endpoint, user_agent FROM endpoint_hits').all();
+    expect(rows).toEqual([{ endpoint: 'GET /old', user_agent: '' }]);
+    recordHit(db, { endpoint: 'GET /new', status: 200, userAgent: 'probe/1' });
+    expect(db.prepare<[], { n: number }>('SELECT COUNT(*) AS n FROM endpoint_hits').get()?.n).toBe(2);
     db.close();
   });
 });

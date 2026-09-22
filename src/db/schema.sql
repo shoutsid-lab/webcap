@@ -135,6 +135,7 @@ CREATE TABLE IF NOT EXISTS endpoint_hits (
   status INTEGER NOT NULL,
   payer_hash TEXT NOT NULL DEFAULT 'anonymous',
   duration_ms INTEGER,
+  user_agent TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL
 );
 
