@@ -34,11 +34,11 @@ The product already has excellent agent surfaces; one operational gap remains.
 
 Goal: one funded agent, calling unattended, more than once.
 
-- [ ] **Publish to where agents load tools.** The manifests exist
-      (`/.well-known/openai-tools.json`, `/.well-known/mcp-tools.json`,
-      `agent-card.json`). Being *hostable* is not being *installed*: ship an
-      installable MCP server / npm package an agent operator can add in one
-      line, and submit to the MCP registry and agent-tool directories.
+- [~] **Publish to where agents load tools.** An installable stdio MCP server
+      now ships (`src/mcp/`, `npm run mcp` / the `webcap-mcp` bin), exposing all
+      six paid endpoints plus five free ones as tools, auto-paying via x402 when
+      a wallet key is configured. Remaining: publish to npm and register with
+      the MCP registry / agent-tool directories (needs npm auth).
       *Acceptance: a third-party agent runtime can wire webcap without reading
       our docs.*
 - [ ] **Shorten trial → first pay.** A claimed trial currently returns a

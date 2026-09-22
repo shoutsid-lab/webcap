@@ -50,6 +50,31 @@ POST /v1/watches                  →  Scheduled monitoring with webhook alerts
 
 ## Quick start
 
+### Use as an MCP server (agent runtimes)
+
+webcap ships an MCP server, so any MCP host (Claude Desktop, Cursor, agent
+frameworks) can call it as a tool. The free tools need no configuration; set
+`WEBCAP_MCP_WALLET_KEY` to a Base-mainnet USDC key to let the paid tools settle
+automatically (gasless — the payer signs EIP-3009, the facilitator pays gas).
+With no key, paid tools return the x402 402 challenge for the host to pay.
+
+```json
+{
+  "mcpServers": {
+    "webcap": {
+      "command": "npx",
+      "args": ["-y", "-p", "webcap", "webcap-mcp"],
+      "env": { "WEBCAP_MCP_WALLET_KEY": "0x..." }
+    }
+  }
+}
+```
+
+From this repo: `npm run mcp`. Tools: `webcap_preview`, `webcap_og`,
+`webcap_service`, `webcap_health`, `webcap_agent_funnel` (free) and
+`webcap_capture`, `webcap_extract`, `webcap_audit`, `webcap_map_lite`,
+`webcap_video`, `webcap_analyze` (paid).
+
 ### Capture a screenshot
 
 ```bash

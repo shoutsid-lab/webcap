@@ -16,8 +16,12 @@
     "node": ">=24"
   },
   "main": "dist/main.js",
+  "bin": {
+    "webcap-mcp": "dist/mcp/stdio.js"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "mcp": "tsx src/mcp/stdio.ts",
     "typecheck": "tsc -p tsconfig.check.json",
     "test": "vitest run",
     "test:watch": "vitest",
