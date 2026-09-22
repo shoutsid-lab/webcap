@@ -85,7 +85,7 @@ export async function x402WellKnown(config: WebcapConfig) {
         path: 'POST /v1/x402/extract',
         usdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE,
         description:
-          'Structured extraction (title, headings, paragraphs, links, images, document-order markdown); batch up to 50 URLs per payment',
+          'Structured extraction of the main content (title, headings, paragraphs, links, images, document-order markdown; nav/cookie/sidebar/footer excluded; optional maxContentWords budget); batch up to 50 URLs per payment',
       },
       {
         path: 'POST /v1/x402/audit',
@@ -182,7 +182,7 @@ export async function agentCard(config: WebcapConfig) {
       paid(
         'extract',
         'Structured extraction',
-        `Title, headings, paragraphs, links, images, document-order markdown; batch up to 50 URLs — ${config.x402ExtractPriceUsdcUnits / USDC_SCALE} USDC via x402`,
+        `Main content only (nav/cookie/sidebar/footer excluded): title, headings, paragraphs, links, images, document-order markdown, with an optional maxContentWords context budget; batch up to 50 URLs — ${config.x402ExtractPriceUsdcUnits / USDC_SCALE} USDC via x402`,
         ['scraping', 'extraction', 'markdown', 'x402', 'usdc'],
       ),
       paid(

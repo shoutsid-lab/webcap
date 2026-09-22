@@ -1,3 +1,4 @@
+import { MAX_CONTENT_WORDS, MIN_CONTENT_WORDS } from '../capture/pipeline.js';
 import type { CaptureAction, CaptureFormat, CaptureOptions, CaptureProxy } from '../capture/pipeline.js';
 import { HttpError, unprocessable } from '../util/errors.js';
 import { validateCaptureUrl } from '../util/url.js';
@@ -151,6 +152,20 @@ export function parseOptions(body: unknown): CaptureOptions | undefined {
   const proxy = parseProxy(raw);
   const waitFor = parseWaitFor(raw);
   const actions = parseActions(raw);
+  // Content budget: an integer word count, clamped (not rejected) at the
+  // bounds so an agent asking for "everything" still gets a bounded document.
+  const maxContentWordsRaw = raw.maxContentWords;
+  let maxContentWords: number | undefined;
+  if (maxContentWordsRaw !== undefined) {
+    if (
+      typeof maxContentWordsRaw !== 'number' ||
+      !Number.isInteger(maxContentWordsRaw) ||
+      maxContentWordsRaw <= 0
+    ) {
+      throw unprocessable('maxContentWords must be a positive integer');
+    }
+    maxContentWords = Math.min(Math.max(maxContentWordsRaw, MIN_CONTENT_WORDS), MAX_CONTENT_WORDS);
+  }
   if (
     timeoutMs === undefined &&
     fullPage === undefined &&
@@ -160,7 +175,8 @@ export function parseOptions(body: unknown): CaptureOptions | undefined {
     userAgent === undefined &&
     proxy === undefined &&
     waitFor === undefined &&
-    actions === undefined
+    actions === undefined &&
+    maxContentWords === undefined
   ) {
     return undefined;
   }
@@ -174,6 +190,7 @@ export function parseOptions(body: unknown): CaptureOptions | undefined {
     ...(proxy !== undefined ? { proxy } : {}),
     ...(waitFor !== undefined ? { waitFor } : {}),
     ...(actions !== undefined ? { actions } : {}),
+    ...(maxContentWords !== undefined ? { maxContentWords } : {}),
   };
 }
 

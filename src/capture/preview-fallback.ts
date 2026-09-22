@@ -11,6 +11,9 @@
  * - No dynamic DOM (React/Vue/Angular pages return empty)
  * - Markdown is a rough HTML→text approximation
  * - No anti-bot bypass (stealth mode not applicable)
+ * - Content selection is regex-based (first <article>/<main> region, tag-level
+ *   chrome removal): nested same-tag cases can leave residue, where the browser
+ *   path scores the real DOM. It still beats shipping cookie banners as content.
  */
 import { CaptureError } from './errors.js';
 import type { PageStructure } from './pipeline.js';
@@ -173,13 +176,49 @@ function extractTagText(html: string, tag: string): string {
   return match?.[1] !== undefined ? stripTags(match[1]) : '';
 }
 
-/** Parse raw HTML into a PageStructure approximation. */
-function parseHtmlToStructure(html: string, url: string): PageStructure {
+/**
+ * Structural chrome: whole regions that are never the document. Removed before
+ * parsing so the preview (the free "try before you buy" surface an agent reads
+ * first) does not hand back nav links and cookie notices as page content.
+ * Requires a matching close tag; an unclosed tag is left alone rather than
+ * swallowing the rest of the document.
+ */
+const CHROME_BLOCKS = /<(nav|header|footer|aside|form|noscript|template|dialog|iframe)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
+
+/** First region of `tag`, or null. Regex-based: no nesting support (see header). */
+function regionOf(html: string, tag: string): string | null {
+  const match = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}\\s*>`, 'i').exec(html);
+  return match?.[1] ?? null;
+}
+
+function wordsIn(text: string): number {
+  return text.split(/\s+/).filter((word) => word !== '').length;
+}
+
+/**
+ * Parse raw HTML into a PageStructure approximation.
+ * Exported for tests: pure function, no I/O.
+ */
+export function parseHtmlToStructure(html: string, url: string): PageStructure {
+  // Whole-page word count first (matches the browser path's `wordCount`).
+  const wholePageWords = wordsIn(extractTagText(html, 'body'));
+  // Content scope: chrome removed, then the article/main region when the page
+  // marks one up (else the chrome-stripped document, reported as 'body').
+  const stripped = html.replace(CHROME_BLOCKS, ' ');
+  const articleRegion = regionOf(stripped, 'article');
+  const mainRegion = articleRegion === null ? regionOf(stripped, 'main') : null;
+  const scope = articleRegion ?? mainRegion ?? stripped;
+  const contentSource = articleRegion !== null ? 'article' : mainRegion !== null ? 'main' : 'body';
+  // Meta lives in <head>, i.e. outside the content scope, so title/description
+  // are read from the full document.
   // Title: <title> tag or og:title
   const title = metaContent(html, 'og:title') || extractTagText(html, 'title') || '';
 
   // Description: og:description or meta description
   const description = metaContent(html, 'og:description') || metaContent(html, 'description') || '';
+
+  // Everything below is content, so it reads the chrome-free scope.
+  html = scope;
 
   // Headings: extract h1, h2, h3 from raw HTML
   const headingRegex = /<h([1-3])[^>]*>([\s\S]*?)<\/h\1>/gi;
@@ -224,10 +263,9 @@ function parseHtmlToStructure(html: string, url: string): PageStructure {
     images.push({ src, alt });
   }
 
-  // Body text for word count
-  const bodyText = extractTagText(html, 'body');
 
-  // Build markdown-like output from headings and paragraphs
+
+  // Paragraphs (for the `paragraphs` array) — prose only, as in the browser path.
   const lines: string[] = [];
   const paragraphRegex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
   let pMatch;
@@ -236,11 +274,21 @@ function parseHtmlToStructure(html: string, url: string): PageStructure {
     if (text !== '') lines.push(text);
   }
 
-  // Interleave headings into the markdown output
+  // Markdown: headings + prose blocks in document order. Lists count as content
+  // here (a page that presents everything as <li> is still a document), and
+  // chrome was already removed from `html` above.
   const markdownParts: string[] = [];
   const allElements: Array<{ position: number; text: string; isHeading: boolean; level?: number }> = [];
 
-  // Find positions of headings in the HTML
+  const collect = (regex: RegExp, transform: (match: RegExpExecArray) => { text: string; blank: boolean }): void => {
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(html)) !== null) {
+      const { text, blank } = transform(match);
+      if (!blank) allElements.push({ position: match.index, text, isHeading: false });
+    }
+  };
+
+  // Headings first (they need the level, so they are collected separately).
   const hRegex = /<h([1-3])[^>]*>([\s\S]*?)<\/h\1>/gi;
   let hMatch;
   while ((hMatch = hRegex.exec(html)) !== null) {
@@ -248,14 +296,9 @@ function parseHtmlToStructure(html: string, url: string): PageStructure {
     const text = stripTags(hMatch[2] ?? '').trim().slice(0, 300);
     if (text !== '') allElements.push({ position: hMatch.index, text, isHeading: true, level });
   }
-
-  // Find positions of paragraphs
-  const pRegex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
-  let pm;
-  while ((pm = pRegex.exec(html)) !== null) {
-    const text = stripTags(pm[1] ?? '').trim().slice(0, 1000);
-    if (text !== '') allElements.push({ position: pm.index, text, isHeading: false });
-  }
+  collect(/<p[^>]*>([\s\S]*?)<\/p>/gi, (m) => ({ text: stripTags(m[1] ?? '').trim().slice(0, 1000), blank: false }));
+  collect(/<li[^>]*>([\s\S]*?)<\/li>/gi, (m) => ({ text: stripTags(m[1] ?? '').trim().slice(0, 1000), blank: false }));
+  collect(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, (m) => ({ text: stripTags(m[1] ?? '').trim().slice(0, 1000), blank: false }));
 
   // Sort by position and build markdown
   allElements.sort((a, b) => a.position - b.position);
@@ -267,6 +310,14 @@ function parseHtmlToStructure(html: string, url: string): PageStructure {
     }
   }
 
+  // Pages that mark up content without <p>/<li> (table- and div-driven layouts)
+  // would otherwise preview as empty. Degrade to plain text of the scope rather
+  // than handing an agent nothing.
+  if (markdownParts.length === 0) {
+    const text = stripTags(scope).trim();
+    if (text !== '') markdownParts.push(text.slice(0, 4_000));
+  }
+
   const markdown = markdownParts.slice(0, 500).join('\n\n');
 
   return {
@@ -276,7 +327,8 @@ function parseHtmlToStructure(html: string, url: string): PageStructure {
     paragraphs: lines.slice(0, 100),
     links: links.slice(0, 200),
     images: images.slice(0, 100),
-    wordCount: bodyText.split(/\s+/).filter((w) => w !== '').length,
+    wordCount: wholePageWords,
     markdown,
+    content: { source: contentSource, words: wordsIn(markdownParts.join(' ')), truncated: false },
   };
 }

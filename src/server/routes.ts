@@ -466,6 +466,8 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           links: cached.preview.links.slice(0, config.previewLinksLimit ?? DEFAULT_PREVIEW_LINKS_LIMIT),
           wordCount: cached.preview.wordCount,
           markdown: cached.preview.markdown.slice(0, config.previewMarkdownLimit ?? DEFAULT_PREVIEW_MARKDOWN_LIMIT),
+          // Absent on entries cached before content provenance existed.
+          ...(cached.preview.content !== undefined ? { content: cached.preview.content } : {}),
         },
         truncated: true,
         cached: true,
@@ -486,16 +488,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         },
       };
     }
-    let structure: {
-      title: string;
-      description: string;
-      headings: { level: number; text: string }[];
-      paragraphs: string[];
-      links: { href: string; text: string }[];
-      images: { src: string; alt: string }[];
-      wordCount: number;
-      markdown: string;
-    };
+    let structure: PageStructure;
     try {
       // SPEED-FIRST: Use the lightweight HTTP-only fallback as the primary
       // preview path. It's ~5-10x faster than Playwright browser capture
@@ -523,6 +516,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           images: [...fallback.images],
           wordCount: fallback.wordCount,
           markdown: fallback.markdown,
+          ...(fallback.content !== undefined ? { content: fallback.content } : {}),
         };
       } catch (fallbackErr) {
         // HTTP-only failed — try lightweight browser capture as secondary.
@@ -543,6 +537,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
             images: [...captured.structure.images],
             wordCount: captured.structure.wordCount,
             markdown: captured.structure.markdown,
+            ...(captured.structure.content !== undefined ? { content: captured.structure.content } : {}),
           };
         } catch (browserErr) {
           // Both HTTP-only and browser failed — throw structured error
@@ -571,6 +566,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       links: structure.links.slice(0, config.previewLinksLimit ?? DEFAULT_PREVIEW_LINKS_LIMIT),
       wordCount: structure.wordCount,
       markdown: structure.markdown.slice(0, config.previewMarkdownLimit ?? DEFAULT_PREVIEW_MARKDOWN_LIMIT),
+      ...(structure.content !== undefined ? { content: structure.content } : {}),
     }, true);
 
     return {
@@ -582,6 +578,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         links: structure.links.slice(0, config.previewLinksLimit ?? DEFAULT_PREVIEW_LINKS_LIMIT),
         wordCount: structure.wordCount,
         markdown: structure.markdown.slice(0, config.previewMarkdownLimit ?? DEFAULT_PREVIEW_MARKDOWN_LIMIT),
+        ...(structure.content !== undefined ? { content: structure.content } : {}),
       },
       truncated: true,
       cached: false,

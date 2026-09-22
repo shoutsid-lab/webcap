@@ -109,7 +109,7 @@ on-chain. You pay USDC only, never ETH gas.
 | Method + path | Price | Returns |
 | --- | --- | --- |
 | POST /v1/x402/capture | ${usdc(config.x402PriceUsdcUnits)} | Screenshot of one URL: base64 image (png/jpeg/pdf) + persistent public artifact URL |
-| POST /v1/x402/extract | ${usdc(config.x402ExtractPriceUsdcUnits)} | Structured content (title, headings, paragraphs, links, images, markdown); one payment covers a batch of up to 50 URLs |
+| POST /v1/x402/extract | ${usdc(config.x402ExtractPriceUsdcUnits)} | Structured content (title, headings, paragraphs, links, images, markdown) from the page's main content — nav/cookie/sidebar/footer excluded; one payment covers a batch of up to 50 URLs |
 | POST /v1/x402/audit | ${usdc(config.x402AuditPriceUsdcUnits)} | SEO basics + link/OG health in one call (title, description, OG tags, link health) |
 | POST /v1/x402/map-lite | ${usdc(config.x402AuditPriceUsdcUnits)} | Site map in one call: URL list from sitemap/robots plus a 1-hop same-host crawl (maxUrls up to 50, default 20) |
 | POST /v1/x402/video | ${usdc(config.x402VideoPriceUsdcUnits)} | Scroll-capture of one URL as video (mp4/webm): base64 artifact |
@@ -214,7 +214,15 @@ https webhookUrl gets the terminal delivery. Artifact URLs accept signed query
 ## Extraction notes
 
 One extract payment covers the whole batch (up to 50 URLs). Asking again costs
-again: the price stays flat per batch while compute scales per URL. A JSON
+again: the price stays flat per batch while compute scales per URL.
+
+What comes back is the page's main content, not the whole document: navigation,
+cookie banners, sidebars and footers are excluded from "paragraphs" and
+"markdown", and the response's "content" field says which container was used,
+how many words it holds, and whether a budget cut it short. Size the output to
+your context window with "options": {"maxContentWords": N}.
+
+A JSON
 object schema takes the deterministic path (zero model calls, no model needed):
 the response data gains an "extracted" projection of the page structure, and
 optional "spans" [{field, quote, page}] ground each quote as a verbatim
@@ -254,7 +262,7 @@ Base URL: ${config.publicBaseUrl}
 | Purpose | Request | Price (USDC) |
 | --- | --- | --- |
 | Screenshot | POST /v1/x402/capture {"url", "format"?, "options"? (viewport, deviceScaleFactor, isMobile, userAgent)} | ${usdc(config.x402PriceUsdcUnits)} |
-| Extract (batch of up to 50 URLs, one payment) | POST /v1/x402/extract {"url" or "urls", "schema"?} | ${usdc(config.x402ExtractPriceUsdcUnits)} |
+| Extract (batch of up to 50 URLs, one payment) | POST /v1/x402/extract {"url" or "urls", "schema"?, "options": {"maxContentWords"?}} | ${usdc(config.x402ExtractPriceUsdcUnits)} |
 | Audit (SEO + OG + link health, one URL) | POST /v1/x402/audit {"url"} | ${usdc(config.x402AuditPriceUsdcUnits)} |
 | Map-lite (site URL list, one call) | POST /v1/x402/map-lite {"url", "maxUrls"? (default 20, at most 50)} | ${usdc(config.x402AuditPriceUsdcUnits)} |
 | Video (scroll-capture mp4/webm, one URL) | POST /v1/x402/video {"url", "format"?, "durationMs"?, "scrollSpeed"?, "scrollEasing"?, "options"? (viewport)} | ${usdc(config.x402VideoPriceUsdcUnits)} |
@@ -364,7 +372,15 @@ signatures 403, expired ones 410.
 ## Extraction notes
 
 One payment covers the whole batch (up to 50 URLs); each re-run bills again
-because compute scales per URL while the price stays flat. A JSON object schema
+because compute scales per URL while the price stays flat.
+
+The output is the page's main content, not the whole document — nav, cookie
+banners, sidebars and footers are excluded from paragraphs/markdown, so you are
+not paying context for chrome. Check "content": {source, words, truncated} to
+see what was kept, and pass "options": {"maxContentWords": N} to fit a page to
+your context window (it cuts at a block boundary and sets truncated: true).
+
+A JSON object schema
 skips the model entirely (deterministic, zero model calls): you get an
 "extracted" projection plus optional "spans" grounding, and any mismatch 422s
 with dollar-rooted detail strings.

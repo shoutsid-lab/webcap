@@ -29,6 +29,13 @@ export interface CaptureOptions {
   readonly proxy?: CaptureProxy;
   readonly waitFor?: CaptureWaitFor;
   readonly actions?: readonly CaptureAction[];
+  /**
+   * Word budget for the extracted main content (`paragraphs` + `markdown`).
+   * Lets an agent size a page to its context window instead of paying for a
+   * whole document; content is cut at a block boundary and `content.truncated`
+   * reports it. Clamped to [MIN_CONTENT_WORDS, MAX_CONTENT_WORDS].
+   */
+  readonly maxContentWords?: number;
   /** Per-watch auth headers forwarded to the browser context (watch macro-auth threading). */
   readonly extraHTTPHeaders?: Record<string, string>;
   /** Per-watch auth cookies applied to the browser context via addCookies. */
@@ -54,9 +61,30 @@ export interface PageStructure {
   readonly paragraphs: readonly string[];
   readonly links: readonly { readonly href: string; readonly text: string }[];
   readonly images: readonly { readonly src: string; readonly alt: string }[];
+  /** Words on the whole page (chrome included) — what a human sees. */
   readonly wordCount: number;
   readonly markdown: string;
+  /**
+   * What the machine-readable fields (`paragraphs`/`markdown`) actually contain:
+   * which container was chosen and how much of it was kept. Absent only from
+   * callers that build a structure by hand (tests, fallbacks).
+   */
+  readonly content?: PageContentInfo;
 }
+
+/** Provenance of the extracted main content, so a caller can trust and size it. */
+export interface PageContentInfo {
+  /** Selector the content was taken from ('body' = whole page fallback). */
+  readonly source: string;
+  /** Words included in `paragraphs`/`markdown` after chrome removal and budget. */
+  readonly words: number;
+  /** True when `maxContentWords` cut the content short. */
+  readonly truncated: boolean;
+}
+
+/** Bounds for the agent-facing content budget (`maxContentWords`). */
+export const MIN_CONTENT_WORDS = 25;
+export const MAX_CONTENT_WORDS = 100_000;
 
 /** The rendered HTML + its extracted structure (html feeds model-based extraction). */
 export interface StructuredCapture {
@@ -159,7 +187,7 @@ export async function captureStructured(req: CaptureRequest, timeouts?: CaptureT
       try {
         await page.goto(req.url, { timeout: resolveTimeout(req, timeouts), waitUntil: 'load' });
         await settlePage(page, req, timeouts);
-        const structure = await page.evaluate(extractStructureFromDom);
+        const structure = await page.evaluate(extractStructureFromDom, req.options?.maxContentWords ?? null);
         const html = req.options?.includeHtml === false ? '' : await page.content();
         return { html, structure };
       } finally {
@@ -176,15 +204,131 @@ export async function captureStructured(req: CaptureRequest, timeouts?: CaptureT
 
 /**
  * Runs in the page context (browser) via page.evaluate, so it must be self-contained
- * (no Node imports or outer closures): extract a bounded structured view of the DOM.
+ * (no Node imports or outer closures): extract a bounded, content-aware view of
+ * the DOM.
+ *
+ * The reader of `paragraphs`/`markdown` is a machine putting the page into a
+ * context window, so the walk skips chrome (nav/header/footer/aside/cookie
+ * banners/search) and picks the densest content container when the page has
+ * one, instead of dumping the whole body. `links`/`images` still list the whole
+ * page — callers that want content-only can intersect with `content.source`.
+ * An optional word budget cuts the content at a block boundary.
  */
-function extractStructureFromDom(): PageStructure {
+function extractStructureFromDom(maxContentWords: number | null): PageStructure {
+  const MAX_BLOCKS = 2_000;
+  const MAX_CANDIDATES_PER_SELECTOR = 25;
+  // Semantic markup is a deliberate signal, so it is trusted on almost any
+  // content; the heuristic containers have to earn it with volume.
+  const MIN_SEMANTIC_CHARS = 80;
+  const MIN_HEURISTIC_CHARS = 300;
+  const MAX_MARKDOWN_LINES = 500;
   const clean = (el: Element): string => (el.textContent ?? '').replace(/\s+/g, ' ').trim();
-  const headings = Array.from(document.querySelectorAll('h1,h2,h3'))
+  const wordsOf = (text: string): number => text.split(/\s+/).filter((word) => word !== '').length;
+  const classHint = (el: Element): string => `${el.id} ${typeof el.className === 'string' ? el.className : ''}`;
+
+  // Page chrome: structural tags, ARIA roles, and the usual class/id tells.
+  const CHROME_TAGS = ['NAV', 'HEADER', 'FOOTER', 'ASIDE', 'FORM', 'DIALOG', 'TEMPLATE', 'BUTTON', 'SELECT'];
+  const CHROME_ROLES = [
+    'navigation', 'banner', 'contentinfo', 'search', 'complementary', 'form', 'menu', 'menubar', 'dialog', 'alert',
+  ];
+  const CHROME_HINT =
+    /(^|[\s\-_])(nav|navbar|menu|sidebar|footer|header|banner|cookie|consent|gdpr|advert|ads?|sponsor|promo|newsletter|subscribe|social|share|related|recommend|comment|breadcrumb|pagination|masthead|toolbar|modal|popup|overlay|paywall|skip)([\s\-_]|$)/i;
+  const isChrome = (el: Element): boolean => {
+    if (CHROME_TAGS.indexOf(el.tagName) !== -1) return true;
+    const role = (el.getAttribute('role') ?? '').toLowerCase();
+    if (role !== '' && CHROME_ROLES.indexOf(role) !== -1) return true;
+    if (el.getAttribute('aria-hidden') === 'true') return true;
+    if (el.getAttribute('hidden') !== null) return true;
+    return CHROME_HINT.test(classHint(el));
+  };
+  const inChrome = (el: Element): boolean => {
+    for (let node: Element | null = el; node !== null; node = node.parentElement) {
+      if (isChrome(node)) return true;
+    }
+    return false;
+  };
+
+  /** Content blocks (document order) under `root`, chrome subtrees skipped. */
+  const blocksIn = (root: Element): Element[] => {
+    const all = root.querySelectorAll('h1,h2,h3,h4,p,li,blockquote,pre,td');
+    const out: Element[] = [];
+    for (let i = 0; i < all.length && out.length < MAX_BLOCKS; i += 1) {
+      const el = all[i];
+      if (el === undefined || inChrome(el)) continue;
+      out.push(el);
+    }
+    return out;
+  };
+
+  /**
+   * Readability-lite: characters of real prose, minus link density (menus and
+   * link farms score badly even when they are text-heavy).
+   */
+  const scoreOf = (root: Element): number => {
+    let chars = 0;
+    let linkChars = 0;
+    for (const el of blocksIn(root)) {
+      if (/^H[1-4]$/.test(el.tagName)) continue;
+      const text = clean(el);
+      chars += text.length;
+      for (const anchor of Array.from(el.querySelectorAll('a'))) linkChars += clean(anchor).length;
+    }
+    if (chars === 0) return 0;
+    return Math.round(chars * (1 - Math.min(0.9, linkChars / chars)));
+  };
+
+  const SEMANTIC_SELECTORS = ['article', 'main', '[role=main]'];
+  const HEURISTIC_SELECTORS = [
+    '.post-content', '.entry-content', '.article-body', '.article__body', '#content', '.content', 'section',
+  ];
+  const pickBest = (selectors: readonly string[]): { el: Element; source: string; score: number } | null => {
+    let best: { el: Element; source: string; score: number } | null = null;
+    for (const selector of selectors) {
+      const found = document.querySelectorAll(selector);
+      const limit = Math.min(found.length, MAX_CANDIDATES_PER_SELECTOR);
+      for (let i = 0; i < limit; i += 1) {
+        const el = found[i];
+        if (el === undefined || inChrome(el)) continue;
+        const score = scoreOf(el);
+        if (best === null || score > best.score) best = { el, source: selector, score };
+      }
+    }
+    return best;
+  };
+  const semantic = pickBest(SEMANTIC_SELECTORS);
+  const heuristic = pickBest(HEURISTIC_SELECTORS);
+  const chosen =
+    semantic !== null && semantic.score >= MIN_SEMANTIC_CHARS
+      ? semantic
+      : heuristic !== null && heuristic.score >= MIN_HEURISTIC_CHARS
+        ? heuristic
+        : null;
+  const root: Element = chosen !== null ? chosen.el : document.body ?? document.documentElement;
+  const source = chosen !== null ? chosen.source : 'body';
+
+  // Apply the word budget across the selected blocks, so `paragraphs` and
+  // `markdown` always describe the same slice of the page.
+  const budget = maxContentWords !== null && maxContentWords > 0 ? maxContentWords : null;
+  const selected: Element[] = [];
+  let contentWords = 0;
+  let truncated = false;
+  for (const el of blocksIn(root)) {
+    const words = wordsOf(clean(el));
+    if (budget !== null && contentWords + words > budget) {
+      truncated = true;
+      break;
+    }
+    selected.push(el);
+    contentWords += words;
+  }
+
+  const headings = selected
+    .filter((el) => /^H[1-3]$/.test(el.tagName))
     .slice(0, 50)
     .map((h) => ({ level: Number(h.tagName.slice(1)), text: clean(h).slice(0, 300) }))
     .filter((h) => h.text !== '');
-  const paragraphs = Array.from(document.querySelectorAll('p'))
+  const paragraphs = selected
+    .filter((el) => el.tagName === 'P')
     .slice(0, 100)
     .map((p) => clean(p).slice(0, 1000))
     .filter((text) => text !== '');
@@ -200,32 +344,30 @@ function extractStructureFromDom(): PageStructure {
     return el?.getAttribute('content')?.slice(0, 500) ?? '';
   };
   const bodyText = document.body?.innerText ?? '';
-  const buildMarkdown = (root: Element): string => {
+  // Markdown is the LM payload: the selected blocks in document order, then the
+  // images of the content area (alt text matters to a vision step). Anchors are
+  // left inline in the prose instead of being duplicated as their own lines —
+  // the full link list is still available in `links`.
+  const buildMarkdown = (): string => {
     const lines: string[] = [];
-    const visit = (el: Element): void => {
-      for (const child of Array.from(el.children)) {
-        const tag = child.tagName;
-        if (/^H[1-6]$/.test(tag)) {
-          const text = clean(child);
-          if (text !== '') lines.push(`${'#'.repeat(Number(tag[1]))} ${text}`);
-        } else if (tag === 'P' || tag === 'LI' || tag === 'BLOCKQUOTE') {
-          const text = clean(child);
-          if (text !== '') lines.push(text);
-        } else if (tag === 'IMG') {
-          const src = child.getAttribute('src') ?? '';
-          const alt = (child.getAttribute('alt') ?? '').slice(0, 200);
-          if (src !== '') lines.push(`![${alt}](${src})`);
-        } else if (tag === 'A') {
-          const href = child.getAttribute('href') ?? '';
-          const text = clean(child);
-          if (text !== '' && href !== '' && href !== '#') lines.push(`[${text}](${href})`);
-        } else if (tag !== 'SCRIPT' && tag !== 'STYLE' && tag !== 'NOSCRIPT' && tag !== 'IFRAME') {
-          visit(child);
-        }
+    for (const el of selected) {
+      const tag = el.tagName;
+      const text = clean(el);
+      if (/^H[1-6]$/.test(tag)) {
+        if (text !== '') lines.push(`${'#'.repeat(Number(tag[1]))} ${text}`);
+      } else if (text !== '') {
+        lines.push(text);
       }
-    };
-    visit(root);
-    return lines.slice(0, 500).join('\n\n');
+      if (lines.length >= MAX_MARKDOWN_LINES) break;
+    }
+    for (const img of Array.from(root.querySelectorAll('img'))) {
+      if (inChrome(img)) continue;
+      const src = img.getAttribute('src') ?? '';
+      const alt = (img.getAttribute('alt') ?? '').slice(0, 200);
+      if (src !== '') lines.push(`![${alt}](${src})`);
+      if (lines.length >= MAX_MARKDOWN_LINES) break;
+    }
+    return lines.slice(0, MAX_MARKDOWN_LINES).join('\n\n');
   };
   return {
     title: document.title ?? '',
@@ -235,7 +377,8 @@ function extractStructureFromDom(): PageStructure {
     links,
     images,
     wordCount: bodyText.split(/\s+/).filter((word) => word !== '').length,
-    markdown: buildMarkdown(document.body ?? document.documentElement),
+    markdown: buildMarkdown(),
+    content: { source, words: contentWords, truncated },
   };
 }
 

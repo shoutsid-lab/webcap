@@ -28,6 +28,8 @@ interface CachedPreview {
     links: { href: string; text: string }[];
     wordCount: number;
     markdown: string;
+    /** Content provenance (which container, how many words). Absent on entries written before it existed. */
+    content?: { source: string; words: number; truncated: boolean };
   };
   truncated: boolean;
 }

@@ -67,16 +67,26 @@ const TOPUP_FALLBACK_UNITS = WATCH_TOPUP_RUNS * CAPTURE_UNITS; // unknown watch 
 // (a) Pinned POST 402 body shas under the sepolia fixture below (sha256 of res.body,
 // payload-independent — verified payload/no-payload/{} all hash identically).
 // NOTE G1 (adjudicated): 402 bodies embed the deployment config (origin, payTo,
-// network), so absolute pins are config-specific. The task-stipulated pins
-// (capture 4bbecbfb…/extract 3b301be2…/topup 1562370f…) are the LIVE production
-// bodies, re-verified byte-identical at every deploy gate via curl. The pins
-// below lock the fixture config instead; the invariant that matters in-test —
+// network), so absolute pins are config-specific. Production bodies re-read at
+// the 2026-09-22 deploy gate: capture 2302cce6… / extract 85645a79… / topup
+// b62a62f6…. The previously recorded values predated the domain cutover, and
+// capture/extract then moved once more with the maxContentWords re-pin below —
+// i.e. these drift with config, which is exactly why the file pins the fixture
+// config instead; the invariant that matters in-test —
 // enabled body == disabled body == pin (MPP changes zero body bytes) — holds.
 // src/server/x402/* (the directory) is untouched (zero-line diff), so no
 // reconciliation needed. (Sibling file src/server/x402.ts carries the +6-line
 // settle-hook registration — runtime 402 construction is unaffected.)
-const CAPTURE_POST_SHA = '368178997ab44c30390926d7da43fdfb65945ee6f2bcddf8dc4f6af17766d828';
-const EXTRACT_POST_SHA = '982f5dead7b7e08fda81616e0dc0f3352b3b511af514e612e8f7e2105d759382';
+//
+// Deliberate re-pin: the capture + extract pins moved when the shared options
+// schema gained `maxContentWords` (the machine-readable content budget). The
+// bazaar input schema mirrors parseOptions and declares
+// additionalProperties:false on `options`, so omitting the new field would have
+// published a schema that rejects a real input. That one property is the entire
+// body delta (challenges.ts diff), and `topup` — which does not embed the shared
+// options schema — is unchanged, which is the control case for this re-pin.
+const CAPTURE_POST_SHA = 'a7ebcd4486c8b5dbdc2ef0baf1583054af7e10ef9d0d97e01e13d23ec670340c';
+const EXTRACT_POST_SHA = '23d7bfe30e52e1b04c85c9f9a5eee4dd03774e3ac1261e1b7b6e2f8f464736bb';
 const TOPUP_POST_SHA = 'c9690b435aa6337fd3d2bf2091bf1499e90b19ad54356268b4a3af13c6f6dafb';
 
 function sha256Hex(raw: string): string {

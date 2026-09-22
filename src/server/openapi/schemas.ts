@@ -64,8 +64,18 @@ const extractResponse = (priceUsdcUnits: number): Json => ({
               paragraphs: { type: 'array', items: { type: 'string' } },
               links: { type: 'array', items: { type: 'object', properties: { href: { type: 'string' }, text: { type: 'string' } } } },
               images: { type: 'array', items: { type: 'object', properties: { src: { type: 'string' }, alt: { type: 'string' } } } },
-              wordCount: { type: 'integer' },
+              wordCount: { type: 'integer', description: 'Words on the whole page, chrome included (the human count)' },
               markdown: { type: 'string' },
+              content: {
+                type: 'object',
+                description:
+                  'Provenance of the main content that paragraphs/markdown actually contain: which container was chosen, how many words it holds after chrome removal, and whether a maxContentWords budget cut it short',
+                properties: {
+                  source: { type: 'string', example: 'article', description: 'Selector the content came from; "body" = whole-page fallback' },
+                  words: { type: 'integer' },
+                  truncated: { type: 'boolean' },
+                },
+              },
               extracted: { type: 'object', description: 'Model-extracted JSON when a schema was supplied' },
               classification: {
                 type: 'object',
@@ -111,6 +121,13 @@ const captureOptionsProperties = {
   isMobile: { type: 'boolean', description: 'Render with a mobile viewport' },
   userAgent: { type: 'string', description: 'Custom user agent string' },
   proxy: { type: 'string', description: 'Proxy: "auto", "stealth", or an http(s) proxy URL string' },
+  maxContentWords: {
+    type: 'integer',
+    description:
+      'Word budget for the extracted main content (paragraphs + markdown), clamped to ' +
+      '25..100000. Lets an agent size a page to its context window; content is cut at a block ' +
+      'boundary and content.truncated reports it.',
+  },
   waitFor: {
     type: 'object',
     description: 'Wait for a selector before capture (timeoutMs capped at 10000)',

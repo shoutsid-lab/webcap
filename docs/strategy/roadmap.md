@@ -59,6 +59,17 @@ Goal: one funded agent, calling unattended, more than once.
       agent spend without re-signing per call.
       *Acceptance: ≥1 wallet with a `revenue_ledger` row that previously
       appears in `trial_claims`.*
+- [x] **Sell document, not chrome.** The paid extract used to walk the whole
+      DOM, so an agent paid $0.01 to put cookie banners, nav and footer link
+      farms into its context window. Extraction is now content-aware: a
+      readability-lite score picks the page's own container (trusting
+      `<article>`/`<main>`/`[role=main]`, requiring volume from heuristic
+      containers), chrome subtrees are skipped, `content` reports
+      {source, words, truncated}, and `options.maxContentWords` sizes the output
+      to a context window. The HTTP-only preview path — the free surface an
+      agent reads first — got the same treatment (article/main scope, tag-level
+      chrome removal) plus `content` in its response.
+      *Acceptance: met — an agent can see what it is paying for and cap it.*
 - [ ] **Make `402` impossible to misread.** Ensure every discovery surface
       agrees on method (`POST`), price, and network; see the GET-method risk
       flagged in the charter. Fix it only with spec compliance and tests.

@@ -58,6 +58,11 @@ const CAPTURE_OPTIONS_PROPERTIES: Record<string, unknown> = {
       timeoutMs: { type: 'integer', description: 'Wait timeout in milliseconds (capped at 10000)' },
     },
   },
+  maxContentWords: {
+    type: 'integer',
+    description:
+      'Word budget for the extracted main content (paragraphs + markdown). Lets an agent size a page to its context window; content is cut at a block boundary and content.truncated reports it',
+  },
   actions: {
     type: 'array',
     description: 'Post-load actions: click/type/wait objects (1 to 5)',

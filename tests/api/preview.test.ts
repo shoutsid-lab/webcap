@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { CaptureError } from '../../src/capture/errors.js';
-import type { StructuredCapture } from '../../src/capture/pipeline.js';
+import type { PageStructure, StructuredCapture } from '../../src/capture/pipeline.js';
 import { USDC_SCALE } from '../../src/config.js';
 import { closeApiFixture, makeApiFixture } from './fixture.js';
 
@@ -52,6 +52,30 @@ describe('GET /v1/extract/preview (free, rate-limited funnel)', () => {
       expect(body.paidUpgrade.priceUsdc).toBe(fx.config.x402ExtractPriceUsdcUnits / USDC_SCALE);
       expect(body.paidUpgrade.guide.endsWith('/skill.md')).toBe(true);
       expect(Object.keys(body.paidUpgrade).sort()).toEqual(['endpoint', 'guide', 'howToPay', 'priceUsdc', 'priceUsdcUnits']);
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('surfaces where the previewed content came from (source/words/truncated)', async () => {
+    const fx = makeApiFixture({
+      previewFallback: async (): Promise<PageStructure> => ({
+        title: 'Scoped Title',
+        description: '',
+        headings: [{ level: 1, text: 'Scoped' }],
+        paragraphs: ['Kept paragraph.'],
+        links: [],
+        images: [],
+        wordCount: 120,
+        markdown: '# Scoped\n\nKept paragraph.',
+        content: { source: 'article', words: 3, truncated: false },
+      }),
+    });
+    try {
+      const res = await fx.app.inject({ method: 'GET', url: '/v1/extract/preview?url=https://example.com/scoped' });
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { preview: { content?: { source: string; words: number; truncated: boolean } } };
+      expect(body.preview.content).toEqual({ source: 'article', words: 3, truncated: false });
     } finally {
       await closeApiFixture(fx);
     }

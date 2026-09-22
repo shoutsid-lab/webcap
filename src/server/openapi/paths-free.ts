@@ -15,7 +15,7 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
       get: {
         tags: ['extract'],
         summary: 'Free bounded structured preview (no payment, rate-limited)',
-          description: `Sample the extract output without paying: a truncated preview (headings, links, first ${ctx.previewMarkdownLimit} chars of markdown). Rate-limited per client.`,
+          description: `Sample the extract output without paying: a truncated preview (headings, links, first ${ctx.previewMarkdownLimit} chars of markdown from the page's main content, chrome excluded). Rate-limited per client.`,
         parameters: [
           { name: 'url', in: 'query', required: true, schema: { type: 'string' }, description: 'The page to preview' },
         ],
@@ -33,8 +33,18 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
                     description: { type: 'string' },
                     headings: { type: 'array', items: { type: 'object', properties: { level: { type: 'integer' }, text: { type: 'string' } } } },
                     links: { type: 'array', items: { type: 'object', properties: { href: { type: 'string' }, text: { type: 'string' } } } },
-                    wordCount: { type: 'integer' },
-                    markdown: { type: 'string', description: `First ${ctx.previewMarkdownLimit} characters of the document-order markdown` },
+                    wordCount: { type: 'integer', description: 'Words on the whole page, chrome included' },
+                    markdown: { type: 'string', description: `First ${ctx.previewMarkdownLimit} characters of the document-order markdown, taken from the page's main content (chrome excluded)` },
+                    content: {
+                      type: 'object',
+                      description:
+                        'What the markdown actually contains: source = the container it was taken from (article/main/body), words = words kept after chrome removal, truncated = cut short by the budget',
+                      properties: {
+                        source: { type: 'string', example: 'article' },
+                        words: { type: 'integer' },
+                        truncated: { type: 'boolean' },
+                      },
+                    },
                   },
                 },
                 truncated: { type: 'boolean', example: true },

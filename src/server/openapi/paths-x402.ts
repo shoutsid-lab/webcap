@@ -64,7 +64,7 @@ export function x402Paths(config: WebcapConfig, ctx: PathContext): OpenapiPaths 
         tags: ['extract'],
         summary: 'Extract structured content from one URL or a batch (paid, x402)',
         description:
-          'Return structured content (title, headings, paragraphs, links, images, word count, markdown) as JSON. ' +
+          'Return structured content (title, headings, paragraphs, links, images, word count, markdown) as JSON, taken from the page main content: navigation, cookie banners, sidebars and footers are excluded from paragraphs/markdown, so an agent pays for the document rather than the chrome (content.source / content.words / content.truncated report exactly what was kept). ' +
           `Batch up to 50 URLs for ONE payment (${config.x402ExtractPriceUsdcUnits / USDC_SCALE} USDC covers the whole batch; the price is flat per batch while compute cost scales per URL, so one payment covers repeat extractions of the same batch only when re-requested). ` +
           'Optional natural-language "schema" triggers model-based extraction into custom JSON. ' +
           'A JSON object "schema" instead takes the deterministic path: zero model calls, the response data gains an "extracted" projection, ' +
