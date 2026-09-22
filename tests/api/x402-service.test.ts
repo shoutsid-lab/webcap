@@ -133,7 +133,7 @@ describe('GET /v1/x402/service (canonical agent descriptor)', () => {
     try {
       const res = await fx.app.inject({ method: 'GET', url: '/v1/x402/service' });
       expect(res.statusCode).toBe(200);
-      const body = res.json() as { service: string; paidEndpoints: PaidEndpointEntry[] };
+      const body = res.json() as { service: string; paidEndpoints: PaidEndpointEntry[]; freeEndpoints: Array<{ method: string; path: string; note: string }> };
       expect(body.service).toBe('webcap');
       expect(body.paidEndpoints.map((e) => e.path)).toEqual([
         '/v1/x402/capture',
@@ -160,6 +160,10 @@ describe('GET /v1/x402/service (canonical agent descriptor)', () => {
       // The pre-existing entries keep their config-derived prices (no drift).
       expect(capture?.priceUsdc).toBe(fx.config.x402PriceUsdcUnits / USDC_SCALE);
       expect(extract?.priceUsdc).toBe(fx.config.x402ExtractPriceUsdcUnits / USDC_SCALE);
+      // The free trial is advertised in freeEndpoints (never in paidEndpoints).
+      const trial = body.freeEndpoints.find((e) => e.path === '/v1/x402/trial');
+      expect(trial?.method).toBe('POST');
+      expect(String(trial?.note)).toContain('personal_sign');
     } finally {
       await closeX402Fixture(fx);
     }

@@ -385,6 +385,10 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           endpoint: 'POST /v1/x402/extract',
           note: 'paid: full paragraphs + images + batch (up to 50 URLs) + optional model extraction + page classification',
         },
+        trial: {
+          endpoint: 'POST /v1/x402/trial',
+          note: 'free: one full PNG capture per wallet (EIP-191 personal_sign proof); claimed wallets get 409 + paidNext',
+        },
         paidUpgrade: {
           endpoint: 'POST /v1/x402/extract',
           priceUsdc: config.x402ExtractPriceUsdcUnits / USDC_SCALE,
@@ -496,6 +500,10 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       upgrade: {
         endpoint: 'POST /v1/x402/extract',
         note: 'paid: full paragraphs + images + batch (up to 50 URLs) + optional model extraction + AI classification',
+      },
+      trial: {
+        endpoint: 'POST /v1/x402/trial',
+        note: 'free: one full PNG capture per wallet (EIP-191 personal_sign proof); claimed wallets get 409 + paidNext',
       },
       paidUpgrade: {
         endpoint: 'POST /v1/x402/extract',
@@ -674,6 +682,11 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           note: 'free bounded structured preview (rate-limited); the paid extract returns full text + images + batch + model',
         },
         { method: 'GET', path: '/v1/health', note: 'liveness + chain' },
+        {
+          method: 'POST',
+          path: '/v1/x402/trial',
+          note: 'free: one full PNG capture per wallet — body {url, payer, signature} where signature is the EIP-191 personal_sign of "Claim one free webcap trial capture for <lowercase-0x-address>"',
+        },
       ],
     };
   });

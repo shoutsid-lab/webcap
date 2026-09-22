@@ -210,6 +210,7 @@ export function frontDoorPayload(config: WebcapConfig) {
         { path: 'GET /v1/extract/preview?url=...', note: 'bounded structured preview (rate-limited)' },
         { path: 'GET /v1/og?url=...', note: 'OG metadata' },
         { path: 'GET /v1/health', note: 'liveness + chain' },
+        { path: 'POST /v1/x402/trial', note: 'free: one full PNG capture per wallet (EIP-191 personal_sign proof)' },
       ],
       paid: [
         { path: 'POST /v1/x402/capture', usdc: config.x402PriceUsdcUnits / USDC_SCALE, note: 'PNG/JPEG/PDF screenshot + free OG' },

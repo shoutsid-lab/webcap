@@ -45,6 +45,13 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
                     note: { type: 'string' },
                   },
                 },
+                trial: {
+                  type: 'object',
+                  properties: {
+                    endpoint: { type: 'string', example: 'POST /v1/x402/trial' },
+                    note: { type: 'string', description: 'Free trial pointer: one full PNG capture per wallet (EIP-191 personal_sign proof)' },
+                  },
+                },
                 paidUpgrade: {
                   type: 'object',
                   properties: {
