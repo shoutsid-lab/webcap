@@ -74,7 +74,9 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
         auth: { type: 'none' },
         api: { type: 'openapi', url: `${base}/openapi.json` },
         logo_url: `${base}/icon.png`,
-        contact_email: 'hello@webcap.dev',
+        // Only when the operator actually configured one: publishing an address
+        // on a domain this deployment does not own is worse than publishing none.
+        ...(config.contactEmail !== undefined ? { contact_email: config.contactEmail } : {}),
         legal_info_url: 'https://github.com/shoutsid-lab/webcap/blob/main/LICENSE',
       }));
   });

@@ -147,10 +147,14 @@ curl -s -X POST "https://webcap.shoutsid.fyi/v1/x402/extract" \
 
 ## How payment works
 
-Pay with **card (Stripe)** or **crypto (USDC on Base)**:
+The **live rail is crypto (x402, USDC on Base)** — no accounts, no API keys.
+Card payments are an operator option, not a hosted feature: until an operator
+sets `STRIPE_SECRET_KEY`, `POST /v1/stripe/checkout` answers
+`stripe_not_configured` and points at the crypto rail. (The hosted deployment at
+https://webcap.shoutsid.fyi is card-less today.)
 
-### Card payments (Stripe)
-1. Visit the API endpoint — Stripe Checkout handles the rest.
+### Card payments (Stripe, when configured)
+1. `POST /v1/stripe/checkout` with a pack id — Stripe Checkout handles the rest.
 2. Enter your card details. Credits are added to your account instantly.
 3. Use API key authentication for subsequent calls.
 

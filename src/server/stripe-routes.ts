@@ -35,13 +35,19 @@ export function registerStripeRoutes(app: FastifyInstance, deps: AppDeps): void 
 
   // If no Stripe key configured, register a helpful mock route instead of 404
   if (!stripeSecretKey) {
+    // Never invent a contact address here: a hardcoded address on a domain this
+    // deployment does not own sends paying customers nowhere. Only advertise a
+    // human contact when the operator configured one.
+    const contact = config.contactEmail;
     app.post('/v1/stripe/checkout', async () => {
       return {
         error: 'stripe_not_configured',
-        message: 'Card payments are not yet configured. Use x402 crypto payments (USDC on Base) or email hello@webcap.dev for invoice purchase.',
+        message:
+          'Card payments are not configured on this deployment. Use x402 crypto payments (USDC on Base).' +
+          (contact !== undefined ? ` For an invoice purchase, contact ${contact}.` : ''),
         fallback: {
           crypto: 'POST /v1/x402/extract (returns 402 + payment challenge)',
-          email: 'Email hello@webcap.dev with the pack you want',
+          ...(contact !== undefined ? { email: `Email ${contact} with the pack you want` } : {}),
         },
       };
     });
