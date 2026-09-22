@@ -148,8 +148,13 @@ describe('capture/video recordVideo pipeline', () => {
       expect(fakes.evaluatePixels.length).toBeGreaterThan(0);
       expect(fakes.evaluatePixels.length).toBeLessThanOrEqual(4);
       for (const ms of fakes.waitedMs) expect(ms).toBeLessThanOrEqual(VIDEO_SCROLL_STEP_MS);
+      // The deadline bounds wall-clock; each wait is capped at the remainder.
+      // setTimeout can resolve a hair early, so the sum of *requested* waits
+      // may exceed the deadline by timer granularity even though elapsed time
+      // stays inside it. Allow that slop; a loop that failed to stop would
+      // overshoot by whole VIDEO_SCROLL_STEP_MS steps.
       const totalWaited = fakes.waitedMs.reduce((sum, ms) => sum + ms, 0);
-      expect(totalWaited).toBeLessThanOrEqual(300);
+      expect(totalWaited).toBeLessThanOrEqual(300 + 25);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

@@ -719,6 +719,97 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
         security: [],
       },
     },
+    '/v1/agent-funnel': {
+      get: {
+        tags: ['discovery'],
+        summary: 'Agent-income funnel (reach → challenge → trial → paid → retention → recurring)',
+        description:
+          'The conversion funnel for the customer this service actually has: an autonomous agent. Tracks reach ' +
+          '(discovery clients reading llms.txt/skill.md/.well-known/openapi/x402-service), challenge (402s on paid ' +
+          'routes), trial (wallet-signed free claims), paid (settled calls + distinct paying wallets from the revenue ' +
+          'ledger), retention (first-pay vs repeat wallets, lifetime) and recurring (funded, unpaused watches). ' +
+          'Aggregate only — never a raw payer address. Pass ?format=text for terminal output. See ' +
+          'docs/strategy/agent-first.md for the north-star definition. Public, no auth.',
+        parameters: [
+          { name: 'hours', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 8760, default: 168 }, description: 'Window in hours (default 168 = 7 days)' },
+          { name: 'format', in: 'query', required: false, schema: { type: 'string', enum: ['json', 'text'] }, description: 'Response format: json (default) or text for terminal-friendly output' },
+        ],
+        responses: {
+          200: {
+            description: 'Agent funnel counts (JSON, or text/plain when ?format=text)',
+            content: jsonContent({
+              type: 'object',
+              properties: {
+                windowHours: { type: 'integer', example: 168 },
+                reach: {
+                  type: 'object',
+                  properties: {
+                    discoveryRequests: { type: 'integer' },
+                    topClients: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          client: { type: 'string', example: 'CarbonMonitor/0.1' },
+                          requests: { type: 'integer' },
+                        },
+                      },
+                    },
+                  },
+                },
+                challenge: {
+                  type: 'object',
+                  properties: {
+                    total: { type: 'integer', description: '402 responses on paid routes' },
+                    topEndpoints: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: { endpoint: { type: 'string' }, count: { type: 'integer' } },
+                      },
+                    },
+                  },
+                },
+                trial: {
+                  type: 'object',
+                  properties: {
+                    claims: { type: 'integer' },
+                    wallets: { type: 'integer' },
+                    byEndpoint: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: { endpoint: { type: 'string' }, count: { type: 'integer' } },
+                      },
+                    },
+                  },
+                },
+                paid: {
+                  type: 'object',
+                  properties: {
+                    calls: { type: 'integer' },
+                    wallets: { type: 'integer' },
+                    revenueUsdcUnits: { type: 'integer', description: 'Atomic 6-decimal USDC units' },
+                  },
+                },
+                retention: {
+                  type: 'object',
+                  properties: {
+                    firstPayWallets: { type: 'integer', description: 'Wallets with exactly one settled call (lifetime)' },
+                    repeatWallets: { type: 'integer', description: 'Wallets with more than one settled call (lifetime)' },
+                  },
+                },
+                recurring: {
+                  type: 'object',
+                  properties: { activePaidWatches: { type: 'integer', description: 'Unpaused watches holding credits' } },
+                },
+              },
+            }),
+          },
+        },
+        security: [],
+      },
+    },
     '/v1/status-badge': {
       get: {
         tags: ['discovery'],

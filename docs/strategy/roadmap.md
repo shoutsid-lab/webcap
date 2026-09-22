@@ -11,22 +11,23 @@ Evidence baseline: discovery solved, demand ~zero, 1 lifetime paid call
 
 ## Phase 0 — Tell the truth, then measure it (now)
 
-The product already has excellent agent surfaces; two gaps remain.
+The product already has excellent agent surfaces; one operational gap remains.
 
 - [x] **Advertise MPP inside `llms.txt` and `skill.md`.** MPP is live
       (`WWW-Authenticate: Payment`, `x-payment-info`) but the two documents an
       LLM actually reads never mentioned it — an MPP-native agent read the
       x402-only story and left. *Shipped in this takeover.*
-- [ ] **Agent-income funnel analytics.** Add a read-only view of the agent
-      funnel (reach → challenge → trial → first pay → repeat → recurring),
-      derived from `endpoint_hits` (with `user_agent` attribution),
-      `trial_claims`, `revenue_ledger`, `watches`. Today the only funnel the
-      service reports (`/v1/funnel`) tracks the dead human landing path.
-      *Acceptance: a merchant can answer "how many distinct wallets paid this
-      week, and which clients reached us first" without SQL.*
-- [ ] **Re-register the post-cutover origin.** The MPP doc still names the
-      retired ngrok realm; directory listings key on host, so `webcap.shoutsid.fyi`
-      must be (re)asserted at 402index, x402scan, mppscan and CDP Bazaar.
+- [x] **Agent-income funnel analytics.** Shipped: `GET /v1/agent-funnel`
+      (public, aggregate-only) reports reach → challenge → trial → paid →
+      retention → recurring in one call, derived from `endpoint_hits` (with
+      `user_agent` attribution), `trial_claims`, `revenue_ledger`, `watches`.
+      Replaces the dead human path (`/v1/funnel`) as the number that matters.
+      *Acceptance met: distinct paying wallets and client reach are one request
+      away, no SQL.*
+- [ ] **Re-register the post-cutover origin.** The MPP doc no longer names the
+      retired ngrok realm, but listings key on host, so `webcap.shoutsid.fyi`
+      must still be (re)asserted at 402index, x402scan, mppscan and CDP Bazaar.
+      Operational, not a code change.
       *Acceptance: `logs/` shows green re-assertion for the current host.*
 
 ## Phase 1 — The first paying agent loop

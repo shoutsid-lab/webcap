@@ -10,8 +10,11 @@ console.log(JSON.stringify(db.prepare('<SQL>').all(), null, 2));
 "
 ```
 
-Public aggregate snapshots are also on `GET /v1/status` and
-`GET /v1/admin/analytics` (merchant-only, `?hours=N`).
+**`GET /v1/agent-funnel`** is the whole table below, pre-computed (public,
+aggregate-only, `?hours=N` default 168 = 7 days, `?format=text` for a
+terminal). Prefer it over hand-writing SQL. `GET /v1/status` carries public
+aggregates; `GET /v1/admin/analytics` adds the merchant-only per-client
+breakdown.
 
 ## North star
 
@@ -36,12 +39,12 @@ SELECT payer, COUNT(*) n FROM revenue_ledger
 
 | Stage | Query |
 |---|---|
-| Reach (discovery clients) | `SELECT user_agent, COUNT(*) n FROM endpoint_hits WHERE endpoint IN ('GET /.well-known/x402','GET /.well-known/agent-card.json','GET /llms.txt','GET /skill.md','GET /v1/x402/service') GROUP BY user_agent ORDER BY n DESC;` |
-| Challenge (402s on paid routes) | `SELECT endpoint, COUNT(*) n FROM endpoint_hits WHERE status=402 GROUP BY endpoint ORDER BY n DESC;` |
-| Try (trial claims) | `SELECT endpoint, COUNT(*) n FROM trial_claims GROUP BY endpoint;` |
+| Reach (discovery clients) | `GET /v1/agent-funnel` → `reach.topClients` |
+| Challenge (402s on paid routes) | `GET /v1/agent-funnel` → `challenge` |
+| Try (trial claims) | `GET /v1/agent-funnel` → `trial` |
 | First pay | `SELECT COUNT(*) FROM (SELECT payer FROM revenue_ledger GROUP BY payer HAVING COUNT(*)=1);` |
 | Repeat | `SELECT COUNT(*) FROM (SELECT payer FROM revenue_ledger GROUP BY payer HAVING COUNT(*)>1);` |
-| Recurring | `SELECT COUNT(*) n FROM watches WHERE paused=0 AND credits>0;` |
+| Recurring | `GET /v1/agent-funnel` → `recurring.activePaidWatches` |
 
 ## Attribution
 
