@@ -320,10 +320,6 @@ html[data-theme="dark"] .pr-upgrade-curl,html[data-theme="dark"] .pr-upgrade{bac
 .link-strip a .arr{margin-left:auto;color:var(--faint);flex:none}
 
 /* ── Trust strip (badges) ── */
-.trust-strip{display:flex;gap:var(--s3);flex-wrap:wrap;margin-top:16px;align-items:center}
-.trust-strip a{border:1px solid var(--line-soft);border-radius:var(--r-m);padding:8px 12px;background:var(--panel);display:inline-flex;box-shadow:var(--shadow-card);transition:border-color .15s ease}
-.trust-strip a:hover{border-color:var(--accent)}
-.trust-strip img{display:block;height:22px;max-width:100%}
 
 /* ── Waitlist form ── */
 .waitlist-card{display:flex;align-items:center;justify-content:space-between;gap:var(--s5);background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--accent);border-radius:var(--r-l);padding:28px 32px;box-shadow:var(--shadow-card);position:relative;overflow:hidden}

@@ -69,17 +69,22 @@ describe('GET / (content negotiation: landing page + JSON front door)', () => {
     }
   });
 
-  // Independent observed-trust badges (kkj x402 Trust Index): the crawler
-  // verifies our GET-402s live, so the landing surfaces their badges.
-  it('embeds the independent x402 trust badges (capture + extract) linking to their trust pages', async () => {
+  // A third-party trust record is keyed to the resource URL, so embedding a
+  // badge id is only truthful while that record names the origin we advertise.
+  // The kkj badges (ids 46929 capture / 46928 extract) were observed against
+  // the pre-cutover ngrok host and were removed at cutover — they linked to
+  // evidence for a domain we no longer serve. Re-add badges only together with
+  // records for the current domain (`docs/operations/domain-cutover.md`).
+  it('does not embed third-party trust records keyed to another host', async () => {
     const fx = makeApiFixture();
     try {
       const res = await fx.app.inject({ method: 'GET', url: '/' });
       const html = res.payload;
-      expect(html).toContain('https://5.75.142.199.sslip.io/badge/x402/46929.svg');
-      expect(html).toContain('https://5.75.142.199.sslip.io/badge/x402/46928.svg');
-      expect(html).toContain('https://5.75.142.199.sslip.io/x402/trust/46929');
-      expect(html).toContain('https://5.75.142.199.sslip.io/x402/trust/46928');
+      expect(html).not.toContain('badge/x402/');
+      expect(html).not.toContain('/x402/trust/');
+      // The index itself stays referenced, host-agnostically.
+      expect(html).toContain('x402 Trust Index');
+      expect(html).toContain('https://5.75.142.199.sslip.io/x402/best');
     } finally {
       await closeApiFixture(fx);
     }

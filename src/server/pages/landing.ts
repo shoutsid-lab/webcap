@@ -156,11 +156,20 @@ ${topBar(bazaarCatalogUrl, 'landing')}
         <span class="trust-label">Card or crypto</span>
       </div>
     </div>
-    <p class="hint" style="margin-top:var(--s3)">Independently observed trust (third-party index, live-probed — not a guarantee):</p>
-    <div class="trust-strip">
-      <a href="https://5.75.142.199.sslip.io/x402/trust/46929" target="_blank" rel="noopener"><img src="https://5.75.142.199.sslip.io/badge/x402/46929.svg" alt="x402 trust badge: capture route" loading="lazy"></a>
-      <a href="https://5.75.142.199.sslip.io/x402/trust/46928" target="_blank" rel="noopener"><img src="https://5.75.142.199.sslip.io/badge/x402/46928.svg" alt="x402 trust badge: extract route" loading="lazy"></a>
-    </div>
+    <!-- Trust record ids 46929 (capture) / 46928 (extract) used to be embedded
+         here as badge images. The kkj x402 Trust Index keys a record to the
+         resource URL, and those two were observed against the pre-cutover
+         ngrok host — after the domain cutover they advertised evidence for a
+         domain we no longer serve, so they came out (with the .trust-strip
+         rules in css.ts). The index derives its listings from the CDP Bazaar,
+         which indexes a URL only after a paid call settles there, so re-add the
+         badges with the new ids only once the index lists
+         WEBCAP_PUBLIC_BASE_URL (see docs/operations/domain-cutover.md). -->
+    <p class="hint" style="margin-top:var(--s3)">Independently observed trust: the third-party
+      <a href="https://5.75.142.199.sslip.io/x402/best" target="_blank" rel="noopener">kkj x402 Trust Index</a>
+      observes this service with live probes and signed evidence (observed, not a guarantee).
+      Its records are keyed to the resource URL and derived from the CDP Bazaar, so this domain gets
+      its own record once a paid call settles here.</p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════════════════
