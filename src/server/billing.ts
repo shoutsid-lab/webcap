@@ -15,10 +15,14 @@ import { getAddress, Wallet, ZeroAddress } from 'ethers';import {
   PRODUCT_CREDIT_COST,
   USDC_SCALE,
   USDC_UNITS_PER_CREDIT,
+  WATCH_CREDIT_TOPUP_COST_CAPTURE,
+  WATCH_CREDIT_TOPUP_COST_EXTRACT,
+  WATCH_TOPUP_RUNS,
   usdcForCredits,
   usdcUnitsForCredits,
   type WebcapConfig,
 } from '../config.js';
+import { makeWatchRepo } from '../watch/store.js';
 import { makeAccountsRepo } from '../db/accounts.js';
 import { makeApiKeysRepo } from '../db/api_keys.js';
 import { makeCreditsRepo } from '../db/credits.js';
@@ -296,6 +300,47 @@ export function registerBillingRoutes(app: FastifyInstance, deps: AppDeps): void
       throw new HttpError(502, 'analysis_failed', 'all urls failed to analyze');
     }
     return { results, task, creditsCharged: PRODUCT_CREDIT_COST, balance: accounts.getBalance(account.id) };
+  });
+
+  app.post('/v1/watches/:id/topup', async (req) => {
+    const { account } = authenticate(req, db);
+    const rawId = isRecord(req.params) ? req.params.id : undefined;
+    if (typeof rawId !== 'string' || rawId === '') throw unprocessable('id is required');
+    const body = req.body;
+    if (!isRecord(body)) throw unprocessable('body must be an object');
+    if (body.runs !== WATCH_TOPUP_RUNS) throw unprocessable(`runs must be ${WATCH_TOPUP_RUNS} (one pack)`);
+    const watchRepo = makeWatchRepo(db);
+    const watch = watchRepo.get(rawId);
+    if (watch === null) throw new HttpError(404, 'not_found', 'watch not found');
+    const cost = watch.mode === 'extract' ? WATCH_CREDIT_TOPUP_COST_EXTRACT : WATCH_CREDIT_TOPUP_COST_CAPTURE;
+    const spendCap = config.spendCapCredits;
+    if (spendCap !== undefined && credits.spentByAccount(account.id) + cost > spendCap) {
+      const spent = credits.spentByAccount(account.id);
+      throw new HttpError(429, 'spend_cap_exceeded', 'per-account spend cap exceeded', {
+        payer: account.address,
+        spent,
+        cap: spendCap,
+        reason: `per-account spend cap exceeded: spent ${spent} of ${spendCap} credits`,
+      });
+    }
+    const balanceBefore = accounts.getBalance(account.id);
+    if (balanceBefore < cost) {
+      const topUp = createInvoice(invoices, config, merchantAddress, account.id, cost);
+      throw new HttpError(402, 'insufficient_credits', 'insufficient credits', {
+        invoiceId: String(topUp.id),
+        requiredUsdc: usdcForCredits(cost),
+        balance: balanceBefore,
+      });
+    }
+    if (!accounts.spendN(account.id, cost, 'watch_topup_charged')) {
+      throw new HttpError(402, 'insufficient_credits', 'insufficient credits', { balance: 0 });
+    }
+    const funded = watchRepo.topUp(rawId, WATCH_TOPUP_RUNS, new Date().toISOString());
+    if (funded === null) {
+      credits.grantCredits(account.id, cost, 'watch_topup_refunded', req.id);
+      throw new HttpError(404, 'not_found', 'watch not found');
+    }
+    return { watchId: rawId, credits: funded, creditsCharged: cost, balance: accounts.getBalance(account.id) };
   });
 
   app.get('/v1/ledger', async (req) => {    const { account } = authenticate(req, db);

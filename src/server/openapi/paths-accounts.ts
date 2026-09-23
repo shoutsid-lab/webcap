@@ -2,13 +2,14 @@
  * The credits-rail (API-key account) path docs: POST /v1/register,
  * POST /v1/invoice, POST /v1/capture, the credit-metered products
  * (POST /v1/extract, /v1/audit, /v1/map-lite, /v1/video, /v1/analyze,
- * /v1/analyze/batch), GET /v1/ledger, GET /v1/account —
+ * /v1/analyze/batch), the credit-metered watch top-up
+ * (POST /v1/watches/{id}/topup), GET /v1/ledger, GET /v1/account —
  * plus GET /v1/og, which sits between /v1/ledger and /v1/account in the
  * original table and stays here so the key order (and thus the generated
  * JSON) is byte-identical. Split out of openapi.ts as a pure move (no
  * behavior change).
  */
-import { CAPTURE_COST_CREDITS, PRODUCT_CREDIT_COST, usdcForCredits, type WebcapConfig } from '../../config.js';
+import { CAPTURE_COST_CREDITS, PRODUCT_CREDIT_COST, WATCH_CREDIT_TOPUP_COST_CAPTURE, WATCH_TOPUP_RUNS, usdcForCredits, type WebcapConfig } from '../../config.js';
 import {
   auditCreditResponse,
   auditRequestBody,
@@ -309,6 +310,57 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
           422: ctx.unprocessable('Invalid input: missing/invalid urls or task'),
           429: jsonError('429', 'Per-account spend cap exceeded (error envelope, code spend_cap_exceeded; WEBCAP_SPEND_CAP_CREDITS, unset means unlimited)'),
           502: jsonError('502', 'All URLs in the batch failed to analyze (error envelope, code analysis_failed; the credit is refunded)'),
+        },
+        security: [{ apiKey: [] }],
+      },
+    },
+    '/v1/watches/{id}/topup': {
+      post: {
+        tags: ['accounts'],
+        summary: 'Top up a watch with a 100-run pack from account credits (Bearer auth)',
+        description:
+          'The credit-metered watch top-up: the same 100-run pack as POST /v1/x402/watches/topup, paid from the account credit balance instead of a signature. Capture-mode packs cost 10 credits ($0.10 nominal), extract-mode packs 100 credits ($1.00 nominal) — x402-pack parity. The charge is refunded if the watch vanishes mid-call.',
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', format: 'uuid' },
+            description: 'Watch ID from POST /v1/watches',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['runs'],
+                properties: {
+                  runs: { type: 'integer', enum: [WATCH_TOPUP_RUNS], description: `Pack size in runs (always ${WATCH_TOPUP_RUNS})` },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Watch funded; watch credit balance plus the account charge and remaining balance',
+            content: jsonContent({
+              type: 'object',
+              properties: {
+                watchId: { type: 'string' },
+                credits: { type: 'integer', description: 'The watch credit balance after the top-up (pre-paid runs)' },
+                creditsCharged: { type: 'integer', example: WATCH_CREDIT_TOPUP_COST_CAPTURE },
+                balance: { type: 'integer', description: 'Account credits remaining after the charge' },
+              },
+            }),
+          },
+          401: ctx.unauthorized,
+          402: jsonError('402', 'Insufficient credits; the error detail carries the pack-sized top-up invoice {invoiceId, requiredUsdc, balance} (error envelope, code insufficient_credits)'),
+          404: jsonError('404', 'Watch not found (error envelope, code not_found; nothing is charged)'),
+          422: ctx.unprocessable('Invalid input: missing id or runs is not exactly 100 (nothing is charged)'),
+          429: jsonError('429', 'Per-account spend cap exceeded (error envelope, code spend_cap_exceeded; WEBCAP_SPEND_CAP_CREDITS, unset means unlimited)'),
         },
         security: [{ apiKey: [] }],
       },

@@ -168,6 +168,7 @@ with a 1-credit top-up invoice. Full spec: ${config.publicBaseUrl}/openapi.json
 | POST /v1/video | video artifact + {creditsCharged, balance} |
 | POST /v1/analyze | {task, result} + {creditsCharged, balance} |
 | POST /v1/analyze/batch | per-URL results + {creditsCharged, balance} |
+| POST /v1/watches/{id}/topup | +100 watch runs: capture pack 10 credits, extract pack 100 (x402-pack parity) |
 
 ### Request / response shapes
 
@@ -332,7 +333,7 @@ Base URL: ${config.publicBaseUrl}
 | Trial map-lite (capped at 10 URLs) | POST /v1/x402/trial/map-lite {"url", "payer", "signature"} with endpoint "map-lite" in the message | free, one claim per wallet per endpoint |
 | Trial analyze (deterministic, one URL) | POST /v1/x402/trial/analyze {"url", "task", "payer", "signature"} with endpoint "analyze" in the message; task: classification\|accessibility\|layout\|entities\|sentiment | free, one claim per wallet per endpoint |
 | OG metadata | GET /v1/og?url=… | free |
-| Bearer-token rail (no signing key): register once, fund with a USDC transfer, then call with "Authorization: Bearer \<key\>" | POST /v1/register {"address"} → {apiKey}; POST /v1/invoice → {merchant, token, requiredUsdc}; then POST /v1/extract, POST /v1/audit, POST /v1/map-lite, POST /v1/video, POST /v1/analyze, POST /v1/analyze/batch | 1 credit/call, refunded on non-200; empty balance 402s with a top-up invoice |
+| Bearer-token rail (no signing key): register once, fund with a USDC transfer, then call with "Authorization: Bearer \<key\>" | POST /v1/register {"address"} → {apiKey}; POST /v1/invoice → {merchant, token, requiredUsdc}; then POST /v1/extract, POST /v1/audit, POST /v1/map-lite, POST /v1/video, POST /v1/analyze, POST /v1/analyze/batch, POST /v1/watches/{id}/topup (100-run pack) | 1 credit/call, watch packs at x402 parity, refunded on non-200; empty balance 402s with a top-up invoice |
 
 Machine-readable catalog: ${config.publicBaseUrl}/v1/x402/service · Full spec: ${config.publicBaseUrl}/openapi.json · Tool manifests: ${config.publicBaseUrl}/.well-known/openai-tools.json + ${config.publicBaseUrl}/.well-known/mcp-tools.json · Agent card: ${config.publicBaseUrl}/.well-known/agent-card.json
 

@@ -48,6 +48,15 @@ export const PRODUCT_CREDIT_COST = 1;
 export const WATCH_TOPUP_RUNS = 100;
 
 /**
+ * Account-credit price of a 100-run watch top-up pack: at the nominal
+ * $0.01/credit these equal the x402 pack prices exactly ($0.10 capture,
+ * $1.00 extract), so the two funding rails agree and neither undercuts the
+ * other — pack discounts apply equally to both.
+ */
+export const WATCH_CREDIT_TOPUP_COST_CAPTURE = 10;
+export const WATCH_CREDIT_TOPUP_COST_EXTRACT = 100;
+
+/**
  * Price of a 100-run watch top-up pack in 6-decimal USDC units:
  * the watch's mode unit price × 100 (capture: x402PriceUsdcUnits × 100,
  * extract: x402ExtractPriceUsdcUnits × 100).

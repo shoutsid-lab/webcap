@@ -490,6 +490,7 @@ describe('mppscan/x402gle discovery metadata', () => {
     ['post', '/v1/video'],
     ['post', '/v1/analyze'],
     ['post', '/v1/analyze/batch'],
+    ['post', '/v1/watches/{id}/topup'],
     ['get', '/v1/ledger'],
     ['get', '/v1/account'],
     ['get', '/v1/admin/hits/summary'],

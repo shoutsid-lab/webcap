@@ -46,7 +46,9 @@ The same products are buyable with an API key: `POST /v1/register`
 `POST /v1/extract`, `POST /v1/audit`, `POST /v1/map-lite`, `POST /v1/video`,
 `POST /v1/analyze`, or `POST /v1/analyze/batch`. Every call costs 1 credit,
 refunded whenever the call does not return 200; an empty balance answers 402
-with a 1-credit top-up invoice. Full spec: `GET /openapi.json` (tags: accounts).
+with a 1-credit top-up invoice. Watches fund the same way:
+`POST /v1/watches/{id}/topup {"runs": 100}` (capture pack 10 credits, extract
+pack 100). Full spec: `GET /openapi.json` (tags: accounts).
 
 ### Free endpoints (no payment)
 

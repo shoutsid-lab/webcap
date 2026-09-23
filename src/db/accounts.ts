@@ -22,6 +22,13 @@ export interface AccountsRepo {
    * Returns true when a credit was spent, false when the balance is 0.
    */
    spendOne(accountId: number): boolean;
+  /**
+   * Atomically spend N credits with a caller-chosen ledger reason. Same
+   * guarded-UPDATE guarantee as spendOne (`credits >= amount`): concurrent
+   * spenders can never drive the balance below zero. Returns false (spending
+   * nothing) when amount is not a positive integer or the balance is short.
+   */
+   spendN(accountId: number, amount: number, reason: string): boolean;
 }
 
 export function makeAccountsRepo(db: Db): AccountsRepo {
@@ -37,18 +44,18 @@ export function makeAccountsRepo(db: Db): AccountsRepo {
   const selectByAddress = db.prepare<[string], { id: number }>(
     'SELECT id FROM accounts WHERE address = ? LIMIT 1',
   );
-  const spendCredit = db.prepare<[number], unknown>(
-    'UPDATE accounts SET credits = credits - 1 WHERE id = ? AND credits >= 1',
+  const spendCredit = db.prepare<[number, number, number], unknown>(
+    'UPDATE accounts SET credits = credits - ? WHERE id = ? AND credits >= ?',
   );
-  const insertCharge = db.prepare<[number, string, string], unknown>(
-    "INSERT INTO credits_ledger (account_id, delta, reason, ref_id, created_at) VALUES (?, -1, ?, NULL, ?)",
+  const insertCharge = db.prepare<[number, number, string, string], unknown>(
+    'INSERT INTO credits_ledger (account_id, delta, reason, ref_id, created_at) VALUES (?, ?, ?, NULL, ?)',
   );
 
   // The guarded UPDATE and its ledger row commit together or not at all.
-  const spendTxn = db.transaction((accountId: number): boolean => {
-    const info = spendCredit.run(accountId);
+  const spendTxn = db.transaction((accountId: number, amount: number, reason: string): boolean => {
+    const info = spendCredit.run(amount, accountId, amount);
     if (info.changes === 1) {
-      insertCharge.run(accountId, 'capture_charged', nowIso());
+      insertCharge.run(accountId, -amount, reason, nowIso());
     }
     return info.changes === 1;
   });
@@ -70,7 +77,11 @@ export function makeAccountsRepo(db: Db): AccountsRepo {
       return row.credits;
     },
     spendOne(accountId: number): boolean {
-      return spendTxn(accountId);
+      return spendTxn(accountId, 1, 'capture_charged');
+    },
+    spendN(accountId: number, amount: number, reason: string): boolean {
+      if (!Number.isInteger(amount) || amount <= 0) return false;
+      return spendTxn(accountId, amount, reason);
     },
   };
 }

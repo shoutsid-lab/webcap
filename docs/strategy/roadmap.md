@@ -122,16 +122,23 @@ Goal: one funded agent, calling unattended, more than once.
 
 The cheapest revenue is an agent that keeps calling.
 
-- [ ] **Watches as the recurring rail.** A watch is free to create, then needs
-      credits. Make the funding step machine-completable and the webhook a
-      first-class agent feed (structured event types, not just "changed").
-      *Acceptance: ≥1 watch with credits > 0.
+- [~] **Watches as the recurring rail.** Funding is now machine-completable on
+  both rails: the x402 100-run pack (`POST /v1/x402/watches/topup`) plus the
+  bearer-token pack (`POST /v1/watches/{id}/topup {"runs": 100}` — 10 credits
+  capture, 100 extract, x402-pack parity, atomic multi-credit spend so
+  concurrent top-ups can never oversell). The webhook is already a structured
+  agent feed (`WatchAlert`: watchId/url/mode/diffSummary/at/artifactUrl/
+  extract/summary, generic/slack/discord channels, signed delivery).
+  *Remaining: ≥1 watch with credits > 0 on live — needs a funded wallet
+  (owner action); the funnel's `recurring` stage will show it.*
 - [ ] **Batch/bulk pricing an agent can budget.** Extract already covers a batch
       per payment. Document and surface the per-URL economics as the default
       call for agents doing research, so one decision funds many calls.
-- [ ] **Reliability the customer can see.** Publish uptime/latency from
-      `/v1/status` at a stable, machine-readable URL so an agent operator can
-      gate on it.
+- [x] **Reliability the customer can see.** `GET /v1/status` already publishes
+  uptime, 1h avg/p50 latency, error rate + 5xx breakdown, and active watches
+  at a stable machine-readable URL (plus a shields.io badge at
+  `GET /v1/status-badge`); verified live 2026-09-23. An operator can gate on
+  `status.ok + performance.errorRate` today — no build needed.
 
 ## Phase 3 — Widen the rails
 

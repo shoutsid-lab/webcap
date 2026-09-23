@@ -59,7 +59,10 @@ then send `Authorization: Bearer <apiKey>` to `POST /v1/extract`,
 `POST /v1/audit`, `POST /v1/map-lite`, `POST /v1/video`,
 `POST /v1/analyze`, or `POST /v1/analyze/batch`. Every call costs 1 credit,
 refunded whenever the call does not return 200; an empty balance answers 402
-with a 1-credit top-up invoice. Full spec: `GET /openapi.json` (tags: accounts).
+with a 1-credit top-up invoice. Watches fund the same way:
+`POST /v1/watches/{id}/topup {"runs": 100}` buys a 100-run pack from the same
+balance (capture pack 10 credits, extract pack 100 — x402-pack parity).
+Full spec: `GET /openapi.json` (tags: accounts).
 
 ### How the payment works
 1. `POST` unpaid → `402` with a `payment-required` header (base64 x402 v2
