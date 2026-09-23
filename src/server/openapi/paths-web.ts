@@ -244,6 +244,21 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
         security: [],
       },
     },
+    '/.well-known/agents.json': {
+      get: {
+        tags: ['discovery'],
+        summary: 'Agent card alias (byte-identical to agent-card.json)',
+        description:
+          'Same payload as /.well-known/agent-card.json, served under the plural well-known name some agent crawlers probe. Free, no payment.',
+        responses: {
+          200: {
+            description: 'The agent card (application/json; charset=utf-8)',
+            content: jsonContent({ type: 'object' }),
+          },
+        },
+        security: [],
+      },
+    },
     '/.well-known/x402.json': {
       get: {
         tags: ['discovery'],

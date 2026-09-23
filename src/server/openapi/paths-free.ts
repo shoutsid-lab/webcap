@@ -499,6 +499,16 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
         },
         security: [],
       },
+      post: {
+        tags: ['discovery'],
+        summary: 'Lost-agent handler: POST / is not a route (405 + catalog pointer)',
+        description:
+          'Registry crawlers sometimes POST the front door; instead of the framework default body, they get the error envelope with method_not_allowed plus the machine catalog (service) and openapi pointers, so the caller learns where to go. Free, no payment.',
+        responses: {
+          405: jsonError('405', 'Not a route (error envelope, code method_not_allowed; detail {service, openapi})'),
+        },
+        security: [],
+      },
     },
     '/quickstart': {
       get: {

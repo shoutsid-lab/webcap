@@ -4,8 +4,9 @@ Sequenced by one question: **what most increases settled paid calls from
 autonomous agents?** Read `docs/strategy/agent-first.md` first — that charter
 defines the customer and the rules; this file only sequences the work.
 
-Evidence baseline: discovery solved, demand ~zero, 1 lifetime paid call
-($0.01), 2 trial claims, 0 active watches. See the charter for the full table.
+Evidence baseline (refreshed 2026-09-23): discovery solved, demand ~zero, 1
+lifetime paid call ($0.01), 3 trial claims, 0 active watches. See the charter
+for the full table.
 
 ---
 

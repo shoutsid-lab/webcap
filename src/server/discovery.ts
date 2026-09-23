@@ -49,6 +49,16 @@ export function registerDiscoveryRoutes(app: FastifyInstance, deps: AppDeps): vo
 
   app.get('/openapi.json', async () => openapiDocument(config));
 
+  // Lost agents POST the front door (seen 16x from one registry crawler):
+  // answer 405 in the error envelope with a pointer to the machine catalog
+  // instead of Fastify's default body, so the caller learns where to go.
+  app.post('/', async () => {
+    throw new HttpError(405, 'method_not_allowed', 'POST / is not a route', {
+      service: `${config.publicBaseUrl}/v1/x402/service`,
+      openapi: `${config.publicBaseUrl}/openapi.json`,
+    });
+  });
+
   app.get('/v1/health', async () => {
     // Lightweight DB check — a simple query to confirm SQLite is responsive
     let dbOk = true;
@@ -104,6 +114,12 @@ export function registerDiscoveryRoutes(app: FastifyInstance, deps: AppDeps): vo
   // Alias probes seen from agent crawlers: same payloads under the alternate
   // well-known names (byte-identical to the canonical paths above).
   app.get('/.well-known/agent.json', async (_req, reply) => {
+    reply.header('content-type', 'application/json; charset=utf-8');
+    reply.header('cache-control', 'public, max-age=300');
+    return reply.send(await agentCard(config));
+  });
+
+  app.get('/.well-known/agents.json', async (_req, reply) => {
     reply.header('content-type', 'application/json; charset=utf-8');
     reply.header('cache-control', 'public, max-age=300');
     return reply.send(await agentCard(config));

@@ -156,10 +156,19 @@ describe('GET /openapi.json (machine-readable catalog)', () => {
       expect(view.openapi.startsWith('3.1')).toBe(true);
       const paths = Object.keys(view.paths);
       expect(paths.length).toBeGreaterThan(0);
+      // POST / is the lost-agent handler: it only ever answers 405
+      // (method_not_allowed + catalog pointers), so a 2xx is not documented
+      // for it by design — the 405 itself is pinned below instead.
+      const never2xx = new Set(['POST /']);
       for (const path of paths) {
         expect(path.startsWith('/'), `${path} must be an absolute path template`).toBe(true);
         for (const [method, op] of Object.entries(view.paths[path] ?? {})) {
           expect(['get', 'put', 'post', 'delete', 'options', 'head', 'patch'].includes(method), `${path} has unknown method ${method}`).toBe(true);
+          const key = `${method.toUpperCase()} ${path}`;
+          if (never2xx.has(key)) {
+            expect(Object.keys(op?.responses ?? {}), `${key} must document its 405`).toContain('405');
+            continue;
+          }
           const success = Object.keys(op?.responses ?? {}).some((status) => status.startsWith('2'));
           expect(success, `${method.toUpperCase()} ${path} must document a 2xx success response`).toBe(true);
         }
@@ -447,6 +456,7 @@ describe('mppscan/x402gle discovery metadata', () => {
     ['get', '/v1/artifacts/{id}'],
     ['get', '/v1/artifacts/{id}/page'],
     ['get', '/'],
+    ['post', '/'],
     ['get', '/icon.png'],
     ['get', '/openapi.json'],
     ['get', '/v1/x402/service'],
@@ -456,6 +466,7 @@ describe('mppscan/x402gle discovery metadata', () => {
     ['get', '/sitemap.xml'],
     ['get', '/.well-known/x402'],
     ['get', '/.well-known/agent-card.json'],
+    ['get', '/.well-known/agents.json'],
     ['get', '/.well-known/openai-tools.json'],
     ['get', '/.well-known/mcp-tools.json'],
     ['get', '/llms.txt'],
@@ -621,7 +632,7 @@ describe('mppscan/x402gle discovery metadata', () => {
   it('declares security: [] on every free/public op (the explicit 30-list)', async () => {
     const fx = makeApiFixture();
     try {
-      expect(FREE_OPS.length).toBe(30);
+      expect(FREE_OPS.length).toBe(32);
       const res = await getDoc(fx.app);
       const doc = res.json() as OpenapiDocView;
       for (const [method, path] of FREE_OPS) {

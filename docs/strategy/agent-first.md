@@ -42,24 +42,33 @@ in a marketing deck.
 
 These are the numbers at takeover (2026-09-22), read from the live container's
 `/data/webcap.db` and `/v1/status`. They are the reason this charter exists.
+Evidence refreshed 2026-09-23 — the shape has not changed (second column).
 
-| Signal | Value | Meaning |
-|---|---|---|
-| Lifetime endpoint hits | 52,066 | Discovery is **not** the bottleneck |
-| Lifetime paid calls | **1** (`revenue_ledger`) | Income is ~zero |
-| Lifetime revenue | **$0.01** USDC (`revenue_ledger`) | One $0.01 extract on 2026-09-14 |
-| Stripe payments / invoices | 0 / 0 | Card rail unused |
-| Trial claims | 2 (1 capture, 1 extract) | Trials are almost untouched |
-| Watches active | 0 | The recurring rail has no demand |
-| `POST /v1/x402/capture` hits | 11,099 of 11,348 are `402` | Probed constantly, paid ~never |
-| Capture probe rate | steady ~720/day | A **monitoring heartbeat**, not customers |
-| Human landing funnel (24h) | 14 views → 0 previews | The human path is dead |
-| Waitlist | 2 emails | Human signups are noise |
+| Signal | Takeover | 2026-09-23 | Meaning |
+|---|---|---|---|
+| Lifetime endpoint hits | 52,066 | 58,927 | Discovery is **not** the bottleneck |
+| Lifetime paid calls | **1** (`revenue_ledger`) | **1** | Income is ~zero |
+| Lifetime revenue | **$0.01** USDC (`revenue_ledger`) | **$0.01** | One $0.01 extract on 2026-09-14 |
+| Stripe payments / invoices | 0 / 0 | 0 / 0 | Card rail unused |
+| Trial claims | 2 (1 capture, 1 extract) | 3 | Trials are almost untouched |
+| Watches active | 0 | 0 | The recurring rail has no demand |
+| `POST /v1/x402/capture` hits | 11,099 of 11,348 are `402` | 11,141 of 11,142 are `402` | Probed constantly, paid ~never |
+| Capture probe rate (7d) | steady ~720/day | ~749/day | A **monitoring heartbeat**, not customers |
+| Extract probe rate (7d) | — | ~586/day `402` | Newer probe interest, same non-payment |
+| Human landing funnel (24h) | 14 views → 0 previews | — (dead path, no longer tracked) | The human path is dead |
+| Waitlist | 2 emails | 2 emails | Human signups are noise |
 
-Clients seen in `endpoint_hits.user_agent`: `CarbonMonitor/0.1`,
-`402explorer/0.1`, `x402-observer/1.0`, `x402-census-probe/2.1`,
-`forum-labs-trust-prober/1.0`, `Gold-402-Verifier/1.0`, plus `curl`/`node`.
-Every named client is a discovery/trust **crawler**, not a paying agent.
+Clients seen in `endpoint_hits.user_agent` (7d to 2026-09-23): `CarbonMonitor/0.1`
+healthcheck, `402explorer/0.1`, `x402-observer/1.0`, `x402-census-probe/2.1`,
+`forum-labs-trust-prober/1.0`, `hermes-contact-discovery/1.0`,
+`enclave402/verifier`, `x402watch/1`, `dexter-api/x402-schema-fetcher`,
+`Dexter-Verifier/1.0`, `mako-pulse-prober/0.1`, `BrickBlueBot/0.1` (agentic-web
+registry), `x402-client/1.0`, `x402-reliability-probe/1.0`, plus `curl`/`node`.
+Every named client is a discovery/trust **crawler**, not a paying agent —
+with two footnotes: `x402-client/1.0` probed `POST /v1/x402/extract` 15x (402,
+never paid) and `BrickBlueBot` POSTed `/` 16x (405s), which is why `POST /`
+now answers 405 in the error envelope with a catalog pointer instead of the
+framework default.
 
 ### The conclusion, stated plainly
 
