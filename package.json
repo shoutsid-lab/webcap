@@ -1,11 +1,14 @@
 {
-  "name": "webcap",
+  "name": "@shoutsid/webcap",
   "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Screenshot any URL, extract structured data, monitor pages for changes — pay-per-call web capture API with x402 USDC micropayments",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/shoutsid-lab/webcap.git"
+    "url": "git+https://github.com/shoutsid-lab/webcap.git"
   },
   "bugs": {
     "url": "https://github.com/shoutsid-lab/webcap/issues"

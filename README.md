@@ -57,6 +57,9 @@ frameworks) can call it as a tool. The free tools need no configuration; set
 automatically (gasless — the payer signs EIP-3009, the facilitator pays gas).
 With no key, paid tools return the x402 402 challenge for the host to pay.
 
+From a source checkout — `npm ci && npm run build` — then point `args` at
+its `dist/mcp/stdio.js`:
+
 ```json
 {
   "mcpServers": {
@@ -69,12 +72,10 @@ With no key, paid tools return the x402 402 challenge for the host to pay.
 }
 ```
 
-The host needs a built server: `npm ci && npm run build` (or install the packed
-tarball / a checkout and point `args` at its `dist/mcp/stdio.js`). From this repo,
-`npm run mcp` runs the TypeScript directly, so no build step is needed.
-
-It is **not on npm yet**: the unscoped `webcap` name belongs to an unrelated
-package, so the publishable name must be scoped (e.g. `@shoutsid/webcap`).
+(`npm run mcp` runs the TypeScript directly, so no build step is needed
+there.) The first npm release will be `@shoutsid/webcap` — the unscoped
+`webcap` name belongs to an unrelated package — and this section will show
+the one-line install then.
 
 Tools: `webcap_preview`, `webcap_og`,
 `webcap_service`, `webcap_health`, `webcap_agent_funnel` (free) and
