@@ -2,17 +2,23 @@
  * Local dev/test chain harness (anvil + MintableUSDC).
  *
  * Two modes, one file:
- *  - vitest globalSetup (default export): boots an anvil on 127.0.0.1:8545
- *    ONCE for the whole run, builds + deploys MintableUSDC from anvil
- *    account #0, mints 10000 USDC to customer (account #0) and a fresh
- *    random merchant, writes /tmp/webcap-test-chain.json, and returns a
- *    teardown that kills anvil.
+ *  - vitest globalSetup (default export): boots an anvil on a per-process
+ *    FREE port (never the fixed 8545 two invocations would fight over),
+ *    builds + deploys MintableUSDC from anvil account #0, mints 10000 USDC
+ *    to customer (account #0) and a fresh random merchant, writes
+ *    /tmp/webcap-test-chain-<pid>.json, exports the path via
+ *    WEBCAP_TEST_CHAIN_FILE (inherited by the forked test workers), and
+ *    returns a teardown that kills anvil and removes the file. Two `vitest`
+ *    invocations at once used to share one port, one chain file, and pkill
+ *    each other's anvil — the NONCE_EXPIRED flakes. Never again.
  *  - manual (`npm run chain:up` / `tsx scripts/devchain.ts`): same bootstrap
- *    but with a DETACHED anvil that persists after the script exits, writing
- *    /tmp/webcap-chain.json. Idempotent: stale anvil on 8545 is killed first.
+ *    on the fixed 8545 with a DETACHED anvil that persists after the script
+ *    exits, writing /tmp/webcap-chain.json. Idempotent: stale anvil on 8545
+ *    is killed first.
  */
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -28,7 +34,6 @@ import {
 import { contractMethod } from '../src/payment/erc20.js';
 
 const ANVIL_PORT = 8545;
-const RPC_URL = `http://127.0.0.1:${ANVIL_PORT}`;
 const CHAIN_ID = 31337;
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const ANVIL_ACCOUNT0 = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
@@ -55,19 +60,32 @@ const foundryBin = (name: string): string =>
 
 const sleep = (ms: number): Promise<void> => new Promise((resolveTimer) => setTimeout(resolveTimer, ms));
 
-async function killStaleAnvil(): Promise<void> {
+async function killStaleAnvil(port: number): Promise<void> {
   try {
-    execFileSync('pkill', ['-f', `anvil --port ${ANVIL_PORT}`], { stdio: 'ignore' });
+    execFileSync('pkill', ['-f', `anvil --port ${port}`], { stdio: 'ignore' });
     await sleep(300); // let the port be released
   } catch {
     // no stale anvil — fine
   }
 }
 
-function spawnAnvil(detached: boolean): ChildProcess {
+/** A currently-free loopback port, so concurrent harnesses never share one. */
+function freePort(): Promise<number> {
+  return new Promise((resolvePromise, reject) => {
+    const srv = createServer();
+    srv.on('error', reject);
+    srv.listen(0, '127.0.0.1', () => {
+      const addr = srv.address();
+      const port = typeof addr === 'object' && addr !== null ? addr.port : 0;
+      srv.close(() => resolvePromise(port));
+    });
+  });
+}
+
+function spawnAnvil(port: number, detached: boolean): ChildProcess {
   const child = spawn(
     foundryBin('anvil'),
-    ['--port', String(ANVIL_PORT), '--silent', '--chain-id', String(CHAIN_ID)],
+    ['--port', String(port), '--silent', '--chain-id', String(CHAIN_ID)],
     { detached, stdio: 'ignore' },
   );
   // Unref so anvil never holds the vitest process open (teardown kills it).
@@ -75,11 +93,11 @@ function spawnAnvil(detached: boolean): ChildProcess {
   return child;
 }
 
-async function waitForRpc(timeoutMs = 30_000): Promise<void> {
+async function waitForRpc(rpcUrl: string, timeoutMs = 30_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     try {
-      const res = await fetch(RPC_URL, {
+      const res = await fetch(rpcUrl, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_blockNumber', params: [] }),
@@ -89,7 +107,7 @@ async function waitForRpc(timeoutMs = 30_000): Promise<void> {
     } catch {
       // not up yet — retry
     }
-    if (Date.now() >= deadline) throw new Error(`anvil not ready at ${RPC_URL} after ${timeoutMs}ms`);
+    if (Date.now() >= deadline) throw new Error(`anvil not ready at ${rpcUrl} after ${timeoutMs}ms`);
     await sleep(250);
   }
 }
@@ -107,8 +125,8 @@ function forgeBuild(): void {
 // second tx of a deploy->mint sequence would be rejected with "nonce too low".
 const makeProvider = (url: string): JsonRpcProvider => new JsonRpcProvider(url, undefined, { cacheTimeout: -1 });
 
-async function deployAndMint(): Promise<{ address: string; customer: BaseWallet; merchant: BaseWallet }> {
-  const provider = makeProvider(RPC_URL);
+async function deployAndMint(rpcUrl: string): Promise<{ address: string; customer: BaseWallet; merchant: BaseWallet }> {
+  const provider = makeProvider(rpcUrl);
   const customer = HDNodeWallet.fromPhrase(MNEMONIC, undefined, getIndexedAccountPath(0));
   if (customer.address.toLowerCase() !== ANVIL_ACCOUNT0.toLowerCase()) {
     throw new Error(`anvil account #0 derivation mismatch: ${customer.address}`);
@@ -130,16 +148,17 @@ async function deployAndMint(): Promise<{ address: string; customer: BaseWallet;
   return { address: target, customer, merchant };
 }
 
-async function bootstrap(outFile: string, detached: boolean): Promise<{ info: ChainInfo; teardown: () => Promise<void> }> {
-  await killStaleAnvil();
-  const child = spawnAnvil(detached);
+async function bootstrap(outFile: string, detached: boolean, port: number, killStale: boolean): Promise<{ info: ChainInfo; teardown: () => Promise<void> }> {
+  const rpcUrl = `http://127.0.0.1:${port}`;
+  if (killStale) await killStaleAnvil(port);
+  const child = spawnAnvil(port, detached);
   let info: ChainInfo;
   try {
-    await waitForRpc();
+    await waitForRpc(rpcUrl);
     forgeBuild();
-    const { address, customer, merchant } = await deployAndMint();
+    const { address, customer, merchant } = await deployAndMint(rpcUrl);
     info = {
-      rpcUrl: RPC_URL,
+      rpcUrl,
       chainId: CHAIN_ID,
       usdcContract: address,
       merchant: { address: merchant.address, privateKey: merchant.privateKey },
@@ -162,14 +181,26 @@ async function bootstrap(outFile: string, detached: boolean): Promise<{ info: Ch
   };
 }
 
-// vitest globalSetup: run once per test run; teardown kills anvil.
+// vitest globalSetup: one private anvil per test-run process; the chain file
+// path rides to the forked workers on the environment (never a fixed path two
+// invocations could share). Teardown kills anvil and removes the file.
 export default async function setup(): Promise<() => Promise<void>> {
-  const { teardown } = await bootstrap('/tmp/webcap-test-chain.json', false);
-  return teardown;
+  const port = await freePort();
+  const outFile = `/tmp/webcap-test-chain-${process.pid}.json`;
+  process.env.WEBCAP_TEST_CHAIN_FILE = outFile;
+  const { teardown } = await bootstrap(outFile, false, port, false);
+  return async () => {
+    await teardown();
+    try {
+      rmSync(outFile, { force: true });
+    } catch {
+      // best-effort cleanup
+    }
+  };
 }
 
 async function manualRun(): Promise<void> {
-  const { info } = await bootstrap('/tmp/webcap-chain.json', true);
+  const { info } = await bootstrap('/tmp/webcap-chain.json', true, ANVIL_PORT, true);
   console.log('webcap local chain ready:');
   console.log(`  anvil:   ${info.rpcUrl} (persists; kill with: pkill -f "anvil --port ${ANVIL_PORT}")`);
   console.log(`  USDC:    ${info.usdcContract}`);

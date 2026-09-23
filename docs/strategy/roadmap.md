@@ -132,9 +132,10 @@ The cheapest revenue is an agent that keeps calling.
   extract/summary, generic/slack/discord channels, signed delivery).
   *Remaining: ≥1 watch with credits > 0 on live — needs a funded wallet
   (owner action); the funnel's `recurring` stage will show it.*
-- [ ] **Batch/bulk pricing an agent can budget.** Extract already covers a batch
-      per payment. Document and surface the per-URL economics as the default
-      call for agents doing research, so one decision funds many calls.
+- [x] **Batch/bulk pricing an agent can budget.** One extract payment covers up
+  to 50 URLs and every agent surface states the per-batch economics as the
+  default research call (`skill.md` extraction notes + endpoint table,
+  `llms.txt` paid table, `AGENT.md` batch economics, README batch row).
 - [x] **Reliability the customer can see.** `GET /v1/status` already publishes
   uptime, 1h avg/p50 latency, error rate + 5xx breakdown, and active watches
   at a stable machine-readable URL (plus a shields.io badge at

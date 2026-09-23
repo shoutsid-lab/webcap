@@ -13,7 +13,7 @@ export interface TestChain {
   readonly customer: ChainWallet;
 }
 
-const CHAIN_FILE = '/tmp/webcap-test-chain.json';
+const CHAIN_FILE = process.env.WEBCAP_TEST_CHAIN_FILE ?? '/tmp/webcap-test-chain.json';
 
 function isWallet(value: unknown): value is ChainWallet {
   if (typeof value !== 'object' || value === null) return false;
