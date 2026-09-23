@@ -15,7 +15,3 @@ referenced by the front-door `agentGuide` label). Everything else lives here.
 - `protocols/` — `mpp.md` (Machine Payments Protocol support, shipped shape).
 - `research/` — `ml-research-and-roadmap.md` (market + ML feature research),
   `data-analysis-2026-09-09.md` (dated funnel analysis, historical record).
-- `marketing/archive-2026-09-launch/` — dated Sept-2026 launch copy drafts
-  (ngrok URLs, stale metrics) as historical record — do not rewrite.
-- `archive/` — superseded documents. `2026-09-human-first/` holds the old
-  human-first strategy set. Read `archive/README.md`; do not resurrect.

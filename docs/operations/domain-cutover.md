@@ -114,9 +114,6 @@ The keepalive logs the indexed-resource count **for the current host**
 change that silently empties the index is visible in `logs/webcap-keepalive.log`
 even while `bazaar=3/3` (validation) stays green.
 
-Dated launch docs (`docs/marketing/archive-2026-09-launch/`, e.g. `launch-content.md`,
-`reddit-posts-ready.md`) keep the old URL as historical record — do not rewrite.
-
 ## Step 5 — retire quick tunnel
 
 After 7 days green on the new domain: kill the `cloudflared tunnel --url`

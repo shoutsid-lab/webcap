@@ -149,8 +149,9 @@ The cheapest revenue is an agent that keeps calling.
 
 Human launch campaigns, HN/Reddit/Dev.to sequences, SEO-pro positioning,
 landing-page conversion polish, subscriptions/seats, and any "MRR target"
-that is not derived from settled `revenue_ledger` rows. These are archived
-history under `docs/archive/`.
+that is not derived from settled `revenue_ledger` rows. The old human-first
+launch apparatus was test fiction, not real history, and was deleted from the
+repo — do not reintroduce it as strategy.
 
 ## How to sequence anything new
 

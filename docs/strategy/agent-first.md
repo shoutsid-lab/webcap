@@ -174,8 +174,11 @@ Every new owner of webcap (agent or human) must:
    `endpoint_hits.user_agent`.
 3. **Keep exactly one strategy source of truth** — this file. Update its
    evidence section when the numbers move; do not fork a new master plan.
-4. **Archive, never silently rewrite, superseded docs.** Dated launch copy and
-   human-first strategy live under `docs/archive/` as historical record.
+4. **Archive, never silently rewrite, superseded docs.** Genuine superseded
+   docs belong under `docs/archive/` as historical record. (2026-09-23
+   exception, recorded not rewritten: the human-first launch apparatus was
+   test fiction, not real history, so it was deleted from the repo rather
+   than archived. Do not reintroduce it.)
 5. **Re-run the test suite before claiming a change works.** See `AGENTS.md`.
 
 If a future owner believes the customer is no longer an agent, that is a
