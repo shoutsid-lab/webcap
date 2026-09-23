@@ -211,15 +211,20 @@ export function reserveTrialClaim(gate: TrialGate, payer: string, endpoint: Tria
 }
 
 /**
- * Machine-readable trial menu for one wallet (GET /v1/x402/trial/status).
+ * Machine-readable trial menu (GET /v1/x402/trial/status).
+ *
+ * payerLower is null when the caller passed no ?payer=: the menu is still
+ * 200 with the full recipe, paid catalog and howToPay — claimed is just []
+ * and the example uses a placeholder address. A wallet-less bot exploring
+ * the free path must never hit a dead end for lacking an address.
  *
  * The menu is only half the answer: `paid`, `howToPay` and `recurring` are
  * present regardless of what is left, so an agent that has burned all five
  * trials is still handed the full priced catalog and the payment flow rather
  * than an empty list. A free surface that returns nothing is a dead end.
  */
-export function trialStatusFor(gate: TrialGate, payerLower: string): {
-  payer: string;
+export function trialStatusFor(gate: TrialGate, payerLower: string | null): {
+  payer: string | null;
   claimed: TrialEndpoint[];
   available: Array<{ endpoint: TrialEndpoint; trial: string; paid: string; priceUsdc: number }>;
   allTrialsUsed: boolean;
@@ -229,7 +234,7 @@ export function trialStatusFor(gate: TrialGate, payerLower: string): {
   recurring: ReturnType<typeof recurringFor>;
   howToClaim: { messageTemplate: string; signature: string; example: string };
 } {
-  const claimed = gate.trials.claimedEndpoints(payerLower);
+  const claimed = payerLower === null ? [] : gate.trials.claimedEndpoints(payerLower);
   const claimedSet = new Set(claimed);
   const available = TRIAL_ENDPOINTS.filter((e) => !claimedSet.has(e)).map((endpoint) => ({
     endpoint,
@@ -252,14 +257,17 @@ export function trialStatusFor(gate: TrialGate, payerLower: string): {
     claimed,
     available,
     allTrialsUsed: available.length === 0,
-    nextStep,
+    nextStep:
+      payerLower === null
+        ? `${nextStep} Pass ?payer=<your lowercase 0x address> to see that wallet's claimed/available state.`
+        : nextStep,
     paid: catalog,
     howToPay: howToPayFor(gate.config),
     recurring: recurringFor(gate.config),
     howToClaim: {
       messageTemplate: 'Claim one free webcap trial {endpoint} for {payer}',
       signature: 'EIP-191 personal_sign of the exact message with your lowercase 0x address as {payer}',
-      example: trialMessageFor('capture', payerLower),
+      example: trialMessageFor('capture', payerLower ?? '<lowercase-0x>'),
     },
   };
 }

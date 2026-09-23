@@ -226,9 +226,12 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
 
   // Machine-readable trial menu: which trials this wallet claimed / can still
   // claim, plus the exact claim recipe. Lets an agent check eligibility
-  // before spending a signature.
+  // before spending a signature. No ?payer= → the same 200 menu with
+  // claimed=[] (a wallet-less bot exploring the free path gets the recipe,
+  // not a 422); a malformed payer still 422s so address typos stay loud.
   app.get('/v1/x402/trial/status', async (req) => {
     const raw = isRecord(req.query) ? req.query.payer : undefined;
+    if (raw === undefined) return trialStatusFor(trialGate, null);
     if (typeof raw !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(raw)) {
       throw unprocessable('payer query parameter must be a 0x EVM address');
     }

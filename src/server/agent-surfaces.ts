@@ -160,7 +160,7 @@ POST /v1/x402/watches/topup
 ## Free endpoints (no payment)
 
 - GET /v1/extract/preview?url=… — bounded structured preview (title, headings, links, truncated markdown); rate-limited per IP
-- GET /v1/x402/trial/status?payer=<lowercase-0x> — trial menu: claimed/available endpoints + the exact claim recipe, plus the full priced paid catalog, howToPay and the recurring watch path (check before signing, and again after your free calls run out)
+- GET /v1/x402/trial/status?payer=<lowercase-0x> — trial menu: claimed/available endpoints + the exact claim recipe, plus the full priced paid catalog, howToPay and the recurring watch path (check before signing, and again after your free calls run out; payer is optional — omit it and the same menu comes back with claimed=[] and all five trials available)
 - GET /v1/x402/trial/quick?url=… — no-wallet JPEG thumbnail, 3/day per IP (zero-friction hook; full trials need a wallet signature)
 - POST /v1/x402/trial {"url", "payer", "signature"} — FREE full PNG capture, one per wallet; signature = EIP-191 personal_sign of exactly "Claim one free webcap trial capture for <payer>"
 - POST /v1/x402/trial/extract {"url", "payer", "signature"} — FREE single-URL extraction (no schema/model/batch), one per wallet; message endpoint "extract"
@@ -272,7 +272,7 @@ Base URL: ${config.publicBaseUrl}
 | Analyze batch (up to 10 URLs, one payment) | POST /v1/x402/analyze/batch {"urls": string[], "task"} | ${usdc(config.x402ExtractPriceUsdcUnits)} |
 | Watch top-up (100 runs) | POST /v1/x402/watches/topup {"watchId", "runs": 100} | ${usdc(watchTopUpPriceUsdcUnits('capture', config))} (capture watch) / ${usdc(watchTopUpPriceUsdcUnits('extract', config))} (extract watch) |
 | Structured preview (truncated) | GET /v1/extract/preview?url=… | free, rate-limited per IP |
-| Trial menu (claimed/available + recipe + the paid catalog and howToPay) | GET /v1/x402/trial/status?payer=\<lowercase-0x\> | free |
+| Trial menu (claimed/available + recipe + the paid catalog and howToPay; payer optional) | GET /v1/x402/trial/status?payer=\<lowercase-0x\> | free |
 | No-wallet thumbnail (3/day per IP) | GET /v1/x402/trial/quick?url=… | free |
 | Trial capture (full PNG, one per wallet) | POST /v1/x402/trial {"url", "payer", "signature"} where signature = personal_sign of "Claim one free webcap trial capture for \<payer\>" (lowercase address) | free, one claim per wallet per endpoint |
 | Trial extract (single URL, no schema/model) | POST /v1/x402/trial/extract {"url", "payer", "signature"} with endpoint "extract" in the message | free, one claim per wallet per endpoint |
@@ -332,7 +332,9 @@ extraction.
 
 GET ${config.publicBaseUrl}/v1/x402/trial/status?payer=\<lowercase-0x\> tells you
 which trials a wallet claimed and which are still available, plus the exact
-claim recipe — check it before signing. The same response always lists every
+claim recipe — check it before signing. No wallet yet? Omit ?payer= entirely:
+the same menu comes back with claimed=[] and all five trials listed, so a
+wallet-less explorer still gets the recipe, the paid catalog and howToPay. The same response always lists every
 paid endpoint with its price (field: paid) and how to pay it (field: howToPay —
 the x402 flow below, with the same scheme/network/asset/payTo the 402 challenge
 uses), so a wallet that has used all five trials is still handed the concrete

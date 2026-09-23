@@ -326,7 +326,14 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
           'so a wallet that has used every trial still gets a concrete next call instead of an empty menu. ' +
           '`recurring` points at the watch path (create free, top up in 100-run packs). Free, no payment.',
         parameters: [
-          { name: 'payer', in: 'query', required: true, schema: { type: 'string' }, description: 'Lowercase 0x EVM address to look up' },
+          {
+            name: 'payer',
+            in: 'query',
+            required: false,
+            schema: { type: 'string' },
+            description:
+              'Lowercase 0x EVM address to look up. Omit it for the same 200 menu with claimed=[] and all five trials available — a wallet-less caller gets the recipe, not an error.',
+          },
         ],
         responses: {
           200: {
@@ -334,7 +341,7 @@ export function freePaths(ctx: PathContext): OpenapiPaths {
             content: jsonContent({
               type: 'object',
               properties: {
-                payer: { type: 'string' },
+                payer: { type: ['string', 'null'], description: 'The looked-up wallet, or null when no payer was passed' },
                 claimed: { type: 'array', items: { type: 'string' } },
                 available: { type: 'array', items: { type: 'object' } },
                 allTrialsUsed: { type: 'boolean' },

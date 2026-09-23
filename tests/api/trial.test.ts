@@ -388,13 +388,37 @@ describe('GET /v1/x402/trial/status — machine-readable trial menu', () => {
     }
   });
 
-  it('missing/invalid payer → 422', async () => {
+  it('no payer → 200 full menu with payer null and all five available', async () => {
     const fx = makeApiFixture();
     try {
-      for (const url of ['/v1/x402/trial/status', '/v1/x402/trial/status?payer=nope']) {
-        const res = await fx.app.inject({ method: 'GET', url });
-        expect(res.statusCode).toBe(422);
-      }
+      const res = await fx.app.inject({ method: 'GET', url: '/v1/x402/trial/status' });
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as {
+        payer: null;
+        claimed: string[];
+        available: Array<{ endpoint: string; trial: string; paid: string; priceUsdc: number }>;
+        allTrialsUsed: boolean;
+        nextStep: string;
+        paid: Array<{ endpoint: string }>;
+        howToClaim: { messageTemplate: string; signature: string; example: string };
+      };
+      expect(body.payer).toBeNull();
+      expect(body.claimed).toEqual([]);
+      expect(body.allTrialsUsed).toBe(false);
+      expect(body.available.map((a) => a.endpoint)).toEqual(['capture', 'extract', 'audit', 'map-lite', 'analyze']);
+      expect(body.paid.length).toBeGreaterThan(0);
+      expect(body.howToClaim.messageTemplate).toContain('{endpoint}');
+      expect(body.nextStep).toContain('payer=');
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('malformed payer → 422 (typos stay loud)', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await fx.app.inject({ method: 'GET', url: '/v1/x402/trial/status?payer=nope' });
+      expect(res.statusCode).toBe(422);
     } finally {
       await closeApiFixture(fx);
     }
