@@ -10,6 +10,7 @@ interface Call {
   readonly method: string;
   readonly path: string;
   readonly body: unknown;
+  readonly headers: Record<string, string>;
 }
 
 function fakeHttp(response: McpResponse): { http: McpHttp; calls: Call[] } {
@@ -17,17 +18,26 @@ function fakeHttp(response: McpResponse): { http: McpHttp; calls: Call[] } {
   return {
     calls,
     http: {
-      async request(method, path, body) {
-        calls.push({ method, path, body });
+      async request(method, path, body, headers) {
+        calls.push({ method, path, body, headers: headers ?? {} });
         return response;
       },
     },
   };
 }
 
-function ctx(response: McpResponse, canPay = false) {
+function ctx(response: McpResponse, canPay = false, creditKey?: string) {
   const f = fakeHttp(response);
-  return { ...f, context: { baseUrl: 'https://webcap.shoutsid.fyi', version: '0.1.0', http: f.http, canPay } };
+  return {
+    ...f,
+    context: {
+      baseUrl: 'https://webcap.shoutsid.fyi',
+      version: '0.1.0',
+      http: f.http,
+      canPay,
+      ...(creditKey !== undefined ? { creditKey } : {}),
+    },
+  };
 }
 
 function rpc(msg: unknown, c: ReturnType<typeof ctx>['context']) {
@@ -141,5 +151,55 @@ describe('MCP server core', () => {
     );
     expect(res?.result.isError).toBe(true);
     expect(res?.result.content[0].text).toContain('502');
+  });
+
+  it('credit mode bills the operator key: paid path rewritten to the credits rail with a Bearer header', async () => {
+    const c = ctx({ status: 200, body: { results: [], creditsCharged: 1, balance: 41 } }, false, 'wc_test_key');
+    const res = await rpc(
+      { jsonrpc: '2.0', id: 11, method: 'tools/call', params: { name: 'webcap_extract', arguments: { url: 'https://example.com' } } },
+      c.context,
+    );
+    expect(c.calls[0]?.method).toBe('POST');
+    expect(c.calls[0]?.path).toBe('/v1/extract');
+    expect(c.calls[0]?.headers).toEqual({ authorization: 'Bearer wc_test_key' });
+    expect(res?.result.content[0].text).toContain('creditsCharged');
+    expect(res?.result.isError).toBeUndefined();
+  });
+
+  it('credit mode leaves free tools untouched (no auth header)', async () => {
+    const c = ctx({ status: 200, body: { title: 'Example Domain' } }, false, 'wc_test_key');
+    await rpc(
+      { jsonrpc: '2.0', id: 12, method: 'tools/call', params: { name: 'webcap_preview', arguments: { url: 'https://example.com' } } },
+      c.context,
+    );
+    expect(c.calls[0]?.path).toBe('/v1/extract/preview?url=https%3A%2F%2Fexample.com');
+    expect(c.calls[0]?.headers).toEqual({});
+  });
+
+  it('credit mode 402 guides to the invoice top-up, not to EIP-3009 signing', async () => {
+    const c = ctx(
+      { status: 402, body: { error: { code: 'insufficient_credits', detail: { invoiceId: '7', requiredUsdc: 0.01 } } } },
+      false,
+      'wc_test_key',
+    );
+    const res = await rpc(
+      { jsonrpc: '2.0', id: 13, method: 'tools/call', params: { name: 'webcap_capture', arguments: { url: 'https://example.com' } } },
+      c.context,
+    );
+    const text = res?.result.content[0].text as string;
+    expect(c.calls[0]?.path).toBe('/v1/capture');
+    expect(text).toContain('POST /v1/invoice');
+    expect(text).not.toContain('EIP-3009');
+    expect(res?.result.isError).toBeUndefined();
+  });
+
+  it('a configured wallet wins over the credit key (x402 path, no Bearer header)', async () => {
+    const c = ctx({ status: 200, body: { artifact: {} } }, true, 'wc_test_key');
+    await rpc(
+      { jsonrpc: '2.0', id: 14, method: 'tools/call', params: { name: 'webcap_capture', arguments: { url: 'https://example.com' } } },
+      c.context,
+    );
+    expect(c.calls[0]?.path).toBe('/v1/x402/capture');
+    expect(c.calls[0]?.headers).toEqual({});
   });
 });

@@ -68,6 +68,9 @@ frameworks) can call it as a tool. The free tools need no configuration; set
 `WEBCAP_MCP_WALLET_KEY` to a Base-mainnet USDC key to let the paid tools settle
 automatically (gasless — the payer signs EIP-3009, the facilitator pays gas).
 With no key, paid tools return the x402 402 challenge for the host to pay.
+No wallet at all? Set `WEBCAP_MCP_API_KEY` to an operator-funded account key
+instead (`POST /v1/register`, then fund via `POST /v1/invoice`): paid tools
+bill 1 credit each from that balance. A configured wallet wins over the key.
 
 From a source checkout — `npm ci && npm run build` — then point `args` at
 its `dist/mcp/stdio.js`:

@@ -18,6 +18,10 @@
  * WEBCAP_MCP_WALLET_KEY (or X402_CUSTOMER_PRIVATE_KEY) to a Base-mainnet USDC
  * EOA key: the payer is gasless (it signs EIP-3009; the facilitator pays gas).
  * With no key, paid tools return the x402 402 challenge so the host can pay.
+ * Alternative with no wallet at all: WEBCAP_MCP_API_KEY to an operator-funded
+ * account key (POST /v1/register, then fund via POST /v1/invoice) — paid
+ * tools bill 1 credit each from that balance. A configured wallet wins over
+ * the account key.
  *
  * stdout carries the protocol only; diagnostics go to stderr.
  */
@@ -72,12 +76,16 @@ async function main(): Promise<void> {
   const base = baseUrl();
   const plain = plainClient(base);
   const paying = await payingClient(base);
+  const creditKey = paying !== undefined ? undefined : (process.env.WEBCAP_MCP_API_KEY ?? '').trim() || undefined;
 
   const http: McpHttp = {
-    async request(method, path, body) {
+    async request(method, path, body, headers) {
       try {
         // Free tools are all GETs; paid tools are POSTs and may auto-pay.
-        const res = method === 'GET' ? await plain.get(path) : await (paying ?? plain).post(path, body ?? {});
+        const res =
+          method === 'GET'
+            ? await plain.get(path, { headers })
+            : await (paying ?? plain).post(path, body ?? {}, { headers });
         return toResponse(res as AxiosResponse);
       } catch (err) {
         // The paying wrapper can still throw on an unrecoverable 402/5xx; surface the body.
@@ -88,8 +96,10 @@ async function main(): Promise<void> {
     },
   };
 
-  const ctx = { baseUrl: base, version: '0.1.0', http, canPay: paying !== undefined };
-  log(`webcap MCP server ready (base ${base}, paid ${paying !== undefined ? 'enabled' : 'return-402'})`);
+  const ctx = { baseUrl: base, version: '0.1.0', http, canPay: paying !== undefined, ...(creditKey !== undefined ? { creditKey } : {}) };
+  log(
+    `webcap MCP server ready (base ${base}, paid ${paying !== undefined ? 'wallet' : creditKey !== undefined ? 'account-credits' : 'return-402'})`,
+  );
 
   const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
   // A host keeps stdin open, so calls resolve long before EOF. On EOF (piped

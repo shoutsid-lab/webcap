@@ -25,7 +25,7 @@ export interface McpResponse {
 
 /** The minimal HTTP seam; `stdio.ts` supplies a real (optionally paying) one. */
 export interface McpHttp {
-  request(method: 'GET' | 'POST', path: string, body?: unknown): Promise<McpResponse>;
+  request(method: 'GET' | 'POST', path: string, body?: unknown, headers?: Record<string, string>): Promise<McpResponse>;
 }
 
 export interface McpContext {
@@ -34,6 +34,12 @@ export interface McpContext {
   readonly http: McpHttp;
   /** True when a payer wallet is wired; drives paid-tool guidance text. */
   readonly canPay: boolean;
+  /**
+   * Operator-funded account key (WEBCAP_MCP_API_KEY): when set and no wallet
+   * is wired, paid tools bill the credits rail with this Bearer key instead
+   * of returning the x402 challenge — the host needs no wallet at all.
+   */
+  readonly creditKey?: string;
 }
 
 interface ToolRequest {
@@ -251,7 +257,7 @@ function textResult(value: unknown, isError = false): unknown {
 }
 
 /** The `initialize` result: protocol revision (echoed), tools capability, identity. */
-export function initializeResult(requestedVersion: unknown, version: string): unknown {
+export function initializeResult(requestedVersion: unknown, version: string, creditMode = false): unknown {
   const protocolVersion = typeof requestedVersion === 'string' && requestedVersion.trim() !== ''
     ? requestedVersion
     : MCP_PROTOCOL_VERSION;
@@ -262,12 +268,23 @@ export function initializeResult(requestedVersion: unknown, version: string): un
     instructions:
       'webcap turns a URL into a screenshot, structured JSON, or a page audit, paid per call in USDC over x402. ' +
       'Free tools need nothing; paid tools return a 402 challenge (price, network, payTo) when no wallet is wired. ' +
-      'Call webcap_service to see every endpoint and price.',
+      'Call webcap_service to see every endpoint and price.' +
+      (creditMode
+        ? ' An operator account key is configured: paid tools bill 1 credit each from that balance instead of challenging.'
+        : ''),
   };
 }
 
 /** Paid-tool guidance text shown when the unpaid call returns a 402. */
 function paymentGuidance(ctx: McpContext, tool: string, status: number, body: unknown): string {
+  if (ctx.creditKey !== undefined && !ctx.canPay) {
+    return [
+      `${tool} is billed to the configured operator account key but the account cannot cover it (HTTP ${status}).`,
+      'Fund the account with a plain USDC transfer: POST /v1/invoice names the merchant, token and requiredUsdc; the transfer is credited automatically.',
+      'The service response is included below.',
+      JSON.stringify(body, null, 2),
+    ].join('\n');
+  }
   return [
     `${tool} requires payment (HTTP ${status}).`,
     ctx.canPay
@@ -294,7 +311,7 @@ export async function handleRpc(message: unknown, ctx: McpContext): Promise<unkn
 
   switch (method) {
     case 'initialize':
-      return result(id, initializeResult(isRecord(message.params) ? message.params.protocolVersion : undefined, ctx.version));
+      return result(id, initializeResult(isRecord(message.params) ? message.params.protocolVersion : undefined, ctx.version, ctx.creditKey !== undefined && !ctx.canPay));
     case 'ping':
       return result(id, {});
     case 'tools/list':
@@ -314,8 +331,14 @@ export async function handleRpc(message: unknown, ctx: McpContext): Promise<unkn
       } catch (err) {
         return result(id, textResult(err instanceof Error ? err.message : String(err), true));
       }
+      // Credit mode: no wallet, but an operator-funded account key — bill the
+      // credits rail (same path minus the /x402 segment) with the Bearer key
+      // instead of answering the x402 challenge. Free tools pass through.
+      const creditMode = !tool.free && !ctx.canPay && ctx.creditKey !== undefined;
+      const path = creditMode ? req.path.replace('/v1/x402/', '/v1/') : req.path;
+      const headers = creditMode && ctx.creditKey !== undefined ? { authorization: `Bearer ${ctx.creditKey}` } : undefined;
       try {
-        const res = await ctx.http.request(req.method, req.path, req.body);
+        const res = await ctx.http.request(req.method, path, req.body, headers);
         if (res.status === 402 && !tool.free) {
           return result(id, textResult(paymentGuidance(ctx, tool.name, res.status, res.body)));
         }
