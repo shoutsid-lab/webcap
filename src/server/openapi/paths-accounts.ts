@@ -92,6 +92,7 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
           401: ctx.unauthorized,
           422: ctx.unprocessable('credits must be a positive integer'),
         },
+        security: [{ apiKey: [] }],
       },
     },
     '/v1/capture': {
@@ -113,6 +114,7 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
           429: jsonError('429', 'Per-account spend cap exceeded (error envelope, code spend_cap_exceeded; detail {payer, spent, cap, reason}; WEBCAP_SPEND_CAP_CREDITS, unset means unlimited)'),
           502: ctx.captureFailed,
         },
+        security: [{ apiKey: [] }],
       },
     },
     '/v1/ledger': {
@@ -134,6 +136,7 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
           401: ctx.unauthorized,
           403: jsonError('403', 'The authenticated account is not the merchant (error envelope, code forbidden)'),
         },
+        security: [{ apiKey: [] }],
       },
     },
     '/v1/admin/hits/summary': {
@@ -165,6 +168,7 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
           401: ctx.unauthorized,
           403: jsonError('403', 'The authenticated account is not the merchant (error envelope, code forbidden)'),
         },
+        security: [{ apiKey: [] }],
       },
     },
     '/v1/admin/analytics': {
@@ -234,6 +238,7 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
           401: ctx.unauthorized,
           403: jsonError('403', 'The authenticated account is not the merchant (error envelope, code forbidden)'),
         },
+        security: [{ apiKey: [] }],
       },
     },
     '/v1/admin/waitlist': {
@@ -275,6 +280,7 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
           401: ctx.unauthorized,
           403: jsonError('403', 'The authenticated account is not the merchant (error envelope, code forbidden)'),
         },
+        security: [{ apiKey: [] }],
       },
     },
     '/v1/og': {
@@ -349,6 +355,7 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
           },
           401: ctx.unauthorized,
         },
+        security: [{ apiKey: [] }],
       },
     },
   };

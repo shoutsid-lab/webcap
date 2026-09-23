@@ -102,6 +102,31 @@ export async function openapiDocument(config: WebcapConfig): Promise<OpenapiDocu
       ...jobsPaths(config, ctx),
     },
     components: {
+      // Every operation declares its auth mode: `apiKey` for the API-key
+      // routes, a `x-payment-info` paid declaration for the x402 routes, and
+      // `security: []` for the free ones. Directory auditors (mppscan) drop
+      // operations with no declared mode from their listing, so an undeclared
+      // route is an unlisted route — see tests/api/openapi.test.ts.
+      securitySchemes: {
+        // The conventional declaration for an `Authorization` header token:
+        // `type: apiKey` in the header (the value carries the `Bearer ` prefix,
+        // which the description spells out). Measured against mppscan
+        // 2026-09-23: before these declarations its registration audit reported
+        // 10 × `L2_AUTH_MODE_MISSING` and skipped those routes
+        // (`skippedUnprotected`); after them the re-audit is clean — 1 warning,
+        // `L2_ROUTE_COUNT_HIGH` (75 operations), and nothing skipped. Note that
+        // its per-endpoint `authMode` field still only labels `x-payment-info`
+        // ("paid") and no security ("unprotected"), so the audit is the
+        // authority, not that field.
+        apiKey: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'Authorization',
+          description:
+            'API key from POST /v1/register, sent as `Authorization: Bearer <key>`. Not needed on the x402 ' +
+            'routes, which settle per call instead.',
+        },
+      },
       schemas: {
         Error: {
           type: 'object',

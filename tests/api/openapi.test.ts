@@ -32,6 +32,7 @@ interface OpenapiDocView {
   };
   readonly servers: Array<{ url: string }>;
   readonly paths: Record<string, Record<string, OpenapiOperationView | undefined>>;
+  readonly components: { readonly securitySchemes: Record<string, unknown> };
 }
 
 interface ChallengeSchemaView {
@@ -470,15 +471,26 @@ describe('mppscan/x402gle discovery metadata', () => {
     ['get', '/v1/x402/trial/quick'],
   ];
 
-  // The non-free ops: 3 paid x402 + 4 Bearer-auth account ops -> no security key at all.
-  const NON_FREE_OPS: ReadonlyArray<readonly [method: string, path: string]> = [
+  // The paid x402 ops: no security requirement — the auth mode is the
+  // per-call settlement, declared as x-payment-info.
+  const PAID_X402_OPS: ReadonlyArray<readonly [method: string, path: string]> = [
     ['post', '/v1/x402/capture'],
     ['post', '/v1/x402/extract'],
     ['post', '/v1/x402/watches/topup'],
+  ];
+
+  // The API-key ops: every one authenticates a `Bearer <key>` header.
+  const BEARER_OPS: ReadonlyArray<readonly [method: string, path: string]> = [
     ['post', '/v1/invoice'],
     ['post', '/v1/capture'],
     ['get', '/v1/ledger'],
     ['get', '/v1/account'],
+    ['get', '/v1/admin/hits/summary'],
+    ['get', '/v1/admin/analytics'],
+    ['get', '/v1/admin/waitlist'],
+    ['post', '/v1/webhooks'],
+    ['get', '/v1/webhooks'],
+    ['delete', '/v1/webhooks/{id}'],
   ];
 
   it('documents x-payment-info on POST /v1/x402/capture with the fixed config price', async () => {
@@ -612,17 +624,65 @@ describe('mppscan/x402gle discovery metadata', () => {
     }
   });
 
-  it('declares no security key on the 3 paid x402 ops and the 4 Bearer-auth ops', async () => {
+  it('references the declared apiKey scheme on every API-key op', async () => {
     const fx = makeApiFixture();
     try {
-      expect(NON_FREE_OPS.length).toBe(7);
       const res = await getDoc(fx.app);
       const doc = res.json() as OpenapiDocView;
-      for (const [method, path] of NON_FREE_OPS) {
+      expect(Object.keys(doc.components.securitySchemes)).toContain('apiKey');
+      for (const [method, path] of BEARER_OPS) {
         const op = doc.paths[path]?.[method];
         expect(op, `${method.toUpperCase()} ${path} must be documented`).toBeDefined();
+        expect(op?.security, `${method.toUpperCase()} ${path} must require the apiKey scheme`).toEqual([{ apiKey: [] }]);
+      }
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('leaves the paid x402 ops on x-payment-info (settlement is the auth mode, not a key)', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      for (const [method, path] of PAID_X402_OPS) {
+        const op = doc.paths[path]?.[method];
+        expect(op, `${method.toUpperCase()} ${path} must be documented`).toBeDefined();
+        expect(op?.['x-payment-info'], `${method.toUpperCase()} ${path} must carry x-payment-info`).toBeDefined();
         expect(Object.keys(op ?? {}), `${method.toUpperCase()} ${path} must not declare security`).not.toContain('security');
       }
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  // The rule mppscan enforces when it registers an origin: an operation with no
+  // declared auth mode is skipped as "unprotected" — 10 of our routes were, and
+  // they silently did not exist in the listing. Either declare a scheme, carry
+  // x-payment-info, or say `security: []` (explicitly public).
+  it('declares an auth mode on every documented operation (scheme, x-payment-info, or explicit [] )', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await getDoc(fx.app);
+      const doc = res.json() as OpenapiDocView;
+      const undeclared: string[] = [];
+      const schemes = new Set(Object.keys(doc.components.securitySchemes));
+      const referenced = new Set<string>();
+      let operations = 0;
+      for (const [path, methods] of Object.entries(doc.paths)) {
+        for (const [method, op] of Object.entries(methods)) {
+          if (op === undefined) continue;
+          operations += 1;
+          const security = op.security;
+          for (const requirement of security ?? []) {
+            for (const name of Object.keys(requirement as Record<string, unknown>)) referenced.add(name);
+          }
+          if (security === undefined && op['x-payment-info'] === undefined) undeclared.push(`${method.toUpperCase()} ${path}`);
+        }
+      }
+      expect(operations).toBeGreaterThan(0);
+      expect(undeclared, 'these operations declare no auth mode and will be skipped by directory auditors').toEqual([]);
+      expect([...referenced].filter((name) => !schemes.has(name))).toEqual([]);
     } finally {
       await closeApiFixture(fx);
     }

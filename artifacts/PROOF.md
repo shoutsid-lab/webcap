@@ -272,19 +272,22 @@ in `/.well-known/x402`. Cryptographic recovery on the host yields
 `checkDiscovery` reports `ownershipProofs: 1` — their verifier awards the
 `ownership_verified` tier from exactly this proof.
 
-**Distribution (12 channels, statuses verified 2026-09-06).**
+**Distribution (12 channels).** Channel statuses below were re-verified against
+the live services on **2026-09-23**, after the domain cutover to
+`webcap.shoutsid.fyi` — note that the CDP Bazaar entries in particular are still
+keyed to the retired ngrok host.
 
 | Channel | Status |
 |---|---|
-| CDP Bazaar | capture + extract indexed (`discovery/merchant` total 2; topup indexes on its first settlement); listing terms from the 2026-09-05 sepolia settlement — see funding flip; 30-day no-settlement delisting (docs.cdp.coinbase.com/x402/seller/get-discovered) mitigated by the keepalive |
-| 402index.io | all 3 routes directly registered (idempotent upsert on url+protocol; the bazaar-derived capture row was updated to our POST metadata) |
-| x402scan.com | origin SIWX-registered (merchant wallet, auth-only); 26 resources discovered; ownership proof served (`ownership_verified` tier); now also classifies the paid routes `authMode: paid` + fixed/dynamic USD prices from our `x-payment-info` |
+| CDP Bazaar | **2 entries, both the retired ngrok host** (verified 2026-09-23): `ngrok…/v1/x402/extract` — `eip155:8453`, $0.01, last settled 2026-09-14 (the one real customer); `ngrok…/v1/x402/capture` — **`eip155:84532` (sepolia terms)**, $0.001, last settled 2026-09-05. The current origin has **0 indexed resources** (`validate` returns `valid: true` ×3 but `index.active: None` — validation is not indexing). Indexing requires a **settled payment at that URL**; there is no registration API. The keepalive's self-settlement cannot do it: the facilitator rejects self-sends (`self_send_not_allowed`). 30-day no-settlement delisting (docs.cdp.coinbase.com/x402/seller/get-discovered) expires the two entries around **2026-10-14** and **2026-10-05** |
+| 402index.io | all routes directly registered and **re-asserted on the current host by cron q6h** (verified 2026-09-23 06:00: `PASS` ×8, "Service registered and live (domain verified)"; idempotent upsert on url+protocol, `scripts/402index-register.ts` reads `.env`) |
+| x402scan.com | origin **re-registered at cutover** (2026-09-22 15:57, `origin https://webcap.shoutsid.fyi`, SIWX via the merchant wallet, `registered=9 total=51 source=openapi`); ownership proof served (`ownership_verified` tier); paid routes classified `authMode: paid` + fixed/dynamic USD prices from our `x-payment-info` |
 | x402.arena | registered, `verified: true, active` (health probe) |
 | agent-tools.cloud | auto-crawled, health ok |
 | agentic.market | auto-derived from the CDP Bazaar — empty until the mainnet flip (queries for webcap/origin return `total: 0`; the only Bazaar entry is sepolia) |
 | market.delegare.dev | aggregator that auto-includes the x402scan/MPPScan family; live, re-checked after any mppscan registration |
 | x402list.fun | auto-inclusion via facilitator reporting; no public search API (`/explore` 500) — presence unverifiable read-only |
-| mppscan.com | **LISTED 2026-09-06** (`registered: 22, failed: 0`): dual-protocol 402s ship MPP `WWW-Authenticate` (Tempo/mpp.dev, IETF draft-ryan-httpauth-payment; `method="evm"`, bare-host realm — scheme-qualified realms are rejected as `REALM_MISMATCH`) alongside byte-identical x402 `PAYMENT-REQUIRED`; MPP EIP-3009 credentials settle through the same facilitator; `x-payment-info` now advertises `protocols: [x402, mpp]` on all 3 paid ops |
+| mppscan.com | **RE-LISTED for the new origin 2026-09-23** (`registered: 65, failed: 0`, origin id `6e82e522…`; the 2026-09-06 listing was the ngrok realm). Dual-protocol 402s ship MPP `WWW-Authenticate` (Tempo/mpp.dev, IETF draft-ryan-httpauth-payment; `method="evm"`, bare-host realm — scheme-qualified realms are rejected as `REALM_MISMATCH`) alongside byte-identical x402 `PAYMENT-REQUIRED`; MPP EIP-3009 credentials settle through the same facilitator; `x-payment-info` advertises `protocols: [x402, mpp]` on every paid op. Registration doubles as an **audit**: its first pass reported 10 × `L2_AUTH_MODE_MISSING` and skipped those routes as unprotected; every operation now declares an auth mode (`apiKey` / `x-payment-info` / explicit `security: []`), guarded by a test in `tests/api/openapi.test.ts`, and the **re-audit is clean** (10 warnings → 1: `L2_ROUTE_COUNT_HIGH` at 75 operations, nothing in `skippedUnprotected`) |
 | x402gle.com | auditioned 2026-09-06 (13 attempts): our two doc defects fixed (single public `servers` entry; unambiguous extract body schema — `oneOf` url\|urls, `format: uri`, stringly `schema`); then forensics showed the verifier DID pay but our `parseExtractSchema` 422'd its JSON-schema-object body pre-settlement → fixed (`23ff443`: plain-object `schema` coerced via JSON.stringify, same 422 otherwise; paid-object → 200 + ledger proven, 444 tests). Since the fix their pipeline flakes server-side (flush error with no verifier visit; `terminated` with zero visits) → needs Dexter issue #2 comment (user approval) |
 | stablecoin.com/402/ | manual email listing (dan@quellhorst.com) — draft ready, send is a user action |
 | kkj x402 Trust Index | **INDEXED 2026-09-06** (auto-crawled `kkj-x402-trust-index/0.1`): capture id 46929 + extract id 46928, `observed_trust_score: 85.5, grade: A, verified_live: true`; badges + trust pages embedded on our landing (their labels are observed signals, not guarantees) |
@@ -293,8 +296,11 @@ Agent-facing surfaces: `/llms.txt`, `/skill.md` (text/markdown,
 config-derived), `/openapi.json`, `/.well-known/x402`, `/v1/x402/service`.
 
 **Directory registration one-liners.**
-mppscan (listed 2026-09-06; re-run after any origin/price change):
-`curl -X POST https://mppscan.com/api/register -H 'content-type: application/json' -d '{"url":"https://nickname-trident-driveway.ngrok-free.dev"}'`
+mppscan (listed 2026-09-23 for the current origin; re-run after any
+origin/**price** change — the audit re-checks the served spec):
+`curl -X POST https://mppscan.com/api/register -H 'content-type: application/json' -d '{"url":"https://webcap.shoutsid.fyi"}'`
+(its `type:"audit"` frame reports `L2_AUTH_MODE_MISSING` per undeclared route and
+`type:"done"` carries `registered` / `failed` / `skippedUnprotected`.)
 (pre-probe: `GET https://mppscan.com/api/trpc/register.probe?input={"json":{"url":"<origin>"}}` — URL-encoded).
 x402gle (re-audition after their flush error clears; the auditor makes real
 paid calls to us): `npx @dexterai/opendexter@latest audition https://nickname-trident-driveway.ngrok-free.dev --json`.
@@ -313,27 +319,47 @@ is a merchant test requiring explicit approval and is never auto-run).
 Verified live: dry-run and real run exit 0, ledger unchanged (7 rows), state
 + receipts in `state/webcap-keepalive.state` + `state/webcap-keepalive/`.
 
-**Funding flip (the one outstanding user action).** One **mainnet**
-settlement flips the Bazaar listings to `eip155:8453` in ~10–15 min and
-downstream directories follow within hours. Fund
-`0xBAc4987c4Bc949f0B2833b6BC7C5B9F7b5B9757B` with ≥ $0.001 USDC on Base, then:
+**Funding flip (the one outstanding user action).** One **mainnet** settlement
+at the current origin indexes it in ~10–15 min and downstream directories follow
+within hours. Fund `0xBAc4987c4Bc949f0B2833b6BC7C5B9F7b5B9757B` with ≥ $0.001 USDC
+on Base, then:
 ```
-X402_CUSTOMER_PRIVATE_KEY=0x… npx tsx scripts/x402-pay.ts https://example.com https://nickname-trident-driveway.ngrok-free.dev
+X402_CUSTOMER_PRIVATE_KEY=0x… npx tsx scripts/x402-pay.ts https://example.com https://webcap.shoutsid.fyi
 ```
+Two hard constraints, both verified live on 2026-09-23:
+
+- The payer must **not** be the merchant `payTo` (`0xB255…c25e`). The CDP
+  facilitator rejects self-sends at verify time — `self_send_not_allowed` —
+  before anything settles, so the merchant's own $0.01 cannot buy a listing
+  and funding that wallet would not help. The keepalive now detects this and
+  skips the attempt instead of logging it as a balance failure.
+- The funded wallet must hold USDC **on the chain in the challenge**
+  (`eip155:8453`); a sepolia-funded wallet only produces sepolia entries, which
+  is exactly the state of the existing capture entry.
+
 Once the wallet is funded, the keepalive performs this automatically (a
-funded wallet flips the listings within 3 days, worst case) — and then keeps
-the listing alive for the 30-day window indefinitely.
+funded wallet indexes the current origin within 3 days, worst case) — and then
+keeps the entry alive inside the 30-day window indefinitely.
 
 **Status (honest).** The service is **live on Base mainnet** with real
-discovery across 12 channels (8 actively listed/indexed; agentic.market
-waits for the mainnet flip; x402gle blocked on their infra error — see the
-table) and the
-verified-ownership proof served. The
-**first mainnet settlement is pending**: the test wallet holds **$0.00 USDC
-on Base mainnet** (proven via Basescan; the CDP self-pay correctly reverts on
-balance), and all 7 ledger rows are test-wallet verify-stage records. The
-2026-09-05 CDP-facilitated sepolia settlement (which created the sepolia
-Bazaar entry) proved the settlement path end-to-end through the **same CDP
-facilitator**, so mainnet settlement is that same flow on `eip155:8453` — the
-rail is valid, simulated and indexed; only the funded first settlement (or a
-real customer) is outstanding.
+discovery across 12 channels (7 actively listed/indexed for the *current* host
+as of 2026-09-23; x402gle and x402register are not rated for the new host;
+agentic.market derives from the Bazaar — see the table) and the
+verified-ownership proof served.
+
+**The storefront caveat that matters most:** the only CDP Bazaar entries are the
+retired ngrok host — and the Bazaar is the channel that produced the single
+lifetime sale — while the current origin is not indexed at all. Entries are
+added and kept only by a **settled payment at that URL**, and the facilitator
+rejects self-sends, so this cannot be fixed for free: it needs a funded payer
+that is not the merchant (see the funding flip above). Until then the two ngrok
+entries are on a 30-day clock (**~2026-10-05** capture, **~2026-10-14**
+extract).
+
+The **first mainnet settlement from a real buyer is otherwise pending**: the
+payer wallet holds **$0.00 USDC on Base mainnet**, and all 7 ledger rows are
+test-wallet verify-stage records. The 2026-09-05 CDP-facilitated sepolia
+settlement (which created the sepolia Bazaar entry) proved the settlement path
+end-to-end through the **same CDP facilitator**, so a mainnet settlement is that
+same flow on `eip155:8453` — the rail is valid, simulated and indexed; only the
+funded payer (or a real customer) is outstanding.

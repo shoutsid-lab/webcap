@@ -46,6 +46,7 @@ export function billingPaths(ctx: PathContext): OpenapiPaths {
           401: ctx.unauthorized,
           422: ctx.unprocessable('url is required and must be https'),
         },
+        security: [{ apiKey: [] }],
       },
       get: {
         tags: ['accounts'],
@@ -75,6 +76,7 @@ export function billingPaths(ctx: PathContext): OpenapiPaths {
           },
           401: ctx.unauthorized,
         },
+        security: [{ apiKey: [] }],
       },
     },
     '/v1/webhooks/{id}': {
@@ -104,6 +106,7 @@ export function billingPaths(ctx: PathContext): OpenapiPaths {
           401: ctx.unauthorized,
           404: jsonError('404', 'Webhook not found (error envelope, code not_found)'),
         },
+        security: [{ apiKey: [] }],
       },
     },
   };

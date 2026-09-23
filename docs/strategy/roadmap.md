@@ -24,10 +24,25 @@ The product already has excellent agent surfaces; one operational gap remains.
       Replaces the dead human path (`/v1/funnel`) as the number that matters.
       *Acceptance met: distinct paying wallets and client reach are one request
       away, no SQL.*
-- [ ] **Re-register the post-cutover origin.** The MPP doc no longer names the
-      retired ngrok realm, but listings key on host, so `webcap.shoutsid.fyi`
-      must still be (re)asserted at 402index, x402scan, mppscan and CDP Bazaar.
-      Operational, not a code change.
+- [~] **Re-register the post-cutover origin.** Listings key on host, so
+      `webcap.shoutsid.fyi` had to be re-asserted everywhere after the cutover.
+      402index re-asserts itself (cron q6h, green 2026-09-23 06:00), x402scan
+      was re-registered at cutover (origin `webcap.shoutsid.fyi`, 9 resources,
+      SIWX), and mppscan is now registered for the new origin (`registered: 65,
+      failed: 0`, 2026-09-23) — its audit also exposed 10 operations with no
+      declared auth mode, which it silently skips; every operation now declares
+      one (`apiKey`, `x-payment-info`, or explicit `security: []`), a test pins
+      it, and the re-audit is clean (10 warnings → 1: the remaining
+      `L2_ROUTE_COUNT_HIGH`, our 75 advertised operations).
+      **Still open: CDP Bazaar.** Its index is keyed by full URL and only a
+      **settled payment** adds or keeps an entry — there is no registration API,
+      and the facilitator rejects self-sends (`self_send_not_allowed`), so the
+      keepalive's $0.001 self-settlement can never do it. The two indexed
+      entries are both the retired ngrok host (extract, mainnet, last settled
+      2026-09-14; capture, **sepolia** terms, last settled 2026-09-05) and the
+      30-day no-settlement rule delists them around 2026-10-14 / 2026-10-05.
+      *Remaining: fund a **non-merchant** payer wallet (≥$0.001 USDC on Base) and
+      settle one call at the current origin — see `artifacts/PROOF.md`.*
       *Acceptance: `logs/` shows green re-assertion for the current host.*
 
 ## Phase 1 — The first paying agent loop

@@ -79,5 +79,14 @@ export interface OpenapiDocument {
   readonly servers: readonly { readonly url: string; readonly description?: string }[];
   readonly tags: readonly { readonly name: string; readonly description: string }[];
   readonly paths: OpenapiPaths;
-  readonly components: { readonly schemas: { readonly [name: string]: Json } };
+  readonly components: {
+    readonly schemas: { readonly [name: string]: Json };
+    /**
+     * Named auth schemes referenced by operation `security` requirements.
+     * Directories (mppscan) skip operations whose auth mode is undeclared, so
+     * every operation must either reference one of these or declare itself
+     * open with `security: []`.
+     */
+    readonly securitySchemes: { readonly [name: string]: Json };
+  };
 }

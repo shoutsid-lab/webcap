@@ -80,11 +80,39 @@ forum-labs-trust-prober, x402-census-probe) that poll those registries, crawl
 | 402index.io | automatic — `scripts/402index-register.ts` reads `.env` (cron q6h) | confirm in `logs/402index-reassert.log` |
 | x402scan | `npx tsx scripts/x402scan-register.ts` (reads `.env`) | keepalive re-checks discovery |
 | x402gle | passive — keepalive checks `x402gle.com/servers/<host>` | appears once crawled |
-| x402register | passive scoring per domain | keepalive now derives host from `.env` (fixed hardcoded ngrok URL) |
-| CDP Bazaar | re-list the service at the new origin (dashboard / seller flow) | keepalive validates via `bazaar-validate` |
+| x402register | passive scoring per domain | keepalive now derives host from `.env` (fixed hardcoded ngrok URL); verified 2026-09-23: ngrok 200, new host **404 (unrated)** |
+| mppscan | `curl -X POST https://mppscan.com/api/register -H 'content-type: application/json' -d '{"url":"<origin>"}'` | idempotent; re-run after any **origin, price or spec** change. 2026-09-23: `registered: 65, failed: 0` for the new origin. The response is also an **audit**: routes with no declared auth mode are reported `L2_AUTH_MODE_MISSING` and skipped (`skippedUnprotected`). The first pass skipped 10 of ours; after every operation declared an auth mode the re-audit is clean (1 warning: `L2_ROUTE_COUNT_HIGH`, 75 operations). **A cached audit replays byte-identically — check for a changed warning count, not just a 200** |
+| CDP Bazaar | **needs a settled payment at the new origin — there is no registration form or API call** (docs.cdp.coinbase.com/x402/seller/get-discovered) | see the note below; the keepalive's self-settlement cannot do it |
 | kkj Trust Index | **manual**: register capture+extract endpoints, get new badge IDs, update `landing.ts` trust-strip (replaces 46928/46929) | old badges keep pointing at ngrok until replaced |
 | GitHub | `gh repo edit shoutsid-lab/webcap --homepage https://webcap.shoutsid.fyi` + README link swap (ngrok -> new domain) | README + `screenshots/qa-test.mjs` NGROK_BASE |
 | npm `webcap` | `homepage`/repo URLs on next publish | cosmetic |
+
+### Step 4a — CDP Bazaar after a host change (why the dashboard row was wrong)
+
+The Bazaar has no registration step: per the seller docs, "every validated
+endpoint is eligible for indexing in the CDP Bazaar **after a successful settled
+payment**", and "resources that go 30 days without a settlement are removed
+from both the catalog and search results". Entries are keyed by the full
+resource URL, so a host change starts the new origin at **zero** and leaves the
+old host's entries to expire on their own clock.
+
+The keepalive cannot fix this by itself. Its `$0.001` self-settlement is
+rejected by the CDP facilitator at verify time — `self_send_not_allowed` —
+because the only funded wallet is the merchant `payTo` itself. Funding that
+wallet changes nothing. The fix is a **separate funded payer** (≥ $0.001 USDC on
+Base; gasless):
+
+```bash
+# X402_CUSTOMER_PRIVATE_KEY must NOT be the merchant/payTo wallet
+curl -s "https://api.cdp.coinbase.com/platform/v2/x402/discovery/merchant?payTo=<payTo>&limit=50" | jq '.resources[].resource'
+X402_CUSTOMER_PRIVATE_KEY=0x… npx tsx scripts/x402-pay.ts https://example.com https://<new-host>
+# entry appears in ~10–15 min; verify with the discovery/merchant call above
+```
+
+The keepalive logs the indexed-resource count **for the current host**
+(`bazaar index for <base>: N resources (networks: …)`) precisely so a host
+change that silently empties the index is visible in `logs/webcap-keepalive.log`
+even while `bazaar=3/3` (validation) stays green.
 
 Dated launch docs (`docs/marketing/archive-2026-09-launch/`, e.g. `launch-content.md`,
 `reddit-posts-ready.md`) keep the old URL as historical record — do not rewrite.
