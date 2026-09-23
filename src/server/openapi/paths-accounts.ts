@@ -1,13 +1,26 @@
 /**
  * The credits-rail (API-key account) path docs: POST /v1/register,
- * POST /v1/invoice, POST /v1/capture, GET /v1/ledger, GET /v1/account —
+ * POST /v1/invoice, POST /v1/capture, the credit-metered products
+ * (POST /v1/extract, /v1/audit, /v1/map-lite, /v1/video, /v1/analyze,
+ * /v1/analyze/batch), GET /v1/ledger, GET /v1/account —
  * plus GET /v1/og, which sits between /v1/ledger and /v1/account in the
  * original table and stays here so the key order (and thus the generated
  * JSON) is byte-identical. Split out of openapi.ts as a pure move (no
  * behavior change).
  */
-import { CAPTURE_COST_CREDITS, usdcForCredits, type WebcapConfig } from '../../config.js';
-import { captureCreditResponse, captureRequestBody } from './schemas.js';
+import { CAPTURE_COST_CREDITS, PRODUCT_CREDIT_COST, usdcForCredits, type WebcapConfig } from '../../config.js';
+import {
+  auditCreditResponse,
+  auditRequestBody,
+  captureCreditResponse,
+  captureRequestBody,
+  extractCreditResponse,
+  extractRequestBody,
+  mapLiteCreditResponse,
+  mapLiteRequestBody,
+  videoCreditResponse,
+  videoRequestBody,
+} from './schemas.js';
 import { jsonContent, jsonError, type PathContext } from './shared.js';
 import type { OpenapiPaths } from './types.js';
 
@@ -113,6 +126,189 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
           422: ctx.unprocessable('Invalid input: missing/invalid url, format or options. SSRF-blocked hosts 422 with detail {reason, dnsRebindingCaveat: true}'),
           429: jsonError('429', 'Per-account spend cap exceeded (error envelope, code spend_cap_exceeded; detail {payer, spent, cap, reason}; WEBCAP_SPEND_CAP_CREDITS, unset means unlimited)'),
           502: ctx.captureFailed,
+        },
+        security: [{ apiKey: [] }],
+      },
+    },
+    '/v1/extract': {
+      post: {
+        tags: ['accounts'],
+        summary: `Extract structured content, single URL or batch (paid, ${PRODUCT_CREDIT_COST} credit per call)`,
+        description:
+          'The credit-metered extract: same compute as POST /v1/x402/extract (deterministic structure, optional model schema, batch up to 50 URLs) for a bearer token instead of a signature. 1 credit per call, refunded when the call does not return 200.',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: extractRequestBody } },
+        },
+        responses: {
+          200: { description: 'Per-URL results (ok/error), plus the credit charge and remaining balance', content: jsonContent(extractCreditResponse) },
+          401: ctx.unauthorized,
+          402: jsonError('402', 'Insufficient credits; the error detail carries the 1-credit top-up invoice {invoiceId, requiredUsdc, balance} (error envelope, code insufficient_credits)'),
+          422: ctx.unprocessable('Invalid input: missing/invalid url(s), schema, or spans'),
+          429: jsonError('429', 'Per-account spend cap exceeded (error envelope, code spend_cap_exceeded; WEBCAP_SPEND_CAP_CREDITS, unset means unlimited)'),
+          502: jsonError('502', 'All URLs in the batch failed to extract (error envelope, code extract_failed; the credit is refunded)'),
+        },
+        security: [{ apiKey: [] }],
+      },
+    },
+    '/v1/audit': {
+      post: {
+        tags: ['accounts'],
+        summary: `Audit a URL for SEO, OG tags, and link health (paid, ${PRODUCT_CREDIT_COST} credit per call)`,
+        description:
+          'The credit-metered audit: same compute as POST /v1/x402/audit for a bearer token instead of a signature. 1 credit per call, refunded when the call does not return 200.',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: auditRequestBody } },
+        },
+        responses: {
+          200: { description: 'The audit report, plus the credit charge and remaining balance', content: jsonContent(auditCreditResponse) },
+          401: ctx.unauthorized,
+          402: jsonError('402', 'Insufficient credits; the error detail carries the 1-credit top-up invoice {invoiceId, requiredUsdc, balance} (error envelope, code insufficient_credits)'),
+          422: ctx.unprocessable('Invalid input: missing/invalid url'),
+          429: jsonError('429', 'Per-account spend cap exceeded (error envelope, code spend_cap_exceeded; WEBCAP_SPEND_CAP_CREDITS, unset means unlimited)'),
+          502: jsonError('502', 'Audit failed for the URL (error envelope, code audit_failed; the credit is refunded)'),
+        },
+        security: [{ apiKey: [] }],
+      },
+    },
+    '/v1/map-lite': {
+      post: {
+        tags: ['accounts'],
+        summary: `Map a site to a same-host URL list (paid, ${PRODUCT_CREDIT_COST} credit per call)`,
+        description:
+          'The credit-metered map-lite: same compute as POST /v1/x402/map-lite (sitemap/robots plus a 1-hop crawl, maxUrls up to 50) for a bearer token instead of a signature. 1 credit per call, refunded when the call does not return 200.',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: mapLiteRequestBody } },
+        },
+        responses: {
+          200: { description: 'Discovered same-host URLs, plus the credit charge and remaining balance', content: jsonContent(mapLiteCreditResponse) },
+          401: ctx.unauthorized,
+          402: jsonError('402', 'Insufficient credits; the error detail carries the 1-credit top-up invoice {invoiceId, requiredUsdc, balance} (error envelope, code insufficient_credits)'),
+          422: ctx.unprocessable('Invalid input: missing/invalid url or maxUrls'),
+          429: jsonError('429', 'Per-account spend cap exceeded (error envelope, code spend_cap_exceeded; WEBCAP_SPEND_CAP_CREDITS, unset means unlimited)'),
+        },
+        security: [{ apiKey: [] }],
+      },
+    },
+    '/v1/video': {
+      post: {
+        tags: ['accounts'],
+        summary: `Scroll-capture a page as video (paid, ${PRODUCT_CREDIT_COST} credit per call)`,
+        description:
+          'The credit-metered video: same compute as POST /v1/x402/video (MP4/WebM scroll-capture) for a bearer token instead of a signature. 1 credit per call, refunded when the call does not return 200 (including 429 video-busy).',
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: videoRequestBody } },
+        },
+        responses: {
+          200: { description: 'The video artifact (base64, no persistent URL), plus the credit charge and remaining balance', content: jsonContent(videoCreditResponse) },
+          401: ctx.unauthorized,
+          402: jsonError('402', 'Insufficient credits; the error detail carries the 1-credit top-up invoice {invoiceId, requiredUsdc, balance} (error envelope, code insufficient_credits)'),
+          422: ctx.unprocessable('Invalid input: missing/invalid url, format, or recording options'),
+          429: jsonError('429', 'Recorder busy or per-account spend cap exceeded (error envelope; the credit is refunded on recorder-busy)'),
+          502: jsonError('502', 'Video capture failed (error envelope, code video_failed; the credit is refunded)'),
+        },
+        security: [{ apiKey: [] }],
+      },
+    },
+    '/v1/analyze': {
+      post: {
+        tags: ['accounts'],
+        summary: `AI-powered visual analysis of a page (paid, ${PRODUCT_CREDIT_COST} credit per call)`,
+        description:
+          'The credit-metered analyze: same compute as POST /v1/x402/analyze (vision model when configured, deterministic DOM fallback otherwise) for a bearer token instead of a signature. 1 credit per call, refunded when the call does not return 200.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['url', 'task'],
+                properties: {
+                  url: { type: 'string', format: 'uri', description: 'URL to analyze' },
+                  task: { type: 'string', enum: ['classification', 'accessibility', 'layout', 'entities', 'sentiment'], description: 'Analysis task type' },
+                  context: { type: 'string', description: 'Optional context for the analysis' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Analysis result (mode: "model" or "deterministic"), plus the credit charge and remaining balance',
+            content: jsonContent({
+              type: 'object',
+              properties: {
+                task: { type: 'string', description: 'Analysis task performed' },
+                result: { type: 'object', description: 'Task-specific result' },
+                creditsCharged: { type: 'integer', example: PRODUCT_CREDIT_COST },
+                balance: { type: 'integer', description: 'Credits remaining after the charge' },
+                latency_ms: { type: 'number', description: 'Analysis latency in milliseconds' },
+              },
+            }),
+          },
+          401: ctx.unauthorized,
+          402: jsonError('402', 'Insufficient credits; the error detail carries the 1-credit top-up invoice {invoiceId, requiredUsdc, balance} (error envelope, code insufficient_credits)'),
+          422: ctx.unprocessable('Invalid input: missing/invalid url or task'),
+          429: jsonError('429', 'Per-account spend cap exceeded (error envelope, code spend_cap_exceeded; WEBCAP_SPEND_CAP_CREDITS, unset means unlimited)'),
+          502: jsonError('502', 'Capture or analysis failed (error envelope; the credit is refunded)'),
+        },
+        security: [{ apiKey: [] }],
+      },
+    },
+    '/v1/analyze/batch': {
+      post: {
+        tags: ['accounts'],
+        summary: `Batch AI-powered visual analysis (paid, ${PRODUCT_CREDIT_COST} credit per call)`,
+        description:
+          'The credit-metered analyze batch: same compute as POST /v1/x402/analyze/batch (up to 10 URLs, one task) for a bearer token instead of a signature. 1 credit covers the whole batch, refunded when the call does not return 200.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['urls', 'task'],
+                properties: {
+                  urls: { type: 'array', items: { type: 'string', format: 'uri' }, maxItems: 10, description: 'URLs to analyze (max 10)' },
+                  task: { type: 'string', enum: ['classification', 'accessibility', 'layout', 'entities', 'sentiment'], description: 'Analysis task type' },
+                  context: { type: 'string', description: 'Optional context for the analysis' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Per-URL analysis results, plus the credit charge and remaining balance',
+            content: jsonContent({
+              type: 'object',
+              properties: {
+                results: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      url: { type: 'string' },
+                      status: { type: 'string', enum: ['ok', 'error'] },
+                      result: { type: 'object' },
+                      error: { type: 'string' },
+                    },
+                  },
+                },
+                task: { type: 'string' },
+                creditsCharged: { type: 'integer', example: PRODUCT_CREDIT_COST },
+                balance: { type: 'integer', description: 'Credits remaining after the charge' },
+              },
+            }),
+          },
+          401: ctx.unauthorized,
+          402: jsonError('402', 'Insufficient credits; the error detail carries the 1-credit top-up invoice {invoiceId, requiredUsdc, balance} (error envelope, code insufficient_credits)'),
+          422: ctx.unprocessable('Invalid input: missing/invalid urls or task'),
+          429: jsonError('429', 'Per-account spend cap exceeded (error envelope, code spend_cap_exceeded; WEBCAP_SPEND_CAP_CREDITS, unset means unlimited)'),
+          502: jsonError('502', 'All URLs in the batch failed to analyze (error envelope, code analysis_failed; the credit is refunded)'),
         },
         security: [{ apiKey: [] }],
       },

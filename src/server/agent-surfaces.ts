@@ -150,6 +150,25 @@ on-chain. You pay USDC only, never ETH gas.
 | POST /v1/x402/analyze/batch | ${usdc(config.x402ExtractPriceUsdcUnits)} | Batch AI analysis (up to 10 URLs, one payment) |
 | POST /v1/x402/watches/topup | ${usdc(watchTopUpPriceUsdcUnits('capture', config))}–${usdc(watchTopUpPriceUsdcUnits('extract', config))} | 100 scheduled re-capture runs for an existing watch (capture watch ${usdc(watchTopUpPriceUsdcUnits('capture', config))}, extract watch ${usdc(watchTopUpPriceUsdcUnits('extract', config))}) |
 
+## Paid endpoints (credits rail, bearer token)
+
+The same products are buyable without a signing key: register once
+(POST /v1/register {"address"} → {apiKey}), fund with a plain USDC transfer
+(POST /v1/invoice → {merchant, token, requiredUsdc}), then send
+"Authorization: Bearer <apiKey>". Every call costs 1 credit and the charge is
+refunded whenever the call does not return 200; an empty balance answers 402
+with a 1-credit top-up invoice. Full spec: ${config.publicBaseUrl}/openapi.json
+(tags: accounts).
+
+| Method + path | Returns |
+| --- | --- |
+| POST /v1/extract | per-URL results + {creditsCharged, balance} |
+| POST /v1/audit | audit report + {creditsCharged, balance} |
+| POST /v1/map-lite | same-host URL list + {creditsCharged, balance} |
+| POST /v1/video | video artifact + {creditsCharged, balance} |
+| POST /v1/analyze | {task, result} + {creditsCharged, balance} |
+| POST /v1/analyze/batch | per-URL results + {creditsCharged, balance} |
+
 ### Request / response shapes
 
 POST /v1/x402/capture
@@ -313,6 +332,7 @@ Base URL: ${config.publicBaseUrl}
 | Trial map-lite (capped at 10 URLs) | POST /v1/x402/trial/map-lite {"url", "payer", "signature"} with endpoint "map-lite" in the message | free, one claim per wallet per endpoint |
 | Trial analyze (deterministic, one URL) | POST /v1/x402/trial/analyze {"url", "task", "payer", "signature"} with endpoint "analyze" in the message; task: classification\|accessibility\|layout\|entities\|sentiment | free, one claim per wallet per endpoint |
 | OG metadata | GET /v1/og?url=… | free |
+| Bearer-token rail (no signing key): register once, fund with a USDC transfer, then call with "Authorization: Bearer \<key\>" | POST /v1/register {"address"} → {apiKey}; POST /v1/invoice → {merchant, token, requiredUsdc}; then POST /v1/extract, POST /v1/audit, POST /v1/map-lite, POST /v1/video, POST /v1/analyze, POST /v1/analyze/batch | 1 credit/call, refunded on non-200; empty balance 402s with a top-up invoice |
 
 Machine-readable catalog: ${config.publicBaseUrl}/v1/x402/service · Full spec: ${config.publicBaseUrl}/openapi.json · Tool manifests: ${config.publicBaseUrl}/.well-known/openai-tools.json + ${config.publicBaseUrl}/.well-known/mcp-tools.json · Agent card: ${config.publicBaseUrl}/.well-known/agent-card.json
 

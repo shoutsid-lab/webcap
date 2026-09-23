@@ -3,7 +3,7 @@
  * response shapes for capture, extract, watches, and the watch top-up. Split
  * out of openapi.ts as a pure move (no behavior change).
  */
-import { CAPTURE_COST_CREDITS, WATCH_TOPUP_RUNS } from '../../config.js';
+import { CAPTURE_COST_CREDITS, PRODUCT_CREDIT_COST, WATCH_TOPUP_RUNS } from '../../config.js';
 import { BAZAAR_EXAMPLE_PAYER } from '../x402.js';
 import { MAX_EXTRACT_BATCH } from '../extract-parse.js';
 import type { Json } from './types.js';
@@ -43,6 +43,40 @@ const captureCreditResponse: Json = {
     balance: { type: 'integer', description: 'Credits remaining after the charge' },
   },
 };
+
+function propsOf(schema: Json): Record<string, Json> {
+  if (typeof schema === 'object' && schema !== null && !Array.isArray(schema)) {
+    const props = (schema as { readonly [key: string]: Json }).properties;
+    if (typeof props === 'object' && props !== null && !Array.isArray(props)) {
+      return { ...(props as Record<string, Json>) };
+    }
+  }
+  return {};
+}
+
+/**
+ * A credits-rail 200 derived from the x402 response: the same result keys,
+ * credit accounting instead of the payment envelope. Deriving (not copying)
+ * keeps the two rails' documented shapes from drifting apart.
+ */
+function creditOf(response: Json, keep: readonly string[]): Json {
+  const props = propsOf(response);
+  const kept: Record<string, Json> = {};
+  for (const key of keep) {
+    const value = props[key];
+    if (value !== undefined) kept[key] = value;
+  }
+  return {
+    type: 'object',
+    properties: {
+      ...kept,
+      creditsCharged: { type: 'integer', example: PRODUCT_CREDIT_COST },
+      balance: { type: 'integer', description: 'Credits remaining after the charge' },
+    },
+  };
+}
+
+
 
 const extractResponse = (priceUsdcUnits: number): Json => ({
   type: 'object',
@@ -465,16 +499,25 @@ const watchTopUpResponse = {
   },
 };
 
+const extractCreditResponse = creditOf(extractResponse(0), ['results']);
+const auditCreditResponse = creditOf(auditResponse(0), ['audit']);
+const mapLiteCreditResponse = creditOf(mapLiteResponse(0), ['urls']);
+const videoCreditResponse = creditOf(videoResponse(0), ['artifact']);
+
 export {
+  auditCreditResponse,
   auditRequestBody,
   auditResponse,
   captureCreditResponse,
   captureRequestBody,
   captureResponse,
+  extractCreditResponse,
   extractRequestBody,
   extractResponse,
+  mapLiteCreditResponse,
   mapLiteRequestBody,
   mapLiteResponse,
+  videoCreditResponse,
   videoRequestBody,
   videoResponse,
   watchCreateBody,

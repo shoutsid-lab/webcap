@@ -32,6 +32,17 @@ export const USDC_SCALE = 1_000_000;
 export const USDC_UNITS_PER_CREDIT = USDC_SCALE / CREDITS_PER_USDC;
 export const PRICE_PER_CREDIT = 1 / CREDITS_PER_USDC;
 export const CAPTURE_COST_CREDITS = 1;
+/**
+ * Every paid product costs the same on the credits rail: 1 credit per call,
+ * whether it is a single capture or a 50-URL extract batch. The credit's
+ * nominal price is $0.01 (PRICE_PER_CREDIT) so 1 credit == the $0.01 extract
+ * price, and the pack discounts (starter $0.005/credit, pro $0.003, max
+ * $0.0012) are the loyalty lever below nominal. The x402 batch-50 margin
+ * invariant (revenue floor == one unit of compute) holds here too: nominal
+ * revenue per call is $0.01 against at most $0.01 of compute, and the pack
+ * discount is prepaid USDC the operator already priced.
+ */
+export const PRODUCT_CREDIT_COST = 1;
 
 /** Runs per watch top-up pack: the x402 top-up route sells exactly this many runs. */
 export const WATCH_TOPUP_RUNS = 100;

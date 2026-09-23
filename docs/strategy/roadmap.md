@@ -107,16 +107,16 @@ Goal: one funded agent, calling unattended, more than once.
       HEAD route (verified to fail when one is reverted to POST-only), and a
       byte-check that the catalog documents every route the router serves.
       *Acceptance: met — method, price and network now agree on every surface.*
-- [ ] **Sell the paid products on the prepaid rail, not just x402.** The
-      credits rail (API key + credit packs + invoices) already exists and is
-      funded by a normal USDC transfer, but it meters exactly one product:
-      `POST /v1/capture`. Everything else — extract, audit, map-lite, video,
-      analyze, batch — is x402-only, which means an agent runtime that holds a
-      bearer token but no signing key cannot buy them at all. Most automated
-      consumers can send a header; far fewer can sign EIP-712 per call. This is
-      the cheapest remaining conversion lever: wire the existing metered path
-      to the existing handlers (and decide the credit price per product, since
-      packs span $0.0012–$0.005 per credit against a $0.01 extract).
+- [x] **Sell the paid products on the prepaid rail, not just x402.** Every paid
+  product (extract, audit, map-lite, video, analyze, analyze/batch) is now
+  buyable with a bearer token at `POST /v1/<product>` for a uniform 1 credit
+  per call — nominal $0.01/credit, pack discounts below, refunded on any
+  non-200 so a 422/502 never burns a credit. The x402 handlers and the credit
+  routes share the same compute cores (`product-cores.ts`, `runAnalyzeOne`),
+  the credit 200s derive from the x402 response schemas (`creditOf`), and the
+  OpenAPI catalog + `skill.md`/`llms.txt`/`AGENT.md`/README document the rail.
+  *Acceptance: a bearer-token runtime with no signing key can buy every
+  product — pinned by `tests/api/credit-products.test.ts` (21 tests).*
 
 ## Phase 2 — Recurring agent demand
 

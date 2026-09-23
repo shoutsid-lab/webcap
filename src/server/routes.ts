@@ -8,7 +8,6 @@
 import { createHash } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import {
-  DEFAULT_MODEL_TIMEOUT_MS,
   DEFAULT_PREVIEW_HEADINGS_LIMIT,
   DEFAULT_PREVIEW_LINKS_LIMIT,
   DEFAULT_PREVIEW_MARKDOWN_LIMIT,
@@ -26,12 +25,12 @@ import { CaptureError } from '../capture/errors.js';
 import { previewFallback } from '../capture/preview-fallback.js';
 import { HttpError, unprocessable } from '../util/errors.js';
 import { RateLimiter, rejectRateLimited } from '../util/ratelimit.js';
-import { extractPage, storeArtifact } from '../extract/service.js';
+import { storeArtifact } from '../extract/service.js';
 import { classifyPage } from '../ml/deterministic.js';
 import type { PageStructure } from '../capture/pipeline.js';
 import { pinoServiceLogger } from '../util/logger.js';
 import { getCachedPreview, cachePreview } from '../db/preview-cache.js';
-import { parseExtractSchema, parseExtractUrls, assertSupportedSchema, assertTypedExtractValid, filterExtractedBySchema, parseExtractSpans, parseTypedSchema, type ExtractedContent, type ExtractResult } from './extract-parse.js';
+import { runAuditCompute, runExtractCompute } from './product-cores.js';
 import { isRecord, parseFormat, parseOptions, validatedUrl } from './capture-parse.js';
 import { x402Payer } from './x402.js';
 import { registerPaidRoute } from './query-body.js';
@@ -287,103 +286,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     if (config.x402Network === undefined) {
       throw new HttpError(503, 'x402_disabled', 'x402 payment requires WEBCAP_CHAIN=base-sepolia or base');
     }
-    const urls = parseExtractUrls(req.body, allowHosts);
-    const typedSchema = parseTypedSchema(req.body);
-    if (typedSchema !== undefined) {
-      assertSupportedSchema(typedSchema);
-      const spans = parseExtractSpans(req.body);
-      const captureOptions = parseOptions(req.body);
-      const results: ExtractResult[] = [];
-      let failures = 0;
-      for (const url of urls) {
-        let captured;
-        try {
-          captured = await deps.captureStructured({
-            url,
-            options: { ...captureOptions, includeHtml: false },
-          });
-        } catch (err) {
-          failures += 1;
-          results.push({ url, status: 'error', error: err instanceof CaptureError ? err.message : 'capture failed' });
-          continue;
-        }
-        const extracted = filterExtractedBySchema(captured.structure, typedSchema);
-        assertTypedExtractValid(extracted, typedSchema, spans, [captured.structure.markdown]);
-        results.push({ url, status: 'ok', data: { ...captured.structure, extracted, classification: classifyPage({ structure: captured.structure, pageUrl: url }) } });
-      }
-      if (failures === urls.length) {
-        throw new HttpError(502, 'extract_failed', 'all urls failed to extract');
-      }
-      const payer = x402Payer(req) ?? 'unknown';
-      (req as unknown as { _pendingRevenue?: { endpoint: string; payer: string; revenueUsdcUnits: number; costUsdcUnits: number } })._pendingRevenue = {
-        endpoint: 'extract',
-        payer,
-        revenueUsdcUnits: config.x402ExtractPriceUsdcUnits,
-        costUsdcUnits: config.computeCostUsdcUnitsPerRequest * urls.length,
-      };
-      return {
-        results,
-        payment: {
-          payer,
-          priceUsdcUnits: config.x402ExtractPriceUsdcUnits,
-          costUsdcUnits: config.computeCostUsdcUnitsPerRequest * urls.length,
-        },
-      };
-    }
-    const schema = parseExtractSchema(req.body);
-    const captureOptions = parseOptions(req.body);
-    const model = {
-      baseUrl: config.modelApiBaseUrl,
-      apiKey: config.modelApiKey,
-      model: config.modelName,
-    };
-    const results: ExtractResult[] = [];
-    let failures = 0;
-    for (const url of urls) {
-      let data: ExtractedContent;
-      let modelUsed = false;
-      try {
-        data = await extractPage({
-          url,
-          captureStructured: deps.captureStructured,
-          schema,
-          model,
-          modelTimeoutMs: config.modelTimeoutMs ?? DEFAULT_MODEL_TIMEOUT_MS,
-          logger: pinoServiceLogger(req.log),
-          ...(captureOptions !== undefined ? { captureOptions } : {}),
-        });
-        modelUsed = true;
-      } catch (err) {
-        // Model extraction failed - fall back to deterministic extraction
-        // using extractPage with model disabled (schema provided but no model).
-        try {
-          data = await extractPage({
-            url,
-            captureStructured: deps.captureStructured,
-            schema,
-            model: { baseUrl: '', apiKey: '', model: '' }, // disable model
-            modelTimeoutMs: 0,
-            logger: pinoServiceLogger(req.log),
-            ...(captureOptions !== undefined ? { captureOptions } : {}),
-          });
-          modelUsed = false;
-        } catch (fallbackErr) {
-          failures += 1;
-          results.push({ url, status: 'error', error: fallbackErr instanceof CaptureError ? fallbackErr.message : 'capture failed' });
-          continue;
-        }
-      }
-      // Attach model usage info if model was used for this URL
-      if (modelUsed && 'extracted' in data && data.extracted !== undefined) {
-        // The extractPage return type includes extracted data when model was used;
-        // model usage details are available via the internal __usage__ marker
-        // but are not propagated to the public ExtractedContent shape in the batch path.
-      }
-      results.push({ url, status: 'ok', data: { ...data, classification: classifyPage({ structure: data, pageUrl: url }) } });
-    }
-    if (failures === urls.length) {
-      throw new HttpError(502, 'extract_failed', 'all urls failed to extract');
-    }
+    const { results, urlCount } = await runExtractCompute(deps, config, pinoServiceLogger(req.log), req.body, allowHosts);
     const payer = x402Payer(req) ?? 'unknown';
     // MARGIN TRADEOFF (batch 10 -> 50): the extract price stays FLAT at 10000
     // units ($0.01) while the compute cost scales as 200 x N, so a full
@@ -396,14 +299,14 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       endpoint: 'extract',
       payer,
       revenueUsdcUnits: config.x402ExtractPriceUsdcUnits,
-      costUsdcUnits: config.computeCostUsdcUnitsPerRequest * urls.length,
+      costUsdcUnits: config.computeCostUsdcUnitsPerRequest * urlCount,
     };
     return {
       results,
       payment: {
         payer,
         priceUsdcUnits: config.x402ExtractPriceUsdcUnits,
-        costUsdcUnits: config.computeCostUsdcUnitsPerRequest * urls.length,
+        costUsdcUnits: config.computeCostUsdcUnitsPerRequest * urlCount,
       },
     };
   });
@@ -412,18 +315,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     if (config.x402Network === undefined) {
       throw new HttpError(503, 'x402_disabled', 'x402 payment requires WEBCAP_CHAIN=base-sepolia or base');
     }
-    const body = req.body;
-    const rawUrl = isRecord(body) ? body.url : undefined;
-    if (typeof rawUrl !== 'string') throw unprocessable('url is required');
-    const url = validatedUrl(rawUrl, allowHosts);
-    let captured;
-    try {
-      captured = await deps.captureStructured({ url, options: { includeHtml: true } });
-    } catch (err) {
-      if (err instanceof CaptureError) throw new HttpError(502, 'audit_failed', err.message);
-      throw err;
-    }
-    const checks = computeAudit({ structure: captured.structure, html: captured.html, pageUrl: url });
+    const { url, checks } = await runAuditCompute(deps, req.body, allowHosts);
     const payer = x402Payer(req) ?? 'unknown';
     (req as unknown as { _pendingRevenue?: { endpoint: string; payer: string; revenueUsdcUnits: number; costUsdcUnits: number } })._pendingRevenue = {
       endpoint: 'audit',

@@ -50,6 +50,17 @@ mode picks the top-up pack price); `webhook` is https-only. Inspect with
 `DELETE /v1/watches/:id`. On the unpaid top-up call, include `?watchId=<id>` so
 the 402 challenge quotes the exact pack price for that watch.
 
+### Bearer-token rail (no signing key)
+
+The same products are buyable with an API key instead of a signature:
+register once (`POST /v1/register {"address"}` → `{apiKey}`), fund with a
+plain USDC transfer (`POST /v1/invoice` → `{merchant, token, requiredUsdc}`),
+then send `Authorization: Bearer <apiKey>` to `POST /v1/extract`,
+`POST /v1/audit`, `POST /v1/map-lite`, `POST /v1/video`,
+`POST /v1/analyze`, or `POST /v1/analyze/batch`. Every call costs 1 credit,
+refunded whenever the call does not return 200; an empty balance answers 402
+with a 1-credit top-up invoice. Full spec: `GET /openapi.json` (tags: accounts).
+
 ### How the payment works
 1. `POST` unpaid → `402` with a `payment-required` header (base64 x402 v2
    challenge; the JSON body mirrors it).

@@ -12,6 +12,7 @@ import { getAddress, Wallet, ZeroAddress } from 'ethers';import {
   DEFAULT_CREDITS,
   DEFAULT_INVOICE_TTL_MS,
   PACKS,
+  PRODUCT_CREDIT_COST,
   USDC_SCALE,
   USDC_UNITS_PER_CREDIT,
   usdcForCredits,
@@ -25,7 +26,13 @@ import type { Db } from '../db/index.js';
 import { makeInvoicesRepo, type InvoiceRow } from '../db/invoices.js';
 import { makePaymentWebhooksRepo } from '../db/payment-webhooks.js';
 import { makeRevenueRepo } from '../db/revenue.js';
-import { CaptureError } from '../capture/errors.js';
+import { CaptureError, VideoBusyError } from '../capture/errors.js';
+import { captureVideo } from '../capture/video.js';
+import { pinoServiceLogger } from '../util/logger.js';
+import { runAuditCompute, runExtractCompute } from './product-cores.js';
+import { discoverMapLiteUrls, parseMapLiteRequest } from './map-lite.js';
+import { parseVideoRequest } from './video-parse.js';
+import { parseAnalyzeTask, runAnalyzeOne } from './ml-routes.js';
 import { HttpError, unprocessable } from '../util/errors.js';
 import { generateApiKey, hashKey } from '../util/keys.js';
 import { RateLimiter, rejectRateLimited } from '../util/ratelimit.js';
@@ -138,8 +145,160 @@ export function registerBillingRoutes(app: FastifyInstance, deps: AppDeps): void
     };
   });
 
-  app.get('/v1/ledger', async (req) => {
+  // --- Credit-metered products: every paid product buyable with a bearer
+  // token (no signing key). Each call costs PRODUCT_CREDIT_COST credits,
+  // charged before compute and refunded whenever the call does not return
+  // 200 — so a 422 or a 502 never burns a credit, exactly like /v1/capture.
+  const chargeForProduct = (account: { id: number; address: string }, _product: string): void => {
+    const spendCap = config.spendCapCredits;
+    if (spendCap !== undefined && credits.spentByAccount(account.id) >= spendCap) {
+      const spent = credits.spentByAccount(account.id);
+      throw new HttpError(429, 'spend_cap_exceeded', 'per-account spend cap exceeded', {
+        payer: account.address,
+        spent,
+        cap: spendCap,
+        reason: `per-account spend cap exceeded: spent ${spent} of ${spendCap} credits`,
+      });
+    }
+    const balanceBefore = accounts.getBalance(account.id);
+    if (balanceBefore < PRODUCT_CREDIT_COST) {
+      const topUp = createInvoice(invoices, config, merchantAddress, account.id, PRODUCT_CREDIT_COST);
+      throw new HttpError(402, 'insufficient_credits', 'insufficient credits', {
+        invoiceId: String(topUp.id),
+        requiredUsdc: usdcForCredits(PRODUCT_CREDIT_COST),
+        balance: balanceBefore,
+      });
+    }
+    if (!credits.recordCharge(account.id)) {
+      throw new HttpError(402, 'insufficient_credits', 'insufficient credits', { balance: 0 });
+    }
+  };
+
+  const refundForProduct = (reqId: string, accountId: number, product: string): void => {
+    credits.grantCredits(accountId, PRODUCT_CREDIT_COST, `${product}_refunded`, reqId);
+  };
+
+  app.post('/v1/extract', async (req) => {
     const { account } = authenticate(req, db);
+    chargeForProduct(account, 'extract');
+    let computed;
+    try {
+      computed = await runExtractCompute(deps, config, pinoServiceLogger(req.log), req.body, allowHosts);
+    } catch (err) {
+      refundForProduct(req.id, account.id, 'extract');
+      throw err;
+    }
+    return { results: computed.results, creditsCharged: PRODUCT_CREDIT_COST, balance: accounts.getBalance(account.id) };
+  });
+
+  app.post('/v1/audit', async (req) => {
+    const { account } = authenticate(req, db);
+    chargeForProduct(account, 'audit');
+    let computed;
+    try {
+      computed = await runAuditCompute(deps, req.body, allowHosts);
+    } catch (err) {
+      refundForProduct(req.id, account.id, 'audit');
+      throw err;
+    }
+    return { audit: { url: computed.url, ...computed.checks }, creditsCharged: PRODUCT_CREDIT_COST, balance: accounts.getBalance(account.id) };
+  });
+
+  app.post('/v1/map-lite', async (req) => {
+    const { account } = authenticate(req, db);
+    chargeForProduct(account, 'map-lite');
+    let discovery;
+    try {
+      const { url, maxUrls } = parseMapLiteRequest(req.body, allowHosts);
+      discovery = await discoverMapLiteUrls(url, maxUrls, allowHosts);
+    } catch (err) {
+      refundForProduct(req.id, account.id, 'map-lite');
+      throw err;
+    }
+    return { urls: discovery.urls, creditsCharged: PRODUCT_CREDIT_COST, balance: accounts.getBalance(account.id) };
+  });
+
+  app.post('/v1/video', async (req) => {
+    const { account } = authenticate(req, db);
+    chargeForProduct(account, 'video');
+    let result;
+    try {
+      const parsed = parseVideoRequest(req.body, allowHosts);
+      result = await captureVideo({
+        url: parsed.url,
+        format: parsed.format,
+        durationMs: parsed.durationMs,
+        scrollSpeed: parsed.scrollSpeed,
+        scrollEasing: parsed.scrollEasing,
+        ...(parsed.viewport !== undefined ? { viewport: parsed.viewport } : {}),
+      });
+    } catch (err) {
+      refundForProduct(req.id, account.id, 'video');
+      if (err instanceof VideoBusyError) throw new HttpError(429, err.code, err.message);
+      if (err instanceof CaptureError) throw new HttpError(502, 'video_failed', err.message);
+      throw err;
+    }
+    return {
+      artifact: { mime: result.mime, bytes: result.bytes, data: result.buffer.toString('base64') },
+      creditsCharged: PRODUCT_CREDIT_COST,
+      balance: accounts.getBalance(account.id),
+    };
+  });
+
+  app.post('/v1/analyze', async (req) => {
+    const { account } = authenticate(req, db);
+    const body = req.body;
+    if (!isRecord(body)) throw unprocessable('body must be an object');
+    const rawUrl = body.url;
+    if (typeof rawUrl !== 'string') throw unprocessable('url is required');
+    const url = validatedUrl(rawUrl, allowHosts);
+    const task = parseAnalyzeTask(body.task);
+    const context = typeof body.context === 'string' ? body.context : undefined;
+    chargeForProduct(account, 'analyze');
+    const started = performance.now();
+    let result;
+    try {
+      result = await runAnalyzeOne(deps, config, url, task, context);
+    } catch (err) {
+      refundForProduct(req.id, account.id, 'analyze');
+      throw err;
+    }
+    return { task, result, creditsCharged: PRODUCT_CREDIT_COST, balance: accounts.getBalance(account.id), latency_ms: Math.round(Math.max(0, performance.now() - started)) };
+  });
+
+  app.post('/v1/analyze/batch', async (req) => {
+    const { account } = authenticate(req, db);
+    const body = req.body;
+    if (!isRecord(body)) throw unprocessable('body must be an object');
+    const rawUrls = body.urls;
+    if (!Array.isArray(rawUrls) || rawUrls.length === 0) throw unprocessable('urls must be a non-empty array');
+    if (rawUrls.length > 10) throw unprocessable('urls must contain at most 10 items');
+    const task = parseAnalyzeTask(body.task);
+    const context = typeof body.context === 'string' ? body.context : undefined;
+    const urls: string[] = [];
+    for (const rawUrl of rawUrls) {
+      if (typeof rawUrl !== 'string') throw unprocessable('each url must be a string');
+      urls.push(validatedUrl(rawUrl, allowHosts));
+    }
+    chargeForProduct(account, 'analyze-batch');
+    const results: Array<{ url: string; status: 'ok' | 'error'; result?: unknown; error?: string }> = [];
+    let failures = 0;
+    for (const url of urls) {
+      try {
+        results.push({ url, status: 'ok', result: await runAnalyzeOne(deps, config, url, task, context) });
+      } catch (err) {
+        failures += 1;
+        results.push({ url, status: 'error', error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    if (failures === urls.length) {
+      refundForProduct(req.id, account.id, 'analyze-batch');
+      throw new HttpError(502, 'analysis_failed', 'all urls failed to analyze');
+    }
+    return { results, task, creditsCharged: PRODUCT_CREDIT_COST, balance: accounts.getBalance(account.id) };
+  });
+
+  app.get('/v1/ledger', async (req) => {    const { account } = authenticate(req, db);
     if (account.address.toLowerCase() !== config.merchantAddress.toLowerCase()) {
       throw new HttpError(403, 'forbidden', 'ledger is merchant-only');
     }

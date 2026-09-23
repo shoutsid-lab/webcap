@@ -12,7 +12,7 @@ import { USDC_SCALE } from './config/pricing.js';
 export type { ChainConfig, ChainName, Eip712Domain, X402Network } from './config/chains.js';
 export { EIP712_DOMAINS, X402_NETWORKS } from './config/chains.js';
 export type { CreditPack, PackName } from './config/pricing.js';
-export { CAPTURE_COST_CREDITS, CREDITS_PER_USDC, PACKS, PRICE_PER_CREDIT, USDC_SCALE, USDC_UNITS_PER_CREDIT, WATCH_TOPUP_RUNS } from './config/pricing.js';
+export { CAPTURE_COST_CREDITS, CREDITS_PER_USDC, PACKS, PRICE_PER_CREDIT, PRODUCT_CREDIT_COST, USDC_SCALE, USDC_UNITS_PER_CREDIT, WATCH_TOPUP_RUNS } from './config/pricing.js';
 export { creditsForUsdc, getPack, usdcForCredits, usdcUnitsForCredits, watchTopUpPriceUsdcUnits } from './config/pricing.js';
 export { MODEL_EXTRACT_DISABLED_WARNING, modelExtractionDisabled } from './config/model.js';
 

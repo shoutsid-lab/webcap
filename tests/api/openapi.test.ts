@@ -484,6 +484,12 @@ describe('mppscan/x402gle discovery metadata', () => {
   const BEARER_OPS: ReadonlyArray<readonly [method: string, path: string]> = [
     ['post', '/v1/invoice'],
     ['post', '/v1/capture'],
+    ['post', '/v1/extract'],
+    ['post', '/v1/audit'],
+    ['post', '/v1/map-lite'],
+    ['post', '/v1/video'],
+    ['post', '/v1/analyze'],
+    ['post', '/v1/analyze/batch'],
     ['get', '/v1/ledger'],
     ['get', '/v1/account'],
     ['get', '/v1/admin/hits/summary'],

@@ -38,6 +38,16 @@ POST /v1/watches                  →  Scheduled monitoring with webhook alerts
 | `POST /v1/x402/video` | Scroll-capture a page as MP4/WebM video | $0.005 |
 | `POST /v1/watches` | Create a scheduled monitor (free to create, prepay 100-run packs) | $0.10–$1.00/pack |
 
+### Bearer-token rail (no signing key)
+
+The same products are buyable with an API key: `POST /v1/register`
+(`{"address"}` → `{apiKey}`), fund with a plain USDC transfer via
+`POST /v1/invoice`, then send `Authorization: Bearer <apiKey>` to
+`POST /v1/extract`, `POST /v1/audit`, `POST /v1/map-lite`, `POST /v1/video`,
+`POST /v1/analyze`, or `POST /v1/analyze/batch`. Every call costs 1 credit,
+refunded whenever the call does not return 200; an empty balance answers 402
+with a 1-credit top-up invoice. Full spec: `GET /openapi.json` (tags: accounts).
+
 ### Free endpoints (no payment)
 
 | Endpoint | Description |
