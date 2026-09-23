@@ -10,7 +10,12 @@
 import { copyFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-const assets = [['src/db/schema.sql', 'dist/db/schema.sql']];
+const assets = [
+  ['src/db/schema.sql', 'dist/db/schema.sql'],
+  // The repo-root agent guide served at GET /AGENT.md (read dist-relative at
+  // runtime so the Docker image, which has no repo root, works unchanged).
+  ['AGENT.md', 'dist/AGENT.md'],
+];
 
 for (const [from, to] of assets) {
   mkdirSync(dirname(resolve(to)), { recursive: true });

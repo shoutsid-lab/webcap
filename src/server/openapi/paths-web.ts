@@ -386,6 +386,23 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
         security: [],
       },
     },
+    '/AGENT.md': {
+      get: {
+        tags: ['discovery'],
+        summary: 'Agent guide (markdown, deployment-interpolated)',
+        description:
+          'The repo-root agent guide the front-door agentGuide label points at: discovery surfaces, paid ' +
+          'endpoints with prices and bodies, watches, the x402 payment flow, and chain config. The served copy ' +
+          'has the deployment base URL interpolated. Free, no payment.',
+        responses: {
+          200: {
+            description: 'text/markdown; charset=utf-8 — the agent guide',
+            content: { 'text/markdown': { schema: { type: 'string' } } },
+          },
+        },
+        security: [],
+      },
+    },
     '/compare': {
       get: {
         tags: ['discovery'],

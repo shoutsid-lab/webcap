@@ -12,7 +12,7 @@ on-chain USDC transfer and pays gas.
 ```bash
 curl -s https://<webcap-url>/v1/x402/service
 ```
-Returns all three paid endpoints with exact prices, the network/asset/`payTo`,
+Returns every paid endpoint with exact prices, the network/asset/`payTo`,
 the facilitator, and the exact payment flow (`howToPay`). Also free:
 - `GET /.well-known/x402` + `GET /.well-known/agent-card.json`: machine discovery.
 - `GET /openapi.json`: full OpenAPI 3.1 catalog (incl. the 402 challenge schema).
@@ -27,7 +27,7 @@ the facilitator, and the exact payment flow (`howToPay`). Also free:
 | Endpoint | Price (default) | Body | Returns |
 |---|---|---|---|
 | `POST /v1/x402/capture` | $0.001 (1000 units) | `{"url": "https://...", "format": "png"\|"jpeg"\|"pdf"?}` | base64 PNG/JPEG/PDF + persistent public `artifact.url` + free OG |
-| `POST /v1/x402/extract` | $0.01 (10000 units) | `{"url": "https://..."}` or `{"urls": ["...", ...], "schema": "describe the JSON you want"}` | structured JSON. Single URL, or a **batch of up to 10 URLs for one payment** |
+| `POST /v1/x402/extract` | $0.01 (10000 units) | `{"url": "https://..."}` or `{"urls": ["...", ...], "schema": "describe the JSON you want"}` | structured JSON. Single URL, or a **batch of up to 50 URLs for one payment** |
 | `POST /v1/x402/audit` | $0.002 (2000 units) | `{"url": "https://..."}` | SEO basics + link/OG health in one call |
 | `POST /v1/x402/watches/topup` | $0.10 capture-pack / $1.00 extract-pack (100000 / 1000000 units) | `{"watchId": "<id>", "runs": 100}` + `?watchId=<id>` on the unpaid call | `{"watchId", "credits", "priceUsdcUnits"}`. **100 pre-paid monitor runs** |
 
@@ -84,7 +84,7 @@ metadata is embedded in the 402 challenges; CDP facilitator auth is optional
 via CDP_API_KEY_ID/CDP_API_KEY_SECRET (Ed25519 JWT, default off).
 
 ## Notes
-- **Batch economics**: one flat extract price covers up to 10 URLs, so a batch
+- **Batch economics**: one flat extract price covers up to 50 URLs, so a batch
   is cheaper per URL than single calls. Prefer batching your research.
 - Errors are `{"error":{"code","message"}}` (+ optional `detail`); a 429's
   `detail.retryAfterSeconds` tells you when to retry. Upstream page failures

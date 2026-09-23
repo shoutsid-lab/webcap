@@ -460,6 +460,7 @@ describe('mppscan/x402gle discovery metadata', () => {
     ['get', '/.well-known/mcp-tools.json'],
     ['get', '/llms.txt'],
     ['get', '/skill.md'],
+    ['get', '/AGENT.md'],
     ['post', '/v1/register'],
     ['get', '/v1/og'],
     ['post', '/v1/x402/trial'],
@@ -610,10 +611,10 @@ describe('mppscan/x402gle discovery metadata', () => {
     }
   });
 
-  it('declares security: [] on every free/public op (the explicit 29-list)', async () => {
+  it('declares security: [] on every free/public op (the explicit 30-list)', async () => {
     const fx = makeApiFixture();
     try {
-      expect(FREE_OPS.length).toBe(29);
+      expect(FREE_OPS.length).toBe(30);
       const res = await getDoc(fx.app);
       const doc = res.json() as OpenapiDocView;
       for (const [method, path] of FREE_OPS) {

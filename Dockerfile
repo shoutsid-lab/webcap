@@ -10,6 +10,10 @@ COPY src ./src
 # `npm run build` runs scripts/copy-assets.mjs, so the build stage needs that
 # one file (the rest of scripts/ stays out of the context — see .dockerignore).
 COPY scripts/copy-assets.mjs ./scripts/copy-assets.mjs
+# NOTE (necessary): AGENT.md is a runtime asset — GET /AGENT.md serves it from
+# dist/, and the build fails without this COPY (a silent stale image resulted
+# the one time it was missing).
+COPY AGENT.md ./AGENT.md
 # `npm run build` also copies non-TS runtime assets (e.g. dist/db/schema.sql,
 # which the DB reads next to dist/db/index.js) — see scripts/copy-assets.mjs.
 RUN npm run build && npm prune --omit=dev

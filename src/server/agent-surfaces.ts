@@ -12,8 +12,34 @@
  * DEFAULT_X402_EXTRACT_PRICE_USDC_UNITS = $0.01).
  */
 import type { FastifyInstance } from 'fastify';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { USDC_SCALE, watchTopUpPriceUsdcUnits, type WebcapConfig } from '../config.js';
 import { loadMppConfig, realmOf } from '../mpp/config.js';
+
+/**
+ * The repo-root agent guide (GET /AGENT.md), advertised by the front-door
+ * `agentGuide` label. Resolved dist-relative so both layouts work: in dev
+ * (tsx src/) it is the repo root file, in prod (node dist/) the copy that
+ * scripts/copy-assets.mjs places next to dist/. The repo file carries a
+ * `<webcap-url>` placeholder; it is interpolated to this deployment. A
+ * missing file serves a pointer, never a 500 — same rule as the MPP block.
+ */
+function agentGuideText(publicBaseUrl: string): string {
+  // NOTE (necessary): nearest-first dual lookup — prod serves from dist/
+  // (one level up), dev from the repo root (two levels up). A single path
+  // silently serves the fallback in one layout while passing tests in the other.
+  const here = dirname(fileURLToPath(import.meta.url));
+  for (const candidate of [resolve(here, '..', 'AGENT.md'), resolve(here, '..', '..', 'AGENT.md')]) {
+    try {
+      return readFileSync(candidate, 'utf8').replaceAll('<webcap-url>', publicBaseUrl);
+    } catch {
+      continue;
+    }
+  }
+  return `# webcap agent guide\n\nThe full guide failed to load on this deployment. Use ${publicBaseUrl}/skill.md instead.\n`;
+}
 
 /**
  * Register the agent-facing discovery routes: GET /llms.txt and GET /skill.md.
@@ -36,6 +62,13 @@ export function registerAgentSurfaces(app: FastifyInstance, config: WebcapConfig
     reply.header('content-type', 'text/markdown; charset=utf-8');
     reply.header('cache-control', 'public, max-age=300');
     return reply.send(skillMd(config, mppEnabled));
+  });
+
+  const guide = agentGuideText(config.publicBaseUrl);
+  app.get('/AGENT.md', async (_req, reply) => {
+    reply.header('content-type', 'text/markdown; charset=utf-8');
+    reply.header('cache-control', 'public, max-age=300');
+    return reply.send(guide);
   });
 }
 
