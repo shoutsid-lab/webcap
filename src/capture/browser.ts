@@ -19,6 +19,8 @@ export interface ContextCookie {
   readonly name: string;
   readonly value: string;
   readonly domain?: string;
+  /** Capture URL the cookie belongs to (used when domain is absent — Playwright needs one or the other). */
+  readonly url?: string;
 }
 
 /** Viewport/mobile context options passed through to the Playwright browser context. */

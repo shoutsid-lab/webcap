@@ -70,9 +70,20 @@ describe('capture pipeline macro-auth forwarding (RED)', () => {
     expect(contexts).toHaveLength(1);
     expect(contexts[0]?.opts).toMatchObject({
       extraHTTPHeaders: { authorization: 'Bearer s3cr3t' },
-      cookies: [{ name: 'sid', value: 'abc' }],
+      cookies: [{ name: 'sid', value: 'abc', url: 'https://example.com/page' }],
     });
-    expect(contexts[0]?.addedCookies).toEqual([[{ name: 'sid', value: 'abc' }]]);
+    expect(contexts[0]?.addedCookies).toEqual([[{ name: 'sid', value: 'abc', url: 'https://example.com/page' }]]);
+  });
+
+  it('leaves domain cookies untouched (no url default)', async () => {
+    contexts.length = 0;
+    await capture({
+      url: 'https://example.com/page',
+      options: { cookies: [{ name: 'sid', value: 'abc', domain: 'example.com' }] },
+    });
+    expect(contexts[0]?.opts).toMatchObject({
+      cookies: [{ name: 'sid', value: 'abc', domain: 'example.com' }],
+    });
   });
 
   it('executes macro steps in order, including goto', async () => {

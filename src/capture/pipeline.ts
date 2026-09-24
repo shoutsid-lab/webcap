@@ -114,8 +114,20 @@ function contextViewport(req: CaptureRequest): ContextViewportOptions {
         ? { stealth: true as const }
         : {}),
     ...(o.extraHTTPHeaders !== undefined ? { extraHTTPHeaders: o.extraHTTPHeaders } : {}),
-    ...(o.cookies !== undefined ? { cookies: o.cookies } : {}),
+    ...(o.cookies !== undefined ? { cookies: cookiesForUrl(o.cookies, req.url) } : {}),
   };
+}
+
+/**
+ * Scope domain-less cookies to the capture URL: Playwright's addCookies
+ * rejects a cookie with neither url nor a domain/path pair, and a caller
+ * capturing one URL almost always means "this site". Domain cookies pass
+ * through untouched.
+ */
+export function cookiesForUrl(cookies: readonly ContextCookie[], url: string): ContextCookie[] {
+  return cookies.map((cookie) =>
+    cookie.domain !== undefined || cookie.url !== undefined ? { ...cookie } : { ...cookie, url },
+  );
 }
 
 function resolveTimeout(req: CaptureRequest, timeouts?: CaptureTimeouts): number {
@@ -373,8 +385,10 @@ function extractStructureFromDom(maxContentWords: number | null): PageStructure 
     }
     return lines.slice(0, MAX_MARKDOWN_LINES).join('\n\n');
   };
+  const firstH1 = selected.find((el) => el.tagName === 'H1');
+  const titleText = document.title !== '' ? document.title : firstH1 !== undefined ? clean(firstH1).slice(0, 300) : '';
   return {
-    title: document.title ?? '',
+    title: titleText,
     description: metaContent('description'),
     headings,
     paragraphs,
