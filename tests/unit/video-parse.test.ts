@@ -107,3 +107,43 @@ describe('server/video-parse A-S2 invalid scroll-capture options', () => {
     expectVideoUnprocessable([], 'object');
   });
 });
+
+describe('server/video-parse session + locale options', () => {
+  it('passes through auth, stealth, locale and timezoneId from options', () => {
+    expect(
+      parseVideoRequest(
+        {
+          url: 'https://example.com/page',
+          options: {
+            auth: {
+              headers: { authorization: 'Bearer s3cr3t' },
+              cookies: [{ name: 'sid', value: 'abc' }],
+            },
+            stealth: true,
+            locale: 'de-DE',
+            timezoneId: 'Europe/Berlin',
+          },
+        },
+        undefined,
+      ),
+    ).toEqual({
+      url: 'https://example.com/page',
+      format: 'mp4',
+      durationMs: 5000,
+      scrollSpeed: 800,
+      scrollEasing: 'linear',
+      extraHTTPHeaders: { authorization: 'Bearer s3cr3t' },
+      cookies: [{ name: 'sid', value: 'abc' }],
+      stealth: true,
+      locale: 'de-DE',
+      timezoneId: 'Europe/Berlin',
+    });
+  });
+
+  it('rejects a disallowed auth header with 422', () => {
+    expectVideoUnprocessable(
+      { url: 'https://example.com/', options: { auth: { headers: { 'x-evil': '1' } } } },
+      'header',
+    );
+  });
+});

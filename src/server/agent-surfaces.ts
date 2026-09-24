@@ -191,7 +191,7 @@ POST /v1/x402/map-lite
 
 POST /v1/x402/video
     {"url": "https://example.com", "format": "mp4"}   // format: mp4 | webm (default: mp4)
-    // options?: {"durationMs" (default 5000, at most 30000), "scrollSpeed" (default 800, at most 5000), "scrollEasing": "linear" | "ease-in-out", "viewport": {"width", "height"}}
+    // options?: {"durationMs" (default 5000, at most 30000), "scrollSpeed" (default 800, at most 5000), "scrollEasing": "linear" | "ease-in-out", "viewport": {"width", "height"}, "auth"?: {"headers", "cookies"} (logged-in recordings), "stealth"?, "locale"?, "timezoneId"?}
   200 {"artifact": {"mime": "video/mp4", "bytes": 1048576, "data": "<base64>"},
        "payment": {"payer": "0x…", "priceUsdcUnits": ${config.x402VideoPriceUsdcUnits}}}
 
@@ -320,7 +320,7 @@ Base URL: ${config.publicBaseUrl}
 | Extract (batch of up to 50 URLs, one payment) | POST /v1/x402/extract {"url" or "urls", "schema"?, "options": {"maxContentWords"?, "auth"? {headers, cookies}, "stealth"?}} | ${usdc(config.x402ExtractPriceUsdcUnits)} |
 | Audit (SEO + OG + link health, one URL) | POST /v1/x402/audit {"url"} | ${usdc(config.x402AuditPriceUsdcUnits)} |
 | Map-lite (site URL list, one call) | POST /v1/x402/map-lite {"url", "maxUrls"? (default 20, at most 50)} | ${usdc(config.x402AuditPriceUsdcUnits)} |
-| Video (scroll-capture mp4/webm, one URL) | POST /v1/x402/video {"url", "format"?, "durationMs"?, "scrollSpeed"?, "scrollEasing"?, "options"? (viewport)} | ${usdc(config.x402VideoPriceUsdcUnits)} |
+| Video (scroll-capture mp4/webm, one URL) | POST /v1/x402/video {"url", "format"?, "durationMs"?, "scrollSpeed"?, "scrollEasing"?, "options"? (viewport, auth {headers, cookies} for logged-in recordings, stealth, locale, timezoneId)} | ${usdc(config.x402VideoPriceUsdcUnits)} |
 | Analyze (AI visual analysis, one URL) | POST /v1/x402/analyze {"url", "task"} where task: classification\|accessibility\|layout\|entities\|sentiment | ${usdc(config.x402ExtractPriceUsdcUnits)} |
 | Analyze batch (up to 10 URLs, one payment) | POST /v1/x402/analyze/batch {"urls": string[], "task"} | ${usdc(config.x402ExtractPriceUsdcUnits)} |
 | Watch top-up (100 runs) | POST /v1/x402/watches/topup {"watchId", "runs": 100} | ${usdc(watchTopUpPriceUsdcUnits('capture', config))} (capture watch) / ${usdc(watchTopUpPriceUsdcUnits('extract', config))} (extract watch) |

@@ -186,3 +186,28 @@ describe('server/capture-parse session auth + stealth options', () => {
     expectUnprocessable({ options: { stealth } }, 'stealth');
   });
 });
+
+describe('server/capture-parse locale + timezone options', () => {
+  it('passes through a locale tag and IANA timezone unchanged', () => {
+    expect(parseOptions({ options: { locale: 'fr-FR', timezoneId: 'Europe/Paris' } })).toEqual({
+      locale: 'fr-FR',
+      timezoneId: 'Europe/Paris',
+    });
+  });
+
+  it.each([[42], [true], [null], [[]]])('rejects locale %o with 422', (locale) => {
+    expectUnprocessable({ options: { locale } }, 'locale');
+  });
+
+  it('rejects an empty locale with 422', () => {
+    expectUnprocessable({ options: { locale: '   ' } }, 'locale');
+  });
+
+  it('rejects an unknown timezone with 422', () => {
+    expectUnprocessable({ options: { timezoneId: 'Mars/Olympus' } }, 'timezoneId');
+  });
+
+  it.each([[42], [true], [null]])('rejects timezoneId %o with 422', (timezoneId) => {
+    expectUnprocessable({ options: { timezoneId } }, 'timezoneId');
+  });
+});

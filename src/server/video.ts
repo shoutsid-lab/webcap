@@ -38,6 +38,11 @@ export function registerVideoRoute(app: FastifyInstance, deps: VideoRouteDeps): 
         scrollSpeed: parsed.scrollSpeed,
         scrollEasing: parsed.scrollEasing,
         ...(parsed.viewport !== undefined ? { viewport: parsed.viewport } : {}),
+        ...(parsed.extraHTTPHeaders !== undefined ? { extraHTTPHeaders: parsed.extraHTTPHeaders } : {}),
+        ...(parsed.cookies !== undefined ? { cookies: parsed.cookies } : {}),
+        ...(parsed.stealth !== undefined ? { stealth: parsed.stealth } : {}),
+        ...(parsed.locale !== undefined ? { locale: parsed.locale } : {}),
+        ...(parsed.timezoneId !== undefined ? { timezoneId: parsed.timezoneId } : {}),
       });
     } catch (err) {
       if (err instanceof VideoBusyError) throw new HttpError(429, err.code, err.message);

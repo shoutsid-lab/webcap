@@ -237,6 +237,11 @@ export function registerBillingRoutes(app: FastifyInstance, deps: AppDeps): void
         scrollSpeed: parsed.scrollSpeed,
         scrollEasing: parsed.scrollEasing,
         ...(parsed.viewport !== undefined ? { viewport: parsed.viewport } : {}),
+        ...(parsed.extraHTTPHeaders !== undefined ? { extraHTTPHeaders: parsed.extraHTTPHeaders } : {}),
+        ...(parsed.cookies !== undefined ? { cookies: parsed.cookies } : {}),
+        ...(parsed.stealth !== undefined ? { stealth: parsed.stealth } : {}),
+        ...(parsed.locale !== undefined ? { locale: parsed.locale } : {}),
+        ...(parsed.timezoneId !== undefined ? { timezoneId: parsed.timezoneId } : {}),
       });
     } catch (err) {
       refundForProduct(req.id, account.id, 'video');

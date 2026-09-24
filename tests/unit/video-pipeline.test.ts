@@ -118,6 +118,38 @@ describe('capture/video recordVideo pipeline', () => {
     }
   });
 
+  it('passes session auth, stealth and locale through to newContext', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'video-pipeline-expect-'));
+    const videoPath = join(dir, 'video.webm');
+    await writeFile(videoPath, Buffer.from([1]));
+    try {
+      const fakes = makeFakes(videoPath, 'immediate');
+      await captureVideo(
+        {
+          url: 'https://example.com/page',
+          format: 'mp4',
+          durationMs: 300,
+          scrollSpeed: 600,
+          extraHTTPHeaders: { authorization: 'Bearer s3cr3t' },
+          cookies: [{ name: 'sid', value: 'abc', url: 'https://example.com/page' }],
+          stealth: true,
+          locale: 'de-DE',
+          timezoneId: 'Europe/Berlin',
+        },
+        { newContext: fakes.newContext },
+      );
+      expect(fakes.contextOpts[0]).toMatchObject({
+        extraHTTPHeaders: { authorization: 'Bearer s3cr3t' },
+        cookies: [{ name: 'sid', value: 'abc', url: 'https://example.com/page' }],
+        stealth: true,
+        locale: 'de-DE',
+        timezoneId: 'Europe/Berlin',
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it('drives scroll steps with the requested speed pixels', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'video-pipeline-expect-'));
     const videoPath = join(dir, 'video.webm');

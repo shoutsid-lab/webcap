@@ -2,9 +2,10 @@ import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { BrowserContext, Page } from 'playwright-core';
-import { newContext as baseNewContext, type ContextViewportOptions } from './browser.js';
+import { newContext as baseNewContext, type ContextCookie, type ContextViewportOptions } from './browser.js';
 import { CaptureError, VideoBusyError } from './errors.js';
 import type { CaptureTimeouts } from './pipeline.js';
+import { cookiesForUrl } from './pipeline.js';
 import { DEFAULT_CAPTURE_TIMEOUT_CAP_MS, DEFAULT_CAPTURE_TIMEOUT_MS } from '../config.js';
 
 export type VideoFormat = 'mp4' | 'webm';
@@ -114,6 +115,11 @@ export interface VideoCaptureRequest {
   readonly scrollSpeed?: number;
   readonly scrollEasing?: ScrollEasing;
   readonly viewport?: { readonly width: number; readonly height: number };
+  readonly extraHTTPHeaders?: Record<string, string>;
+  readonly cookies?: readonly ContextCookie[];
+  readonly stealth?: boolean;
+  readonly locale?: string;
+  readonly timezoneId?: string;
 }
 
 export interface VideoCaptureResult {
@@ -289,7 +295,14 @@ async function recordToBuffer(
   stagingDir: string,
   timeouts?: VideoTimeouts,
 ): Promise<VideoCaptureResult> {
-  const viewportOpts: ContextViewportOptions = req.viewport !== undefined ? { viewport: req.viewport } : {};
+  const viewportOpts: ContextViewportOptions = {
+    ...(req.viewport !== undefined ? { viewport: req.viewport } : {}),
+    ...(req.extraHTTPHeaders !== undefined ? { extraHTTPHeaders: req.extraHTTPHeaders } : {}),
+    ...(req.cookies !== undefined ? { cookies: cookiesForUrl(req.cookies, req.url) } : {}),
+    ...(req.stealth === true ? { stealth: true as const } : {}),
+    ...(req.locale !== undefined ? { locale: req.locale } : {}),
+    ...(req.timezoneId !== undefined ? { timezoneId: req.timezoneId } : {}),
+  };
   const context = await factory({ ...viewportOpts, recordVideo: { dir: stagingDir } });
   let videoPath: string | undefined;
   try {

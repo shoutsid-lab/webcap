@@ -154,6 +154,8 @@ const captureOptionsProperties = {
   deviceScaleFactor: { type: 'number', description: 'Device pixel ratio (clamped to at most 3)' },
   isMobile: { type: 'boolean', description: 'Render with a mobile viewport' },
   userAgent: { type: 'string', description: 'Custom user agent string' },
+  locale: { type: 'string', description: 'BCP-47 locale tag for the browser context (drives Accept-Language + navigator.language)' },
+  timezoneId: { type: 'string', description: 'IANA timezone id for the browser context (422 on unknown zones)' },
   stealth: { type: 'boolean', description: 'Hardened anti-bot context: realistic UA/viewport defaults + webdriver mask (same as proxy "stealth", without routing traffic through a proxy)' },
   auth: {
     type: 'object',
@@ -171,7 +173,7 @@ const captureOptionsProperties = {
           properties: {
             name: { type: 'string', description: 'Cookie name' },
             value: { type: 'string', description: 'Cookie value' },
-            domain: { type: 'string', description: 'Cookie domain (optional)' },
+            domain: { type: 'string', description: 'Cookie domain (optional — defaults to the captured URL)' },
           },
         },
       },
@@ -315,7 +317,7 @@ const videoRequestBody = {
     options: {
       type: 'object',
       additionalProperties: false,
-      description: 'Capture options (viewport forwarded to the recording context)',
+      description: 'Capture options forwarded to the recording context (viewport, session auth, stealth, locale)',
       properties: {
         viewport: {
           type: 'object',
@@ -325,6 +327,29 @@ const videoRequestBody = {
             height: { type: 'integer', description: 'Viewport height in CSS pixels' },
           },
         },
+        stealth: { type: 'boolean', description: 'Hardened anti-bot recording context (realistic UA/viewport defaults + webdriver mask)' },
+        auth: {
+          type: 'object',
+          description: 'Logged-in session for the recording: allowlisted extra headers (authorization, x-api-key only) plus up to 10 cookies. 422 with static messages on misuse.',
+          properties: {
+            headers: { type: 'object', description: 'Extra request headers (authorization and x-api-key only)', additionalProperties: { type: 'string' } },
+            cookies: {
+              type: 'array',
+              description: 'Session cookies (at most 10; domain optional — defaults to the recorded URL)',
+              maxItems: 10,
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', description: 'Cookie name' },
+                  value: { type: 'string', description: 'Cookie value' },
+                  domain: { type: 'string', description: 'Cookie domain (optional)' },
+                },
+              },
+            },
+          },
+        },
+        locale: { type: 'string', description: 'BCP-47 locale tag for the recording context (drives Accept-Language)' },
+        timezoneId: { type: 'string', description: 'IANA timezone id for the recording context' },
       },
     },
   },

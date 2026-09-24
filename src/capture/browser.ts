@@ -29,6 +29,10 @@ export interface ContextViewportOptions {
   readonly userAgent?: string;
   readonly deviceScaleFactor?: number;
   readonly isMobile?: boolean;
+  /** BCP-47 locale tag (drives Accept-Language + navigator.language). */
+  readonly locale?: string;
+  /** IANA timezone id (validated at parse time via Intl.supportedValuesOf). */
+  readonly timezoneId?: string;
   /** Outbound proxy server URL (undefined = direct). Resolved via resolveProxyServer. */
   readonly proxyServer?: string;
   /** Hardened stealth context: realistic UA/viewport defaults + webdriver mask. No third-party plugin. */
@@ -73,6 +77,8 @@ export async function newContext(opts?: ContextViewportOptions): Promise<Browser
     userAgent: opts?.userAgent ?? (stealth ? STEALTH_USER_AGENT : undefined),
     deviceScaleFactor: opts?.deviceScaleFactor,
     isMobile: opts?.isMobile,
+    ...(opts?.locale !== undefined ? { locale: opts.locale } : {}),
+    ...(opts?.timezoneId !== undefined ? { timezoneId: opts.timezoneId } : {}),
     ...(opts?.proxyServer !== undefined ? { proxy: { server: opts.proxyServer } } : {}),
     ...(opts?.extraHTTPHeaders !== undefined ? { extraHTTPHeaders: { ...opts.extraHTTPHeaders } } : {}),
     ...(opts?.recordVideo !== undefined ? { recordVideo: { ...opts.recordVideo } } : {}),

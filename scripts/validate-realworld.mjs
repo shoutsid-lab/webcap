@@ -104,6 +104,17 @@ async function main() {
     check('auth header sent', false, String(err).slice(0, 160));
   }
 
+  try {
+    const r = await captureStructured({
+      url: 'https://httpbin.org/headers',
+      options: { locale: 'fr-FR', timezoneId: 'Europe/Paris' },
+    });
+    const lang = /fr-FR/i.test(r.structure.markdown);
+    check('locale drives Accept-Language', lang, lang ? 'server saw fr-FR' : 'no fr-FR in echo');
+  } catch (err) {
+    check('locale drives Accept-Language', false, String(err).slice(0, 160));
+  }
+
   for (const bad of ['http://localhost/admin', 'http://169.254.169.254/', 'not-a-url', 'file:///etc/passwd']) {
     try {
       validateCaptureUrl(bad, { allowHosts: undefined });

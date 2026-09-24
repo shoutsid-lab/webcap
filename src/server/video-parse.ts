@@ -1,5 +1,6 @@
 import { isRecord, parseOptions, validatedUrl } from './capture-parse.js';
 import { unprocessable } from '../util/errors.js';
+import type { ContextCookie } from '../capture/browser.js';
 import {
   VIDEO_DEFAULT_DURATION_MS,
   VIDEO_DEFAULT_SCROLL_SPEED,
@@ -18,6 +19,11 @@ export interface VideoRequest {
   readonly scrollSpeed: number;
   readonly scrollEasing: ScrollEasing;
   readonly viewport?: { readonly width: number; readonly height: number };
+  readonly extraHTTPHeaders?: Record<string, string>;
+  readonly cookies?: readonly ContextCookie[];
+  readonly stealth?: boolean;
+  readonly locale?: string;
+  readonly timezoneId?: string;
 }
 
 const DEFAULT_VIDEO_FORMAT: VideoFormat = 'mp4';
@@ -64,13 +70,18 @@ export function parseVideoRequest(body: unknown, allowHosts: readonly string[] |
   const durationMs = parseDurationMs(body.durationMs);
   const scrollSpeed = parseScrollSpeed(body.scrollSpeed);
   const scrollEasing = parseScrollEasing(body.scrollEasing);
-  const viewport = parseOptions(body)?.viewport;
+  const parsed = parseOptions(body);
   return {
     url,
     format,
     durationMs,
     scrollSpeed,
     scrollEasing,
-    ...(viewport !== undefined ? { viewport } : {}),
+    ...(parsed?.viewport !== undefined ? { viewport: parsed.viewport } : {}),
+    ...(parsed?.extraHTTPHeaders !== undefined ? { extraHTTPHeaders: parsed.extraHTTPHeaders } : {}),
+    ...(parsed?.cookies !== undefined ? { cookies: parsed.cookies } : {}),
+    ...(parsed?.stealth !== undefined ? { stealth: parsed.stealth } : {}),
+    ...(parsed?.locale !== undefined ? { locale: parsed.locale } : {}),
+    ...(parsed?.timezoneId !== undefined ? { timezoneId: parsed.timezoneId } : {}),
   };
 }

@@ -29,6 +29,10 @@ export interface CaptureOptions {
   readonly proxy?: CaptureProxy;
   /** Hardened anti-bot context (realistic UA/viewport defaults + webdriver mask); proxy 'stealth' also enables this. */
   readonly stealth?: boolean;
+  /** BCP-47 locale tag for the browser context. */
+  readonly locale?: string;
+  /** IANA timezone id for the browser context. */
+  readonly timezoneId?: string;
   readonly waitFor?: CaptureWaitFor;
   readonly actions?: readonly CaptureAction[];
   /**
@@ -115,6 +119,8 @@ function contextViewport(req: CaptureRequest): ContextViewportOptions {
         : {}),
     ...(o.extraHTTPHeaders !== undefined ? { extraHTTPHeaders: o.extraHTTPHeaders } : {}),
     ...(o.cookies !== undefined ? { cookies: cookiesForUrl(o.cookies, req.url) } : {}),
+    ...(o.locale !== undefined ? { locale: o.locale } : {}),
+    ...(o.timezoneId !== undefined ? { timezoneId: o.timezoneId } : {}),
   };
 }
 

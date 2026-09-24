@@ -20,6 +20,7 @@ const VIEWPORT_MIN_HEIGHT = 320;
 const VIEWPORT_MAX_HEIGHT = 2160;
 const DEVICE_SCALE_FACTOR_MAX = 3;
 const USER_AGENT_MAX_LENGTH = 1024;
+const LOCALE_MAX_LENGTH = 32;
 const WAIT_FOR_TIMEOUT_CAP_MS = 10_000;
 const MAX_ACTIONS = 5;
 
@@ -263,6 +264,26 @@ export function parseOptions(body: unknown): CaptureOptions | undefined {
   if (stealth !== undefined && typeof stealth !== 'boolean') {
     throw unprocessable('stealth must be a boolean');
   }
+  const localeRaw = raw.locale;
+  let locale: string | undefined;
+  if (localeRaw !== undefined) {
+    if (typeof localeRaw !== 'string' || localeRaw.trim() === '') {
+      throw unprocessable('locale must be a non-empty BCP-47 tag string');
+    }
+    locale = localeRaw.trim().slice(0, LOCALE_MAX_LENGTH);
+  }
+  const timezoneRaw = raw.timezoneId;
+  let timezoneId: string | undefined;
+  if (timezoneRaw !== undefined) {
+    if (typeof timezoneRaw !== 'string' || timezoneRaw.trim() === '') {
+      throw unprocessable('timezoneId must be a non-empty IANA timezone string');
+    }
+    const zone = timezoneRaw.trim();
+    if (!Intl.supportedValuesOf('timeZone').includes(zone)) {
+      throw unprocessable('timezoneId must be a known IANA timezone');
+    }
+    timezoneId = zone;
+  }
   // Content budget: an integer word count, clamped (not rejected) at the
   // bounds so an agent asking for "everything" still gets a bounded document.
   const maxContentWordsRaw = raw.maxContentWords;
@@ -289,6 +310,8 @@ export function parseOptions(body: unknown): CaptureOptions | undefined {
     actions === undefined &&
     auth === undefined &&
     stealth === undefined &&
+    locale === undefined &&
+    timezoneId === undefined &&
     maxContentWords === undefined
   ) {
     return undefined;
@@ -305,6 +328,8 @@ export function parseOptions(body: unknown): CaptureOptions | undefined {
     ...(actions !== undefined ? { actions } : {}),
     ...(auth !== undefined ? { ...auth } : {}),
     ...(stealth !== undefined ? { stealth } : {}),
+    ...(locale !== undefined ? { locale } : {}),
+    ...(timezoneId !== undefined ? { timezoneId } : {}),
     ...(maxContentWords !== undefined ? { maxContentWords } : {}),
   };
 }
