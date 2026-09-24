@@ -174,7 +174,7 @@ with a 1-credit top-up invoice. Full spec: ${config.publicBaseUrl}/openapi.json
 
 POST /v1/x402/capture
     {"url": "https://example.com", "format": "png"}   // format: png | jpeg | pdf (default: png)
-    // options?: {"timeoutMs", "fullPage", "viewport": {"width", "height"}, "deviceScaleFactor", "isMobile", "userAgent"}
+    // options?: {"timeoutMs", "fullPage", "viewport": {"width", "height"}, "deviceScaleFactor", "isMobile", "userAgent", "stealth": true, "proxy", "waitFor", "actions", "maxContentWords", "auth": {"headers": {"authorization": "Bearer …"}, "cookies": [{"name", "value", "domain"?}]}}
   200 {"artifact": {"format": "png", "bytes": 123, "data": "<base64>", "url": "<base>/v1/artifacts/<uuid>"},
        "payment": {"payer": "0x…", "priceUsdcUnits": ${config.x402PriceUsdcUnits}}}
 
@@ -316,8 +316,8 @@ Base URL: ${config.publicBaseUrl}
 
 | Purpose | Request | Price (USDC) |
 | --- | --- | --- |
-| Screenshot | POST /v1/x402/capture {"url", "format"?, "options"? (viewport, deviceScaleFactor, isMobile, userAgent)} | ${usdc(config.x402PriceUsdcUnits)} |
-| Extract (batch of up to 50 URLs, one payment) | POST /v1/x402/extract {"url" or "urls", "schema"?, "options": {"maxContentWords"?}} | ${usdc(config.x402ExtractPriceUsdcUnits)} |
+| Screenshot | POST /v1/x402/capture {"url", "format"?, "options"? (viewport, deviceScaleFactor, isMobile, userAgent, stealth, auth {headers, cookies} for logged-in pages)} | ${usdc(config.x402PriceUsdcUnits)} |
+| Extract (batch of up to 50 URLs, one payment) | POST /v1/x402/extract {"url" or "urls", "schema"?, "options": {"maxContentWords"?, "auth"? {headers, cookies}, "stealth"?}} | ${usdc(config.x402ExtractPriceUsdcUnits)} |
 | Audit (SEO + OG + link health, one URL) | POST /v1/x402/audit {"url"} | ${usdc(config.x402AuditPriceUsdcUnits)} |
 | Map-lite (site URL list, one call) | POST /v1/x402/map-lite {"url", "maxUrls"? (default 20, at most 50)} | ${usdc(config.x402AuditPriceUsdcUnits)} |
 | Video (scroll-capture mp4/webm, one URL) | POST /v1/x402/video {"url", "format"?, "durationMs"?, "scrollSpeed"?, "scrollEasing"?, "options"? (viewport)} | ${usdc(config.x402VideoPriceUsdcUnits)} |

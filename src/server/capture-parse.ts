@@ -109,6 +109,112 @@ function parseActions(raw: Record<string, unknown>): readonly CaptureAction[] | 
   return actions.map(parseAction);
 }
 
+/**
+ * Ad-hoc + per-watch context auth (moved here from macro-parse.ts, which
+ * re-exports it, so the one parser serves both the watch store and the
+ * ad-hoc `options.auth` field with no import cycle).
+ *
+ * Allowlisted extra headers plus structured cookies. Secrets stay out of
+ * logs: every rejection message is static (never echoes the submitted
+ * value), matching the redact paths in src/server/logging.ts and the
+ * redactSecrets helper in src/util/redact.ts.
+ */
+
+/** Per-context extra-header allowlist (compared case-insensitively, stored as sent). */
+export const WATCH_AUTH_HEADER_ALLOWLIST: readonly string[] = ['authorization', 'x-api-key'];
+
+const HEADER_VALUE_MAX_LENGTH = 4096;
+const COOKIE_VALUE_MAX_LENGTH = 4096;
+const MAX_AUTH_COOKIES = 10;
+
+export interface WatchCookie {
+  readonly name: string;
+  readonly value: string;
+  readonly domain?: string;
+}
+
+export interface WatchAuth {
+  readonly headers?: Record<string, string>;
+  readonly cookies?: readonly WatchCookie[];
+}
+
+function parseAuthHeaders(raw: Record<string, unknown>): Record<string, string> | undefined {
+  const headers = raw.headers;
+  if (headers === undefined) return undefined;
+  if (!isRecord(headers)) throw unprocessable('auth headers must be an object of header name to value');
+  const out: Record<string, string> = {};
+  for (const [name, value] of Object.entries(headers)) {
+    if (!WATCH_AUTH_HEADER_ALLOWLIST.includes(name.toLowerCase())) {
+      throw unprocessable(`auth header not allowed: ${name}`);
+    }
+    if (typeof value !== 'string' || value.trim() === '') {
+      throw unprocessable(`auth header ${name} must be a non-empty string`);
+    }
+    out[name] = value.trim().slice(0, HEADER_VALUE_MAX_LENGTH);
+  }
+  return out;
+}
+
+function parseAuthCookie(raw: unknown): WatchCookie {
+  if (!isRecord(raw)) throw unprocessable('auth cookies must be objects with name and value');
+  const { name, value, domain } = raw;
+  if (typeof name !== 'string' || name.trim() === '') {
+    throw unprocessable('auth cookie requires a non-empty name');
+  }
+  if (typeof value !== 'string') throw unprocessable('auth cookie requires a string value');
+  let domainOut: string | undefined;
+  if (domain !== undefined) {
+    if (typeof domain !== 'string' || domain.trim() === '') {
+      throw unprocessable('auth cookie domain must be a non-empty string');
+    }
+    domainOut = domain.trim();
+  }
+  return {
+    name: name.trim(),
+    value: value.slice(0, COOKIE_VALUE_MAX_LENGTH),
+    ...(domainOut !== undefined ? { domain: domainOut } : {}),
+  };
+}
+
+function parseAuthCookies(raw: Record<string, unknown>): readonly WatchCookie[] | undefined {
+  const cookies = raw.cookies;
+  if (cookies === undefined) return undefined;
+  if (!Array.isArray(cookies) || cookies.length === 0 || cookies.length > MAX_AUTH_COOKIES) {
+    throw unprocessable(`auth cookies must be an array of 1 to ${MAX_AUTH_COOKIES} name/value objects`);
+  }
+  return cookies.map(parseAuthCookie);
+}
+
+/** Parse + validate context auth (undefined = no auth). */
+export function parseWatchAuth(raw: unknown): WatchAuth | undefined {
+  if (raw === undefined) return undefined;
+  if (!isRecord(raw)) throw unprocessable('auth must be an object with headers and/or cookies');
+  const headers = parseAuthHeaders(raw);
+  const cookies = parseAuthCookies(raw);
+  return {
+    ...(headers !== undefined ? { headers } : {}),
+    ...(cookies !== undefined ? { cookies } : {}),
+  };
+}
+
+/**
+ * Map the ad-hoc `options.auth` field onto the pipeline's context-auth
+ * shape (undefined = no auth, including the empty-object case so an empty
+ * options object stays meaningless).
+ */
+function parseCaptureAuth(
+  raw: Record<string, unknown>,
+): Pick<CaptureOptions, 'extraHTTPHeaders' | 'cookies'> | undefined {
+  if (raw.auth === undefined) return undefined;
+  const auth = parseWatchAuth(raw.auth);
+  if (auth === undefined) return undefined;
+  if (auth.headers === undefined && auth.cookies === undefined) return undefined;
+  return {
+    ...(auth.headers !== undefined ? { extraHTTPHeaders: auth.headers } : {}),
+    ...(auth.cookies !== undefined ? { cookies: auth.cookies } : {}),
+  };
+}
+
 export function parseOptions(body: unknown): CaptureOptions | undefined {
   const raw = isRecord(body) ? body.options : undefined;
   if (raw === undefined) return undefined;
@@ -152,6 +258,11 @@ export function parseOptions(body: unknown): CaptureOptions | undefined {
   const proxy = parseProxy(raw);
   const waitFor = parseWaitFor(raw);
   const actions = parseActions(raw);
+  const auth = parseCaptureAuth(raw);
+  const stealth = raw.stealth;
+  if (stealth !== undefined && typeof stealth !== 'boolean') {
+    throw unprocessable('stealth must be a boolean');
+  }
   // Content budget: an integer word count, clamped (not rejected) at the
   // bounds so an agent asking for "everything" still gets a bounded document.
   const maxContentWordsRaw = raw.maxContentWords;
@@ -176,6 +287,8 @@ export function parseOptions(body: unknown): CaptureOptions | undefined {
     proxy === undefined &&
     waitFor === undefined &&
     actions === undefined &&
+    auth === undefined &&
+    stealth === undefined &&
     maxContentWords === undefined
   ) {
     return undefined;
@@ -190,6 +303,8 @@ export function parseOptions(body: unknown): CaptureOptions | undefined {
     ...(proxy !== undefined ? { proxy } : {}),
     ...(waitFor !== undefined ? { waitFor } : {}),
     ...(actions !== undefined ? { actions } : {}),
+    ...(auth !== undefined ? { ...auth } : {}),
+    ...(stealth !== undefined ? { stealth } : {}),
     ...(maxContentWords !== undefined ? { maxContentWords } : {}),
   };
 }

@@ -127,3 +127,62 @@ describe('server/capture-parse viewport/mobile options', () => {
     });
   });
 });
+
+describe('server/capture-parse session auth + stealth options', () => {
+  it('maps options.auth headers/cookies to extraHTTPHeaders/cookies', () => {
+    expect(
+      parseOptions({
+        options: {
+          auth: {
+            headers: { authorization: 'Bearer s3cr3t' },
+            cookies: [{ name: 'sid', value: 'abc', domain: 'example.com' }],
+          },
+        },
+      }),
+    ).toEqual({
+      extraHTTPHeaders: { authorization: 'Bearer s3cr3t' },
+      cookies: [{ name: 'sid', value: 'abc', domain: 'example.com' }],
+    });
+  });
+
+  it('accepts headers-only and cookies-only auth', () => {
+    expect(parseOptions({ options: { auth: { headers: { 'x-api-key': 'k-1' } } } })).toEqual({
+      extraHTTPHeaders: { 'x-api-key': 'k-1' },
+    });
+    expect(parseOptions({ options: { auth: { cookies: [{ name: 'sid', value: 'abc' }] } } })).toEqual({
+      cookies: [{ name: 'sid', value: 'abc' }],
+    });
+  });
+
+  it('treats empty auth as no auth (options stay undefined)', () => {
+    expect(parseOptions({ options: { auth: {} } })).toBeUndefined();
+  });
+
+  it('rejects a disallowed auth header with 422 without echoing its value', () => {
+    const secret = 'super-secret-header-value-zzz';
+    try {
+      parseOptions({ options: { auth: { headers: { 'x-evil': secret } } } });
+      expect.unreachable('expected parseOptions to throw');
+    } catch (err) {
+      expect(err).toBeInstanceOf(HttpError);
+      if (err instanceof HttpError) {
+        expect(err.status).toBe(422);
+        expect(err.message).not.toContain(secret);
+      }
+    }
+  });
+
+  it('rejects malformed auth with 422', () => {
+    expectUnprocessable({ options: { auth: 'Bearer s3cr3t' } }, 'auth');
+    expectUnprocessable({ options: { auth: { cookies: [{ value: 'abc' }] } } }, 'cookie');
+    expectUnprocessable({ options: { auth: { cookies: [] } } }, 'cookie');
+  });
+
+  it.each([[true], [false]])('passes through stealth %o unchanged', (stealth) => {
+    expect(parseOptions({ options: { stealth } })).toEqual({ stealth });
+  });
+
+  it.each([['yes'], [1], [0], [null]])('rejects stealth %o with 422', (stealth) => {
+    expectUnprocessable({ options: { stealth } }, 'stealth');
+  });
+});

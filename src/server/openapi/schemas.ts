@@ -154,6 +154,29 @@ const captureOptionsProperties = {
   deviceScaleFactor: { type: 'number', description: 'Device pixel ratio (clamped to at most 3)' },
   isMobile: { type: 'boolean', description: 'Render with a mobile viewport' },
   userAgent: { type: 'string', description: 'Custom user agent string' },
+  stealth: { type: 'boolean', description: 'Hardened anti-bot context: realistic UA/viewport defaults + webdriver mask (same as proxy "stealth", without routing traffic through a proxy)' },
+  auth: {
+    type: 'object',
+    description:
+      'Logged-in session for the capture: allowlisted extra headers (authorization, x-api-key only) plus up to 10 cookies, applied to the browser context. ' +
+      'Rejections are 422 with static messages (secret values never appear in errors or logs).',
+    properties: {
+      headers: { type: 'object', description: 'Extra request headers (authorization and x-api-key only)', additionalProperties: { type: 'string' } },
+      cookies: {
+        type: 'array',
+        description: 'Session cookies (at most 10)',
+        maxItems: 10,
+        items: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Cookie name' },
+            value: { type: 'string', description: 'Cookie value' },
+            domain: { type: 'string', description: 'Cookie domain (optional)' },
+          },
+        },
+      },
+    },
+  },
   proxy: { type: 'string', description: 'Proxy: "auto", "stealth", or an http(s) proxy URL string' },
   maxContentWords: {
     type: 'integer',

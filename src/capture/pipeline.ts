@@ -27,6 +27,8 @@ export interface CaptureOptions {
   readonly deviceScaleFactor?: number;
   readonly isMobile?: boolean;
   readonly proxy?: CaptureProxy;
+  /** Hardened anti-bot context (realistic UA/viewport defaults + webdriver mask); proxy 'stealth' also enables this. */
+  readonly stealth?: boolean;
   readonly waitFor?: CaptureWaitFor;
   readonly actions?: readonly CaptureAction[];
   /**
@@ -36,9 +38,9 @@ export interface CaptureOptions {
    * reports it. Clamped to [MIN_CONTENT_WORDS, MAX_CONTENT_WORDS].
    */
   readonly maxContentWords?: number;
-  /** Per-watch auth headers forwarded to the browser context (watch macro-auth threading). */
+  /** Context auth headers (per-watch stored auth or the ad-hoc `options.auth` field). */
   readonly extraHTTPHeaders?: Record<string, string>;
-  /** Per-watch auth cookies applied to the browser context via addCookies. */
+  /** Context auth cookies applied via addCookies (per-watch stored auth or `options.auth`). */
   readonly cookies?: readonly ContextCookie[];
 }
 
@@ -107,8 +109,10 @@ function contextViewport(req: CaptureRequest): ContextViewportOptions {
     ...(o.deviceScaleFactor !== undefined ? { deviceScaleFactor: o.deviceScaleFactor } : {}),
     ...(o.isMobile !== undefined ? { isMobile: o.isMobile } : {}),
     ...(o.proxy !== undefined
-      ? { proxyServer: resolveProxyServer(o.proxy), ...(o.proxy === 'stealth' ? { stealth: true as const } : {}) }
-      : {}),
+      ? { proxyServer: resolveProxyServer(o.proxy), ...(o.proxy === 'stealth' || o.stealth === true ? { stealth: true as const } : {}) }
+      : o.stealth === true
+        ? { stealth: true as const }
+        : {}),
     ...(o.extraHTTPHeaders !== undefined ? { extraHTTPHeaders: o.extraHTTPHeaders } : {}),
     ...(o.cookies !== undefined ? { cookies: o.cookies } : {}),
   };
