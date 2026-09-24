@@ -100,4 +100,40 @@ describe('payment settle (anvil + MintableUSDC, real transfers)', () => {
     expect(invoices.get(invoiceId)?.status).toBe('open');
     expect(accounts.getBalance(accountId)).toBe(0);
   });
+
+  it('does not settle when a sufficient transfer comes from another wallet', async () => {
+    const thirdMerchant = Wallet.createRandom();
+    const victimId = accounts.create(chain.customer.address);
+    const victimInvoice = createInvoice(50_000, thirdMerchant.address, victimId);
+    // A stranger funds themselves via the open mint, then pays the merchant.
+    const stranger = Wallet.createRandom().connect(provider);
+    await (await customer.sendTransaction({ to: stranger.address, value: 10n ** 16n })).wait();
+    const minter = new Contract(chain.usdcContract, [...TRANSFER_ABI, 'function mint(address to, uint256 amount)'], customer);
+    await (await contractMethod(minter, 'mint')(stranger.address, 50_000n)).wait();
+    const strangerUsdc = new Contract(chain.usdcContract, TRANSFER_ABI, stranger);
+    await (await contractMethod(strangerUsdc, 'transfer')(thirdMerchant.address, 50_000n)).wait();
+
+    const settled = await processPendingInvoices({ db, provider, usdc, merchantAddress: thirdMerchant.address, chain: 'local' });
+    expect(settled).toBe(0);
+    expect(invoices.get(victimInvoice)?.status).toBe('open');
+    expect(accounts.getBalance(victimId)).toBe(0);
+  });
+
+  it('caps a real overpayment at the invoice credits', async () => {
+    const fourthMerchant = Wallet.createRandom();
+    const freshAccount = Wallet.createRandom();
+    await (await customer.sendTransaction({ to: freshAccount.address, value: 10n ** 16n })).wait();
+    const fresh = new Wallet(freshAccount.privateKey, provider);
+    const accountId = accounts.create(fresh.address);
+    const invoiceId = createInvoice(50_000, fourthMerchant.address, accountId);
+    const freshUsdc = new Contract(chain.usdcContract, [...TRANSFER_ABI, 'function mint(address to, uint256 amount)'], customer);
+    await (await contractMethod(freshUsdc, 'mint')(fresh.address, 500_000n)).wait();
+    const payer = new Contract(chain.usdcContract, TRANSFER_ABI, fresh);
+    await (await contractMethod(payer, 'transfer')(fourthMerchant.address, 500_000n)).wait();
+
+    const settled = await processPendingInvoices({ db, provider, usdc, merchantAddress: fourthMerchant.address, chain: 'local' });
+    expect(settled).toBe(1);
+    expect(invoices.get(invoiceId)?.status).toBe('paid');
+    expect(accounts.getBalance(accountId)).toBe(5);
+  });
 });

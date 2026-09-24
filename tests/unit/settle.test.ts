@@ -10,12 +10,13 @@ import { settleInvoice } from '../../src/payment/settle.js';
 const USDC_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
 const MERCHANT = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 const CUSTOMER = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+const STRANGER = '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC';
 const TX_HASH = `0x${'22'.repeat(32)}`;
 const BLOCK_HASH = `0x${'11'.repeat(32)}`;
 
 const usdc = new Contract(USDC_ADDRESS, usdcAbi);
 
-function transferLog(value: bigint, logIndex: number): LogParams {
+function transferLog(value: bigint, logIndex: number, from: string = CUSTOMER): LogParams {
   return {
     address: USDC_ADDRESS,
     blockNumber: 10,
@@ -24,7 +25,7 @@ function transferLog(value: bigint, logIndex: number): LogParams {
     transactionIndex: 0,
     index: logIndex,
     removed: false,
-    topics: [TRANSFER_TOPIC, zeroPadValue(CUSTOMER.toLowerCase(), 32), zeroPadValue(MERCHANT.toLowerCase(), 32)],
+    topics: [TRANSFER_TOPIC, zeroPadValue(from.toLowerCase(), 32), zeroPadValue(MERCHANT.toLowerCase(), 32)],
     data: AbiCoder.defaultAbiCoder().encode(['uint256'], [value]),
   };
 }
@@ -86,8 +87,7 @@ describe('settle + poller (deterministic, fake chain reader)', () => {
     fx.db.close();
   });
 
-  it('settleInvoice is idempotent: a replayed (txHash, logIndex) grants nothing extra', async () => {
-    const fx = makeDbFixture();
+  it('settleInvoice is idempotent: a replayed (txHash, logIndex) grants nothing extra', async () => {    const fx = makeDbFixture();
     const invoice = fx.invoices.get(fx.invoiceId);
     if (invoice === undefined) throw new Error('invoice vanished after insert');
     const settle = (): boolean =>
@@ -106,6 +106,36 @@ describe('settle + poller (deterministic, fake chain reader)', () => {
     expect(fx.accounts.getBalance(fx.accountId)).toBe(5);
     const count = fx.db.prepare<[], { n: number }>('SELECT COUNT(*) AS n FROM payments').get();
     expect(count?.n).toBe(1);
+    fx.db.close();
+  });
+
+  it('a sufficient transfer from another sender does not settle the invoice', async () => {
+    const fx = makeDbFixture();
+    const settled = await processPendingInvoices({
+      db: fx.db,
+      provider: makeLogReader([transferLog(50_000n, 0, STRANGER)], 10),
+      usdc,
+      merchantAddress: MERCHANT,
+      chain: 'local',
+    });
+    expect(settled).toBe(0);
+    expect(fx.invoices.get(fx.invoiceId)?.status).toBe('open');
+    expect(fx.accounts.getBalance(fx.accountId)).toBe(0);
+    fx.db.close();
+  });
+
+  it('overpayment caps at the invoice credits (0.50 paid on a 0.05 invoice grants 5, not 50)', async () => {
+    const fx = makeDbFixture();
+    const settled = await processPendingInvoices({
+      db: fx.db,
+      provider: makeLogReader([transferLog(500_000n, 0)], 10),
+      usdc,
+      merchantAddress: MERCHANT,
+      chain: 'local',
+    });
+    expect(settled).toBe(1);
+    expect(fx.invoices.get(fx.invoiceId)?.status).toBe('paid');
+    expect(fx.accounts.getBalance(fx.accountId)).toBe(5);
     fx.db.close();
   });
 });

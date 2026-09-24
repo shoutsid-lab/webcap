@@ -1,6 +1,7 @@
 import type { Contract, Filter, LogParams } from 'ethers';
 import type { Db } from '../db/index.js';
 import type { WebcapConfig } from '../config.js';
+import { makeAccountsRepo } from '../db/accounts.js';
 import { makeInvoicesRepo } from '../db/invoices.js';
 import { makePaymentsRepo } from '../db/payments.js';
 import { makePaymentWebhooksRepo } from '../db/payment-webhooks.js';
@@ -28,11 +29,19 @@ export interface PollInput {
  * first), find USDC Transfer logs to the merchant since the last polled block
  * whose value covers the invoice, and settle. Advances poll_state to latest.
  * Returns the number of invoices settled. Idempotent across passes.
+ *
+ * A log settles an invoice only when the sender IS the invoice's account:
+ * historical or third-party inbound to the merchant (deploy mints, other
+ * customers' payments) can never credit the wrong account. Unmatched logs
+ * are skipped but still advance poll_state — invoices are always created
+ * before payment, so a payment this pass cannot see its invoice in a
+ * later one.
  */
 export async function processPendingInvoices(input: PollInput): Promise<number> {
   const { db, provider, usdc, merchantAddress, chain } = input;
   const invoicesRepo = makeInvoicesRepo(db);
   const paymentsRepo = makePaymentsRepo(db);
+  const accounts = makeAccountsRepo(db);
   const nowMs = Date.now();
   const pending = invoicesRepo.listOpenInvoices().filter((inv) => new Date(inv.expires_at).getTime() > nowMs);
   if (pending.length === 0) return 0;
@@ -51,9 +60,14 @@ export async function processPendingInvoices(input: PollInput): Promise<number> 
       if (pending.length === 0) break;
       const payload = decodeTransferLog(log);
       if (payload.to.toLowerCase() !== merchantAddress.toLowerCase()) continue;
-      const invoice = pending[0];
+      const from = payload.from.toLowerCase();
+      const idx = pending.findIndex((inv) => {
+        if (payload.value < BigInt(inv.usdc_amount)) return false;
+        return accounts.get(inv.account_id)?.address.toLowerCase() === from;
+      });
+      if (idx === -1) continue;
+      const invoice = pending[idx];
       if (invoice === undefined) break;
-      if (payload.value < BigInt(invoice.usdc_amount)) continue;
       const isSettled = settleInvoice({
         db,
         invoice,
@@ -66,7 +80,7 @@ export async function processPendingInvoices(input: PollInput): Promise<number> 
       });
       if (isSettled) {
         settled += 1;
-        pending.shift();
+        pending.splice(idx, 1);
         // Fire payment webhooks (fire-and-forget, don't block the poller)
         firePaymentWebhooks(db, invoice, log.transactionHash, payload.from, payload.value).catch(() => {});
       }

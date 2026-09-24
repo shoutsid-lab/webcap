@@ -1,5 +1,5 @@
 import type { Db } from '../db/index.js';
-import { creditsForUsdc } from '../config.js';
+import { creditsForUsdc, USDC_UNITS_PER_CREDIT } from '../config.js';
 import { makeCreditsRepo } from '../db/credits.js';
 import { makeInvoicesRepo, type InvoiceRow } from '../db/invoices.js';
 import { makePaymentsRepo } from '../db/payments.js';
@@ -17,9 +17,15 @@ export interface SettleInput {
 
 /**
  * Settle an invoice against a confirmed USDC Transfer, atomically: mark the
- * invoice paid, record the payment, and credit floor(value * CREDITS_PER_USDC)
- * to the invoice's account. Idempotent — the UNIQUE(tx_hash, log_index)
- * payment row is the dedup key, so a replayed log grants nothing.
+ * invoice paid, record the payment, and credit the invoice's account.
+ * The grant is min(floor(paidUsdc * CREDITS_PER_USDC), invoice credits) —
+ * the invoice is the offer, so overpayment never mints extra credits.
+ * Idempotent — the UNIQUE(tx_hash, log_index) payment row is the dedup key,
+ * so a replayed log grants nothing.
+ *
+ * Sender matching lives with the caller (poller): only a transfer FROM the
+ * invoice's account address may settle it, so one customer's payment can
+ * never credit another customer's invoice.
  */
 export function settleInvoice(input: SettleInput): boolean {
   const { db, invoice, txHash, logIndex, fromAddr, toAddr, value, block } = input;
@@ -30,7 +36,8 @@ export function settleInvoice(input: SettleInput): boolean {
     const isNew = payments.recordPayment({ invoiceId: invoice.id, txHash, logIndex, fromAddr, toAddr, value: Number(value), block });
     if (!isNew) return false;
     invoices.markInvoicePaid(invoice.id, txHash);
-    credits.grantCredits(invoice.account_id, creditsForUsdc(value), 'payment_settled', txHash);
+    const invoiceCredits = Math.floor(invoice.usdc_amount / USDC_UNITS_PER_CREDIT);
+    credits.grantCredits(invoice.account_id, Math.min(creditsForUsdc(value), invoiceCredits), 'payment_settled', txHash);
     return true;
   });
   return txn();
