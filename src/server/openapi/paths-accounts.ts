@@ -72,8 +72,10 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
         summary: 'Create a USDC credit invoice (manual ERC-20 transfer)',
         description:
           `Buy credits as USDC sent from your own wallet to the merchant address: the invoice names the token, the ` +
-          `recipient, and the required amount for the chosen credit amount (credits omitted = 100). The API-key ` +
-          `alternative to x402's per-call payment.`,
+          `recipient, and the required amount for the chosen credit amount (neither field = 100 credits; a named ` +
+          `pack — starter 100, pro 1000, max 10000 — selects the amount instead). Packs bill the nominal ` +
+          `$0.01/credit rate on this rail (the card-pack prices on /buy do not apply to USDC transfers); the ` +
+          `response always states the exact requiredUsdc. The API-key alternative to x402's per-call payment.`,
         requestBody: {
           required: false,
           content: {
@@ -81,7 +83,8 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
               schema: {
                 type: 'object',
                 properties: {
-                  credits: { type: 'integer', description: 'Credits to buy (default 100)', example: 100 },
+                  credits: { type: 'integer', description: 'Credits to buy (default 100; not with pack)', example: 100 },
+                  pack: { type: 'string', enum: ['starter', 'pro', 'max'], description: 'Named pack: starter 100, pro 1000, max 10000 credits (not with credits)', example: 'pro' },
                 },
               },
             },
@@ -99,12 +102,13 @@ export function accountPaths(config: WebcapConfig, ctx: PathContext): OpenapiPat
                 chainId: { type: 'integer', example: config.chain.chainId },
                 requiredUsdc: { type: 'number', example: usdcForCredits(100) },
                 credits: { type: 'integer', example: 100 },
+                pack: { type: 'string', description: 'Pack name for the amount (starter, pro, max) or custom', example: 'custom' },
                 expiresAt: { type: 'string' },
               },
             }),
           },
           401: ctx.unauthorized,
-          422: ctx.unprocessable('credits must be a positive integer'),
+          422: ctx.unprocessable('credits must be a positive integer, pack must be one of starter/pro/max, never both'),
         },
         security: [{ apiKey: [] }],
       },

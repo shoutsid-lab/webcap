@@ -79,6 +79,47 @@ describe('/v1/invoice', () => {
       await closeApiFixture(fx);
     }
   });
+
+  it('honours a named pack (pro = 1000 credits at the nominal $0.01/credit rate)', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await fx.app.inject({
+        method: 'POST',
+        url: '/v1/invoice',
+        payload: { pack: 'pro' },
+        headers: { authorization: `Bearer ${fx.apiKey}` },
+      });
+      expect(res.statusCode).toBe(201);
+      const json = body(res);
+      expect(json.credits).toBe(1000);
+      expect(json.requiredUsdc).toBe(10);
+      expect(json.pack).toBe('pro');
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('rejects an unknown pack and credits+pack together with 422', async () => {
+    const fx = makeApiFixture();
+    try {
+      const unknown = await fx.app.inject({
+        method: 'POST',
+        url: '/v1/invoice',
+        payload: { pack: 'mega' },
+        headers: { authorization: `Bearer ${fx.apiKey}` },
+      });
+      expect(unknown.statusCode).toBe(422);
+      const both = await fx.app.inject({
+        method: 'POST',
+        url: '/v1/invoice',
+        payload: { credits: 5, pack: 'starter' },
+        headers: { authorization: `Bearer ${fx.apiKey}` },
+      });
+      expect(both.statusCode).toBe(422);
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
 });
 
 describe('/v1/account', () => {

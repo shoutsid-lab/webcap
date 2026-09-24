@@ -18,6 +18,7 @@ import { getAddress, Wallet, ZeroAddress } from 'ethers';import {
   WATCH_CREDIT_TOPUP_COST_CAPTURE,
   WATCH_CREDIT_TOPUP_COST_EXTRACT,
   WATCH_TOPUP_RUNS,
+  getPack,
   usdcForCredits,
   usdcUnitsForCredits,
   type WebcapConfig,
@@ -96,6 +97,7 @@ export function registerBillingRoutes(app: FastifyInstance, deps: AppDeps): void
       chainId: config.chain.chainId,
       requiredUsdc: usdcForCredits(creditsAmount),
       credits: creditsAmount,
+      pack: packForCredits(creditsAmount),
       expiresAt: invoice.expires_at,
     });
   });
@@ -471,7 +473,20 @@ function packForCredits(creditsAmount: number): string {
 }
 
 function parseCredits(body: unknown, defaultCredits: number): number {
-  const raw = isRecord(body) ? body.credits : undefined;
+  if (!isRecord(body)) return defaultCredits;
+  const raw = body.credits;
+  const rawPack = body.pack;
+  if (raw !== undefined && rawPack !== undefined) {
+    throw unprocessable('specify either credits or pack, not both');
+  }
+  if (rawPack !== undefined) {
+    if (typeof rawPack !== 'string') throw unprocessable('pack must be one of: starter, pro, max');
+    try {
+      return getPack(rawPack).credits;
+    } catch {
+      throw unprocessable('pack must be one of: starter, pro, max');
+    }
+  }
   if (raw === undefined) return defaultCredits;
   if (typeof raw !== 'number' || !Number.isInteger(raw) || raw <= 0) {
     throw unprocessable('credits must be a positive integer');
