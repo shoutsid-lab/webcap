@@ -152,4 +152,48 @@ describe('error envelope for route-not-found and method-not-allowed', () => {
       expect(typeof detail['guide']).toBe('string');
     });
   });
+
+  it('shows an example on a malformed trial-status payer 422', async () => {
+    await withApp(async (fx) => {
+      const res = await fx.app.inject({ method: 'GET', url: '/v1/x402/trial/status?payer=nope' });
+      expect(res.statusCode).toBe(422);
+      const detail = errorEnvelope(res).detail ?? {};
+      expect(detail['example']).toBe('GET /v1/x402/trial/status?payer=<lowercase-0x-address>');
+    });
+  });
+
+  it('shows an example on a url-less trial-quick 422', async () => {
+    await withApp(async (fx) => {
+      const res = await fx.app.inject({ method: 'GET', url: '/v1/x402/trial/quick' });
+      expect(res.statusCode).toBe(422);
+      const detail = errorEnvelope(res).detail ?? {};
+      expect(detail['example']).toBe('GET /v1/x402/trial/quick?url=https://example.com/');
+    });
+  });
+
+  it('register 429 keeps retryAfterSeconds and points back at the register recipe', async () => {
+    await withApp(async (fx) => {
+      let res = await fx.app.inject({ method: 'POST', url: '/v1/register', payload: {} });
+      expect(res.statusCode).toBe(422);
+      for (let i = 0; i < 2; i++) {
+        res = await fx.app.inject({
+          method: 'POST',
+          url: '/v1/register',
+          payload: { address: '0x0000000000000000000000000000000000000001' },
+        });
+        expect(res.statusCode).toBe(201);
+      }
+      res = await fx.app.inject({
+        method: 'POST',
+        url: '/v1/register',
+        payload: { address: '0x0000000000000000000000000000000000000001' },
+      });
+      expect(res.statusCode).toBe(429);
+      const envelope = errorEnvelope(res);
+      expect(envelope.code).toBe('rate_limited');
+      const detail = envelope.detail ?? {};
+      expect(typeof detail['retryAfterSeconds']).toBe('number');
+      expect(detail['example']).toEqual({ address: '0xYourWalletAddress' });
+    });
+  });
 });

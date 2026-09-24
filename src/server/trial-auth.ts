@@ -117,9 +117,27 @@ export function recurringFor(config: WebcapConfig): {
   };
 }
 
-/** Paid counterpart of a trial endpoint (price source for paidNext pointers). */
-export function trialPaidNextFor(
+/**
+ * Claim recipe for a rejected trial call, so a 422/401 is a recipe rather
+ * than a dead end. Mirrors the howToClaim recipe on the trial status menu.
+ */
+export function claimHintFor(
   config: WebcapConfig,
+  endpoint: TrialEndpoint,
+): { claim: string; example: { url: string; payer: string; signature: string }; guide: string } {
+  return {
+    claim: `POST /v1/x402/trial${endpoint === 'capture' ? '' : `/${endpoint}`}`,
+    example: {
+      url: 'https://example.com/',
+      payer: '<lowercase-0x-address>',
+      signature: `EIP-191 personal_sign of "Claim one free webcap trial ${endpoint} for <lowercase-0x-address>"`,
+    },
+    guide: `${config.publicBaseUrl}/skill.md`,
+  };
+}
+
+/** Paid counterpart of a trial endpoint (price source for paidNext pointers). */
+export function trialPaidNextFor(  config: WebcapConfig,
   endpoint: TrialEndpoint,
 ): { endpoint: string; priceUsdcUnits: number; guide: string } {
   const wanted = TRIAL_PAID_ENDPOINT[endpoint];
@@ -150,14 +168,14 @@ export interface TrialGate {
  * 409 (already claimed, with paidNext + remaining), or 401 (bad signature).
  */
 export function checkTrialClaim(req: FastifyRequest, reply: FastifyReply, gate: TrialGate, endpoint: TrialEndpoint): string {
+  const { trials, limiter, config } = gate;
   const body = isRecord(req.body) ? req.body : undefined;
   const rawPayer = body?.payer;
-  if (typeof rawPayer !== 'string') throw unprocessable('payer is required');
+  if (typeof rawPayer !== 'string') throw unprocessable('payer is required', claimHintFor(config, endpoint));
   const signature = body?.signature;
-  if (typeof signature !== 'string') throw unprocessable('signature is required');
-  if (!/^0x[0-9a-fA-F]{40}$/.test(rawPayer)) throw unprocessable('payer must be a 0x EVM address');
+  if (typeof signature !== 'string') throw unprocessable('signature is required', claimHintFor(config, endpoint));
+  if (!/^0x[0-9a-fA-F]{40}$/.test(rawPayer)) throw unprocessable('payer must be a 0x EVM address', claimHintFor(config, endpoint));
   const payer = rawPayer.toLowerCase();
-  const { trials, limiter, config } = gate;
   if (!limiter.allow(req.ip)) {
     rejectRateLimited(reply, limiter, req.ip, 'trial rate limit exceeded; use the paid endpoint', {
       paidNext: trialPaidNextFor(config, endpoint),
@@ -189,7 +207,10 @@ export function checkTrialClaim(req: FastifyRequest, reply: FastifyReply, gate: 
     }
   }
   if (!ok) {
-    throw new HttpError(401, 'unauthorized', 'trial signature does not recover to payer');
+    throw new HttpError(401, 'unauthorized', 'trial signature does not recover to payer', {
+      ...claimHintFor(config, endpoint),
+      expectedMessage: trialMessageFor(endpoint, payer),
+    });
   }
   return payer;
 }

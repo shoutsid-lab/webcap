@@ -71,7 +71,7 @@ export function registerBillingRoutes(app: FastifyInstance, deps: AppDeps): void
 
   app.post('/v1/register', async (req, reply) => {
     if (!registerLimiter.allow(req.ip)) {
-      rejectRateLimited(reply, registerLimiter, req.ip, 'registration rate limit exceeded');
+      rejectRateLimited(reply, registerLimiter, req.ip, 'registration rate limit exceeded', registerHint(config));
     }
     const raw = isRecord(req.body) ? req.body.address : undefined;
     if (typeof raw !== 'string') throw unprocessable('address is required', registerHint(config));

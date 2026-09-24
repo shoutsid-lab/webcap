@@ -19,7 +19,7 @@ import {
 } from '../config.js';
 import { makeRevenueRepo } from '../db/revenue.js';
 import { FAUCET_DAILY_LIMIT, makeFaucetRepo, makeTrialsRepo } from '../db/trials.js';
-import { checkTrialClaim, howToPayFor, remainingTrials, reserveTrialClaim, trialPaidNextFor, trialStatusFor, type TrialGate } from './trial-auth.js';
+import { checkTrialClaim, claimHintFor, howToPayFor, remainingTrials, reserveTrialClaim, trialPaidNextFor, trialStatusFor, type TrialGate } from './trial-auth.js';
 import { recordHit } from '../db/hits.js';
 import { CaptureError } from '../capture/errors.js';
 import { previewFallback } from '../capture/preview-fallback.js';
@@ -139,7 +139,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
   app.post('/v1/x402/trial', async (req, reply) => {
     const body = isRecord(req.body) ? req.body : undefined;
     const rawUrl = body?.url;
-    if (typeof rawUrl !== 'string') throw unprocessable('url is required');
+    if (typeof rawUrl !== 'string') throw unprocessable('url is required', claimHintFor(config, 'capture'));
     const payer = checkTrialClaim(req, reply, trialGate, 'capture');
     const normalized = validatedUrl(rawUrl, allowHosts);
     reserveTrialClaim(trialGate, payer, 'capture');
@@ -170,7 +170,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
       throw unprocessable('trial extract is single-URL with no schema or model; batch + model live on the paid POST /v1/x402/extract');
     }
     const rawUrl = body?.url;
-    if (typeof rawUrl !== 'string') throw unprocessable('url is required');
+    if (typeof rawUrl !== 'string') throw unprocessable('url is required', claimHintFor(config, 'extract'));
     const payer = checkTrialClaim(req, reply, trialGate, 'extract');
     const normalized = validatedUrl(rawUrl, allowHosts);
     reserveTrialClaim(trialGate, payer, 'extract');
@@ -201,7 +201,7 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
   app.post('/v1/x402/trial/audit', async (req, reply) => {
     const body = isRecord(req.body) ? req.body : undefined;
     const rawUrl = body?.url;
-    if (typeof rawUrl !== 'string') throw unprocessable('url is required');
+    if (typeof rawUrl !== 'string') throw unprocessable('url is required', claimHintFor(config, 'audit'));
     const payer = checkTrialClaim(req, reply, trialGate, 'audit');
     const normalized = validatedUrl(rawUrl, allowHosts);
     reserveTrialClaim(trialGate, payer, 'audit');
@@ -232,7 +232,10 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
     const raw = isRecord(req.query) ? req.query.payer : undefined;
     if (raw === undefined) return trialStatusFor(trialGate, null);
     if (typeof raw !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(raw)) {
-      throw unprocessable('payer query parameter must be a 0x EVM address');
+      throw unprocessable('payer query parameter must be a 0x EVM address', {
+        example: 'GET /v1/x402/trial/status?payer=<lowercase-0x-address>',
+        guide: howToPayFor(config).guide,
+      });
     }
     return trialStatusFor(trialGate, raw.toLowerCase());
   });
@@ -244,7 +247,11 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
   const faucet = makeFaucetRepo(db);
   app.get('/v1/x402/trial/quick', async (req, reply) => {
     const rawUrl = isRecord(req.query) ? req.query.url : undefined;
-    if (typeof rawUrl !== 'string') throw unprocessable('url query parameter is required');
+    if (typeof rawUrl !== 'string')
+      throw unprocessable('url query parameter is required', {
+        example: 'GET /v1/x402/trial/quick?url=https://example.com/',
+        paidNext: trialPaidNextFor(config, 'capture'),
+      });
     if (!faucetLimiter.allow(req.ip)) {
       rejectRateLimited(reply, faucetLimiter, req.ip, 'faucet rate limit exceeded; use the paid capture endpoint', {
         paidNext: trialPaidNextFor(config, 'capture'),

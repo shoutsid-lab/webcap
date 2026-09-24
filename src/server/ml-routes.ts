@@ -12,7 +12,7 @@ import { makeTrialsRepo } from '../db/trials.js';
 import { HttpError, unprocessable } from '../util/errors.js';
 import { RateLimiter } from '../util/ratelimit.js';
 import { isRecord, validatedUrl } from './capture-parse.js';
-import { checkTrialClaim, howToPayFor, remainingTrials, reserveTrialClaim, trialPaidNextFor, type TrialGate } from './trial-auth.js';
+import { checkTrialClaim, claimHintFor, howToPayFor, remainingTrials, reserveTrialClaim, trialPaidNextFor, type TrialGate } from './trial-auth.js';
 import { x402Payer } from './x402.js';
 import { registerPaidRoute } from './query-body.js';
 import { OpenAICompatibleVisionAdapter, VisionError } from '../ml/vision/adapter.js';
@@ -141,9 +141,9 @@ export function registerMLRoutes(app: FastifyInstance, deps: AppDeps): void {
   // fallback path.
   app.post('/v1/x402/trial/analyze', async (req, reply) => {
     const body = req.body;
-    if (!isRecord(body)) throw unprocessable('body must be an object');
+    if (!isRecord(body)) throw unprocessable('body must be an object', claimHintFor(config, 'analyze'));
     const rawUrl = body.url;
-    if (typeof rawUrl !== 'string') throw unprocessable('url is required');
+    if (typeof rawUrl !== 'string') throw unprocessable('url is required', claimHintFor(config, 'analyze'));
     const payer = checkTrialClaim(req, reply, trialGate, 'analyze');
     const url = validatedUrl(rawUrl, allowHosts);
     const task = parseTask(body.task);

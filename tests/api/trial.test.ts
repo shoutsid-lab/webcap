@@ -125,6 +125,27 @@ describe('POST /v1/x402/trial — one free capture per wallet (EIP-191 proof)', 
     }
   });
 
+  it('401 carries the exact expected message so the agent can re-sign correctly', async () => {
+    const fx = makeApiFixture();
+    try {
+      const alice = Wallet.createRandom();
+      const bob = Wallet.createRandom();
+      const bobLower = bob.address.toLowerCase();
+      const wrongOwner = await alice.signMessage(trialMessage(bobLower));
+      const res = await fx.app.inject({
+        method: 'POST',
+        url: '/v1/x402/trial',
+        payload: { url: 'https://example.com', payer: bobLower, signature: wrongOwner },
+      });
+      expect(res.statusCode).toBe(401);
+      const detail = (res.json() as { error: { detail?: Record<string, unknown> } }).error.detail ?? {};
+      expect(detail['expectedMessage']).toBe(trialMessageFor('capture', bobLower));
+      expect(detail['claim']).toBe('POST /v1/x402/trial');
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
   it('missing fields → 422; non-address payer → 422', async () => {
     const fx = makeApiFixture();
     try {
@@ -138,6 +159,29 @@ describe('POST /v1/x402/trial — one free capture per wallet (EIP-191 proof)', 
         payload: { url: 'https://example.com', payer: 'not-an-address', signature: '0x00' },
       });
       expect(badAddr.statusCode).toBe(422);
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('trial 422s carry the claim recipe (claim path, example body, guide)', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await fx.app.inject({ method: 'POST', url: '/v1/x402/trial', payload: {} });
+      expect(res.statusCode).toBe(422);
+      const detail = (res.json() as { error: { detail?: Record<string, unknown> } }).error.detail ?? {};
+      expect(detail['claim']).toBe('POST /v1/x402/trial');
+      expect(detail['example']).toMatchObject({ url: 'https://example.com/' });
+      expect(typeof detail['guide']).toBe('string');
+
+      const noUrl = await fx.app.inject({
+        method: 'POST',
+        url: '/v1/x402/trial/extract',
+        payload: { payer: '0x0000000000000000000000000000000000000001', signature: '0x00' },
+      });
+      expect(noUrl.statusCode).toBe(422);
+      const extractDetail = (noUrl.json() as { error: { detail?: Record<string, unknown> } }).error.detail ?? {};
+      expect(extractDetail['claim']).toBe('POST /v1/x402/trial/extract');
     } finally {
       await closeApiFixture(fx);
     }
