@@ -4,6 +4,7 @@
  * datetime rendering. Split out of pages.ts as a pure move (no behavior
  * change).
  */
+import { USDC_SCALE } from '../../config/pricing.js';
 
 /** Escape a value that is influenced by input (URLs, ids) before HTML embedding. */
 export function esc(value: string): string {
@@ -29,4 +30,12 @@ export function readableCapturedAt(sqliteUtc: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return sqliteUtc;
   return `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+}
+
+/**
+ * Atomic 6-decimal USDC units -> "$0.001" (shortest decimal rendering).
+ * Shared across every public page that quotes a price.
+ */
+export function usdUnits(units: number): string {
+  return `$${units / USDC_SCALE}`;
 }

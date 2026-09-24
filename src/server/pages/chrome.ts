@@ -11,6 +11,7 @@
  * preference from localStorage and applies it before first paint to avoid
  * a flash of the wrong theme (FOUC).
  */
+import { esc } from './format.js';
 
 // SVG icons for theme toggle
 const SUN_SVG = `<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
@@ -100,4 +101,9 @@ function footer(bazaarCatalogUrl: string): string {
 </div></div></footer>`;
 }
 
-export { footer, topBar };
+/** The macOS-style terminal title bar used atop every shared code block. */
+function termBar(label: string): string {
+  return `<div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">${esc(label)}</span></div>`;
+}
+
+export { footer, termBar, topBar };

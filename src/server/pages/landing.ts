@@ -4,26 +4,17 @@
  * sections. Every section either demonstrates value or drives conversion.
  */
 import { DEFAULT_BAZAAR_CATALOG_URL, USDC_SCALE, WATCH_TOPUP_RUNS, watchTopUpPriceUsdcUnits, type WebcapConfig } from '../../config.js';
-import { footer, topBar } from './chrome.js';
+import { footer, termBar, topBar } from './chrome.js';
 import { BASE_CSS, LANDING_CSS } from './css.js';
 import { CHAIN_COPY } from './copy.js';
-import { esc } from './format.js';
-
-/** Atomic 6-decimal USDC units -> "$0.001" (shortest decimal rendering). */
-function usd(atomicUnits: number): string {
-  return `$${atomicUnits / USDC_SCALE}`;
-}
-
-const termBar = (label: string): string =>
-  `<div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">${esc(label)}</span></div>`;
+import { esc, usdUnits } from './format.js';
 
 export function landingHtml(config: WebcapConfig): string {
   const base = config.publicBaseUrl;
   const bazaarCatalogUrl = config.bazaarCatalogUrl ?? DEFAULT_BAZAAR_CATALOG_URL;
   const copy = CHAIN_COPY[config.chain.name];
-  const network = config.x402Network ?? 'eip155:84532';
-  const capturePrice = usd(config.x402PriceUsdcUnits);
-  const extractPrice = usd(config.x402ExtractPriceUsdcUnits);
+  const capturePrice = usdUnits(config.x402PriceUsdcUnits);
+  const extractPrice = usdUnits(config.x402ExtractPriceUsdcUnits);
   const topUpUsd = (usdcUnits: number): string => `$${(usdcUnits / USDC_SCALE).toFixed(2)}`;
   const captureTopUpPrice = topUpUsd(watchTopUpPriceUsdcUnits('capture', config));
   const extractTopUpPrice = topUpUsd(watchTopUpPriceUsdcUnits('extract', config));
@@ -269,7 +260,7 @@ ${topBar(bazaarCatalogUrl, 'landing')}
       </div>
       <div class="price">
         <h3>Video</h3>
-        <div class="amount">${esc(usd(config.x402VideoPriceUsdcUnits))} <small>/ URL</small></div>
+        <div class="amount">${esc(usdUnits(config.x402VideoPriceUsdcUnits))} <small>/ URL</small></div>
         <p>Full-page scroll capture as MP4. For demos and archiving.</p>
         <span class="tag">POST /v1/x402/video</span>
       </div>

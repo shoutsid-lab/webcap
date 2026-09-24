@@ -28,10 +28,8 @@ export function authenticate(req: FastifyRequest, db: Db): AuthContext {
   const found = keys.findLiveByHash(hashKey(rawKey));
   if (found === undefined)
     throw unauthorized('invalid api key', {
-      register: 'POST /v1/register',
-      example: { address: '0xYourWalletAddress' },
+      ...REGISTER_HINT,
       note: 'that key is unknown or revoked; register again for a fresh key, then send it as Authorization: Bearer <key>',
-      guide: '/skill.md',
     });
   keys.markUsed(found.key.id);
   return found;

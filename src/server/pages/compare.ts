@@ -6,16 +6,12 @@
 import { DEFAULT_BAZAAR_CATALOG_URL, USDC_SCALE, type WebcapConfig } from '../../config.js';
 import { footer, topBar } from './chrome.js';
 import { BASE_CSS, COMPARE_CSS } from './css.js';
-import { esc } from './format.js';
-
-function usd(atomicUnits: number): string {
-  return `$${atomicUnits / USDC_SCALE}`;
-}
+import { esc, usdUnits } from './format.js';
 
 export function compareHtml(config: WebcapConfig): string {
   const bazaarCatalogUrl = config.bazaarCatalogUrl ?? DEFAULT_BAZAAR_CATALOG_URL;
-  const capturePrice = usd(config.x402PriceUsdcUnits);
-  const extractPrice = usd(config.x402ExtractPriceUsdcUnits);
+  const capturePrice = usdUnits(config.x402PriceUsdcUnits);
+  const extractPrice = usdUnits(config.x402ExtractPriceUsdcUnits);
 
   const cost100 = (config.x402PriceUsdcUnits * 100 / USDC_SCALE).toFixed(2);
   const cost1k = (config.x402PriceUsdcUnits * 1000 / USDC_SCALE).toFixed(2);

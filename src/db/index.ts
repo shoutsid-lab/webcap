@@ -8,6 +8,11 @@ export type Db = Database.Database;
 
 const schemaPath = resolve(dirname(fileURLToPath(import.meta.url)), 'schema.sql');
 
+/** Column names of a table (via PRAGMA table_info), used by additive migrations. */
+function tableColumns(db: Db, table: string): ReadonlySet<string> {
+  return new Set((db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map((col) => col.name));
+}
+
 /**
  * Open (or create) the webcap database at `path` — a filesystem path or
  * `:memory:` for tests — and apply schema.sql. Caller owns the handle.
@@ -36,9 +41,7 @@ export function openDb(path: string): Db {
  * 'generic'); fresh databases already carry the columns via schema.sql.
  */
 function migrateWatchChatOps(db: Db): void {
-  const existing = new Set(
-    (db.prepare('PRAGMA table_info(watches)').all() as Array<{ name: string }>).map((col) => col.name),
-  );
+  const existing = tableColumns(db, 'watches');
   if (!existing.has('conditions_json')) db.exec('ALTER TABLE watches ADD COLUMN conditions_json TEXT');
   if (!existing.has('channel')) db.exec("ALTER TABLE watches ADD COLUMN channel TEXT NOT NULL DEFAULT 'generic'");
 }
@@ -50,9 +53,7 @@ function migrateWatchChatOps(db: Db): void {
  * columns via schema.sql.
  */
 function migrateWatchJsonAuth(db: Db): void {
-  const existing = new Set(
-    (db.prepare('PRAGMA table_info(watches)').all() as Array<{ name: string }>).map((col) => col.name),
-  );
+  const existing = tableColumns(db, 'watches');
   if (!existing.has('headers_json')) db.exec('ALTER TABLE watches ADD COLUMN headers_json TEXT');
   if (!existing.has('cookies_json')) db.exec('ALTER TABLE watches ADD COLUMN cookies_json TEXT');
   if (!existing.has('steps_json')) db.exec('ALTER TABLE watches ADD COLUMN steps_json TEXT');
@@ -65,13 +66,9 @@ function migrateWatchJsonAuth(db: Db): void {
  * databases already carry the columns via schema.sql.
  */
 function migrateWatchAiSummary(db: Db): void {
-  const watchCols = new Set(
-    (db.prepare('PRAGMA table_info(watches)').all() as Array<{ name: string }>).map((col) => col.name),
-  );
+  const watchCols = tableColumns(db, 'watches');
   if (!watchCols.has('summary_prompt_append')) db.exec('ALTER TABLE watches ADD COLUMN summary_prompt_append TEXT');
-  const runCols = new Set(
-    (db.prepare('PRAGMA table_info(watch_runs)').all() as Array<{ name: string }>).map((col) => col.name),
-  );
+  const runCols = tableColumns(db, 'watch_runs');
   if (!runCols.has('ai_summary')) db.exec('ALTER TABLE watch_runs ADD COLUMN ai_summary TEXT');
 }
 
@@ -104,9 +101,7 @@ function migrateCaptureJobs(db: Db): void {
     );
     return;
   }
-  const existing = new Set(
-    (db.prepare('PRAGMA table_info(capture_jobs)').all() as Array<{ name: string }>).map((col) => col.name),
-  );
+  const existing = tableColumns(db, 'capture_jobs');
   if (!existing.has('url')) db.exec('ALTER TABLE capture_jobs ADD COLUMN url TEXT NOT NULL DEFAULT \'\'');
   if (!existing.has('format')) db.exec('ALTER TABLE capture_jobs ADD COLUMN format TEXT');
   if (!existing.has('status')) db.exec("ALTER TABLE capture_jobs ADD COLUMN status TEXT NOT NULL DEFAULT 'queued'");
@@ -144,9 +139,7 @@ function migrateEndpointHits(db: Db): void {
     db.exec('CREATE INDEX IF NOT EXISTS idx_endpoint_hits_endpoint_created ON endpoint_hits(endpoint, created_at)');
     return;
   }
-  const existing = new Set(
-    (db.prepare('PRAGMA table_info(endpoint_hits)').all() as Array<{ name: string }>).map((col) => col.name),
-  );
+  const existing = tableColumns(db, 'endpoint_hits');
   if (!existing.has('endpoint')) db.exec("ALTER TABLE endpoint_hits ADD COLUMN endpoint TEXT NOT NULL DEFAULT ''");
   if (!existing.has('status')) db.exec('ALTER TABLE endpoint_hits ADD COLUMN status INTEGER NOT NULL DEFAULT 0');
   if (!existing.has('payer_hash')) db.exec("ALTER TABLE endpoint_hits ADD COLUMN payer_hash TEXT NOT NULL DEFAULT 'anonymous'");
@@ -243,8 +236,8 @@ export function migrateTrialClaims(db: Db): void {
       'created_at TEXT NOT NULL, ' +
       'PRIMARY KEY (payer, endpoint))',
   );
-  const cols = db.prepare<[], { name: string }>('PRAGMA table_info(trial_claims)').all();
-  if (!cols.some((c) => c.name === 'endpoint')) {
+  const cols = tableColumns(db, 'trial_claims');
+  if (!cols.has('endpoint')) {
     db.exec(
       'CREATE TABLE IF NOT EXISTS trial_claims_v2 (' +
         'payer TEXT NOT NULL, ' +

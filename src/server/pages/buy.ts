@@ -9,7 +9,7 @@
  */
 import { DEFAULT_BAZAAR_CATALOG_URL, USDC_SCALE, type WebcapConfig } from '../../config.js';
 import { PACKS } from '../../config/pricing.js';
-import { footer, topBar } from './chrome.js';
+import { footer, termBar, topBar } from './chrome.js';
 import { BASE_CSS, LANDING_CSS } from './css.js';
 import { esc } from './format.js';
 
@@ -157,7 +157,7 @@ ${topBar(bazaarCatalogUrl, 'buy')}
   </div>
   <div style="margin-top:var(--s5);padding:24px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l)">
     <h3 style="font-size:16px;font-weight:700;margin:0 0 12px;text-align:center">Copy & paste \u2014 pay in 30 seconds</h3>
-    <div class="term"><div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">terminal \u2014 copy this</span></div>
+    <div class="term">${termBar('terminal \u2014 copy this')}
     <pre id="buy-curl-code"><code><span class="c"># Paste this in your terminal \u2014 gets full extract in 30s</span>
 curl -X POST "${base}/v1/x402/extract" \\
   -H <span class="s">'content-type: application/json'</span> \\
@@ -203,7 +203,7 @@ curl -X POST "${base}/v1/x402/extract" \\
 
   <section class="buy-section">
     <h2>What credits do</h2>
-    <div class="term"><div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">credit usage</span></div>
+    <div class="term">${termBar('credit usage')}
     <pre><code><span class="c"># Screenshot: 1 credit = ${capturePrice}/capture</span>
 POST /v1/x402/capture  {"url":"https://example.com"}
 
@@ -236,7 +236,7 @@ GET  /v1/extract/preview?url=https://example.com</code></pre></div>
 
   <section class="buy-section">
     <h2>Quick start with x402</h2>
-    <div class="term"><div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">terminal \u2014 x402 payment flow</span></div>
+    <div class="term">${termBar('terminal \u2014 x402 payment flow')}
     <pre><code><span class="c"># 1. Make a request (no payment)</span>
 curl -si -X POST "${base}/v1/x402/extract" \\
   -H <span class="s">'content-type: application/json'</span> \\

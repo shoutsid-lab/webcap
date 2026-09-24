@@ -10,12 +10,12 @@
  * rate limiter family as the preview route gates the fetch (limited callers
  * get a 200 page with an inline notice + paid CTA, never a fetch).
  */
-import { DEFAULT_BAZAAR_CATALOG_URL, USDC_SCALE, type WebcapConfig } from '../../config.js';
+import { DEFAULT_BAZAAR_CATALOG_URL, type WebcapConfig } from '../../config.js';
 import type { OgResult } from '../../capture/og.js';
 import { OG_SCORE_LOW_THRESHOLD, computeOgScore } from '../../capture/og-score.js';
 import { footer, topBar } from './chrome.js';
 import { BASE_CSS, OG_DEBUGGER_CSS } from './css.js';
-import { esc } from './format.js';
+import { esc, usdUnits } from './format.js';
 
 /** What the debugger page renders: empty form, gated notice, inline error, or results. */
 export type OgDebuggerData =
@@ -23,11 +23,6 @@ export type OgDebuggerData =
   | { readonly state: 'rate_limited' }
   | { readonly state: 'error'; readonly rawUrl: string; readonly message: string }
   | { readonly state: 'ok'; readonly rawUrl: string; readonly result: OgResult };
-
-/** Atomic 6-decimal USDC units -> "$0.001" (shortest decimal rendering). */
-function usd(atomicUnits: number): string {
-  return `$${atomicUnits / USDC_SCALE}`;
-}
 
 /** Only http(s) targets may become an <img src>; anything else gets the placeholder note. */
 function safeImageUrl(image: string | undefined): string | undefined {
@@ -130,9 +125,9 @@ function hintBand(result: OgResult): string {
 }
 
 function ctaBand(config: WebcapConfig, score?: number): string {
-  const capturePrice = usd(config.x402PriceUsdcUnits);
-  const extractPrice = usd(config.x402ExtractPriceUsdcUnits);
-  const auditPrice = usd(config.x402AuditPriceUsdcUnits);
+  const capturePrice = usdUnits(config.x402PriceUsdcUnits);
+  const extractPrice = usdUnits(config.x402ExtractPriceUsdcUnits);
+  const auditPrice = usdUnits(config.x402AuditPriceUsdcUnits);
   if (score !== undefined && score < OG_SCORE_LOW_THRESHOLD) {
     return `<section class="cta-band" aria-label="paid API">
     <p class="eyebrow">Low preview score — ${score}/100</p>

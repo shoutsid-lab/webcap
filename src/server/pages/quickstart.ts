@@ -4,17 +4,14 @@
  * Goal: reduce the cognitive barrier between "I want to try this" and "I paid and got a result."
  */
 import type { WebcapConfig } from '../../config.js';
-import { USDC_SCALE } from '../../config.js';
-import { footer, topBar } from './chrome.js';
+import { footer, termBar, topBar } from './chrome.js';
 import { BASE_CSS, LANDING_CSS } from './css.js';
-import { esc } from './format.js';
-
-function usd(units: number): string { return `$${units / USDC_SCALE}`; }
+import { esc, usdUnits } from './format.js';
 
 export function quickstartHtml(config: WebcapConfig): string {
   const base = config.publicBaseUrl;
-  const capturePrice = usd(config.x402PriceUsdcUnits);
-  const extractPrice = usd(config.x402ExtractPriceUsdcUnits);
+  const capturePrice = usdUnits(config.x402PriceUsdcUnits);
+  const extractPrice = usdUnits(config.x402ExtractPriceUsdcUnits);
 
   return `<!doctype html>
 <html lang="en">
@@ -67,7 +64,7 @@ try{navigator.sendBeacon('/v1/track',new Blob([JSON.stringify({event:'landing_vi
     <h2><span class="num">1</span> Try the free preview (no payment)</h2>
     <p>See what webcap extracts from any URL — completely free, no wallet needed:</p>
     <div class="term" aria-label="Free preview command">
-      <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">terminal</span></div>
+      ${termBar('terminal')}
       <pre><code><span class="c"># Free preview — no payment required</span>
 curl "${base}/v1/extract/preview?url=https://example.com/"
 <span class="ok">\u2192 200</span> {"preview":{"title":"Example Domain","headings":[...],"links":[...]},"truncated":true}</code></pre>
@@ -81,7 +78,7 @@ curl "${base}/v1/extract/preview?url=https://example.com/"
     <p>Here's the actual output from a single ${extractPrice} extract call — this is the real data you get, not a simulation:</p>
     <div id="qs-demo-area" style="margin-top:var(--s4)">
       <div class="term" aria-label="Full extract demo output">
-        <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">extract output — Hacker News (real data)</span></div>
+        ${termBar('extract output — Hacker News (real data)')}
         <pre id="qs-demo-code" style="max-height:400px;overflow-y:auto"><code>Loading demo\u2026</code></pre>
       </div>
       <div style="margin-top:var(--s3);display:flex;gap:var(--s3);flex-wrap:wrap">
@@ -125,7 +122,7 @@ curl "${base}/v1/extract/preview?url=https://example.com/"
     <h2><span class="num">2</span> Make a paid request (x402)</h2>
     <p>Call the paid endpoint. The server responds with <strong>HTTP 402</strong> containing a payment challenge:</p>
     <div class="term" aria-label="Step 2: x402 challenge">
-      <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">terminal \u2014 extract</span></div>
+      ${termBar('terminal \u2014 extract')}
       <pre><code><span class="c"># Step 2a: Send request, get 402 challenge</span>
 curl -si -X POST "${base}/v1/x402/extract" \\
   -H <span class="s">'content-type: application/json'</span> \\
@@ -135,7 +132,7 @@ curl -si -X POST "${base}/v1/x402/extract" \\
     </div>
     <p>Now sign the payment with your wallet:</p>
     <div class="term" aria-label="Step 2b: Sign payment">
-      <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">terminal \u2014 sign payment</span></div>
+      ${termBar('terminal \u2014 sign payment')}
       <pre><code><span class="c"># Step 2b: Sign the EIP-3009 transfer (gasless, no ETH needed)</span>
 <span class="c"># Your x402 client signs a transferWithAuthorization:</span>
 <span class="c">#   from: your wallet</span>
@@ -157,7 +154,7 @@ curl -si -X POST "${base}/v1/x402/extract" \\
     <h2><span class="num">3</span> Use a client library (recommended)</h2>
     <p>Most developers don't sign x402 challenges manually. Use a client library that handles the flow automatically:</p>
     <div class="term" aria-label="Client library usage">
-      <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">JavaScript / TypeScript</span></div>
+      ${termBar('JavaScript / TypeScript')}
       <pre><code><span class="c"># Install the x402 client</span>
 npm install @x402/axios
 

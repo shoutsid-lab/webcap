@@ -14,9 +14,7 @@ const EVERY_MS: Record<WatchEvery, number> = {
 };
 
 export function everyMsOf(every: string): number {
-  if (every === '15m') return EVERY_MS['15m'];
-  if (every === '1h') return EVERY_MS['1h'];
-  if (every === '6h') return EVERY_MS['6h'];
-  if (every === '24h') return EVERY_MS['24h'];
-  throw new Error(`unknown watch interval: ${every}`);
+  const ms = EVERY_MS[every as WatchEvery];
+  if (ms === undefined) throw new Error(`unknown watch interval: ${every}`);
+  return ms;
 }
