@@ -15,8 +15,8 @@ export class HttpError extends Error {
 export const badRequest = (message: string, detail?: unknown): HttpError =>
   new HttpError(400, 'bad_request', message, detail);
 
-export const unauthorized = (message: string): HttpError =>
-  new HttpError(401, 'unauthorized', message);
+export const unauthorized = (message: string, detail?: unknown): HttpError =>
+  new HttpError(401, 'unauthorized', message, detail);
 
 export const paymentRequired = (message: string, detail?: unknown): HttpError =>
   new HttpError(402, 'payment_required', message, detail);

@@ -67,7 +67,7 @@ export function registerWatchRoutes(app: FastifyInstance, deps: AppDeps): void {
     if (!watchMutationLimiter.allow(req.ip)) {
       rejectRateLimited(reply, watchMutationLimiter, req.ip, 'watch mutation rate limit exceeded');
     }
-    const spec = parseCreateWatchBody(req.body, allowHosts);
+    const spec = parseCreateWatchBody(req.body, allowHosts, config.publicBaseUrl);
     const id = crypto.randomUUID();
     const createdAt = new Date().toISOString();
     // The first run is due immediately (next tick); with 0 credits it is
@@ -147,7 +147,25 @@ interface CreateWatchSpec {
   readonly channel: WatchChannel;
 }
 
-function parseCreateWatchBody(body: unknown, allowHosts: readonly string[] | undefined): CreateWatchSpec {
+function parseCreateWatchBody(
+  body: unknown,
+  allowHosts: readonly string[] | undefined,
+  publicBaseUrl: string,
+): CreateWatchSpec {
+  try {
+    return parseWatchSpec(body, allowHosts);
+  } catch (err) {
+    if (err instanceof HttpError && err.status === 400 && err.detail === undefined) {
+      throw badRequest(err.message, {
+        example: { url: 'https://example.com/', every: '1h', mode: 'capture' },
+        guide: `${publicBaseUrl}/skill.md`,
+      });
+    }
+    throw err;
+  }
+}
+
+function parseWatchSpec(body: unknown, allowHosts: readonly string[] | undefined): CreateWatchSpec {
   if (!isRecord(body)) throw badRequest('body must be an object');
   const rawUrl = body['url'];
   if (typeof rawUrl !== 'string' || rawUrl === '') throw badRequest('url is required');

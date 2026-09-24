@@ -82,6 +82,57 @@ describe('error envelope for route-not-found and method-not-allowed', () => {
     });
   });
 
+  it('points a keyless 401 at POST /v1/register with an example body', async () => {
+    await withApp(async (fx) => {
+      const res = await fx.app.inject({
+        method: 'POST',
+        url: '/v1/extract',
+        payload: { url: 'https://example.com/' },
+      });
+      expect(res.statusCode).toBe(401);
+      const detail = errorEnvelope(res).detail ?? {};
+      expect(detail['register']).toBe('POST /v1/register');
+      expect(detail['example']).toEqual({ address: '0xYourWalletAddress' });
+      expect(typeof detail['guide']).toBe('string');
+    });
+  });
+
+  it('points a bad-key 401 at POST /v1/register instead of dead-ending', async () => {
+    await withApp(async (fx) => {
+      const res = await fx.app.inject({
+        method: 'POST',
+        url: '/v1/extract',
+        payload: { url: 'https://example.com/' },
+        headers: { authorization: 'Bearer deadbeef' },
+      });
+      expect(res.statusCode).toBe(401);
+      const envelope = errorEnvelope(res);
+      expect(envelope.message).toBe('invalid api key');
+      expect((envelope.detail ?? {})['register']).toBe('POST /v1/register');
+    });
+  });
+
+  it('shows a register example on a shapeless POST /v1/register 422', async () => {
+    await withApp(async (fx) => {
+      const res = await fx.app.inject({ method: 'POST', url: '/v1/register', payload: {} });
+      expect(res.statusCode).toBe(422);
+      const envelope = errorEnvelope(res);
+      expect(envelope.message).toBe('address is required');
+      const detail = envelope.detail ?? {};
+      expect(detail['example']).toEqual({ address: '0xYourWalletAddress' });
+      expect(typeof detail['guide']).toBe('string');
+    });
+  });
+
+  it('shows a register example on a malformed-address POST /v1/register 422', async () => {
+    await withApp(async (fx) => {
+      const res = await fx.app.inject({ method: 'POST', url: '/v1/register', payload: { address: 'nope' } });
+      expect(res.statusCode).toBe(422);
+      expect(errorEnvelope(res).message).toBe('invalid address');
+      expect((errorEnvelope(res).detail ?? {})['example']).toEqual({ address: '0xYourWalletAddress' });
+    });
+  });
+
   it('keeps the 400 bad_request envelope for a malformed watch body', async () => {
     await withApp(async (fx) => {
       const res = await fx.app.inject({ method: 'POST', url: '/v1/watches', payload: {} });
@@ -89,6 +140,16 @@ describe('error envelope for route-not-found and method-not-allowed', () => {
       const envelope = errorEnvelope(res);
       expect(envelope.code).toBe('bad_request');
       expect(envelope.message).toBe('url is required');
+    });
+  });
+
+  it('shows a valid watch example on a malformed watch body 400', async () => {
+    await withApp(async (fx) => {
+      const res = await fx.app.inject({ method: 'POST', url: '/v1/watches', payload: { every: 'never' } });
+      expect(res.statusCode).toBe(400);
+      const detail = errorEnvelope(res).detail ?? {};
+      expect(detail['example']).toEqual({ url: 'https://example.com/', every: '1h', mode: 'capture' });
+      expect(typeof detail['guide']).toBe('string');
     });
   });
 });

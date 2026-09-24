@@ -50,6 +50,14 @@ import type { AppDeps } from './server.js';
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const REGISTER_RATE_LIMIT = 3;
 
+/** Example body for a rejected POST /v1/register, so a 422 is a recipe. */
+function registerHint(config: WebcapConfig): { example: { address: string }; guide: string } {
+  return {
+    example: { address: '0xYourWalletAddress' },
+    guide: `${config.publicBaseUrl}/skill.md`,
+  };
+}
+
 export function registerBillingRoutes(app: FastifyInstance, deps: AppDeps): void {
   const { db, config } = deps;
   const accounts = makeAccountsRepo(db);
@@ -66,12 +74,12 @@ export function registerBillingRoutes(app: FastifyInstance, deps: AppDeps): void
       rejectRateLimited(reply, registerLimiter, req.ip, 'registration rate limit exceeded');
     }
     const raw = isRecord(req.body) ? req.body.address : undefined;
-    if (typeof raw !== 'string') throw unprocessable('address is required');
+    if (typeof raw !== 'string') throw unprocessable('address is required', registerHint(config));
     let address: string;
     try {
       address = getAddress(raw);
     } catch {
-      throw unprocessable('invalid address');
+      throw unprocessable('invalid address', registerHint(config));
     }
     // A merchant/ledger-bearing account is exactly one whose address matches
     // config.merchantAddress (the /v1/ledger gate compares the same pair). On
