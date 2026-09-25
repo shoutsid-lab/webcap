@@ -45,6 +45,7 @@ SELECT payer, COUNT(*) n FROM revenue_ledger
 | First pay | `SELECT COUNT(*) FROM (SELECT payer FROM revenue_ledger GROUP BY payer HAVING COUNT(*)=1);` |
 | Repeat | `SELECT COUNT(*) FROM (SELECT payer FROM revenue_ledger GROUP BY payer HAVING COUNT(*)>1);` |
 | Recurring | `GET /v1/agent-funnel` → `recurring.activePaidWatches` |
+| Feedback (what agents say) | `SELECT COUNT(*) FROM feedback;` (newest first: `GET /v1/feedback/list` merchant view) |
 
 ## Attribution
 

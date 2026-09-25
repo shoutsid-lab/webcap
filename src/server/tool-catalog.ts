@@ -185,6 +185,27 @@ export function serviceTools(config: WebcapConfig): readonly CatalogTool[] {
       path: '/v1/x402/trial/quick?url=...',
       inputSchema: { type: 'object', properties: { ...URL_PROP }, required: ['url'] },
     },
+    {
+      name: 'webcap_feedback',
+      description:
+        'Free feedback into webcap: message (8-4000 chars) plus optional category and the endpoint you were using. No account, rate-limited per client (60/hr). Also open to humans at GET /feedback.',
+      free: true,
+      method: 'POST',
+      path: '/v1/feedback',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', minLength: 8, maxLength: 4000, description: 'Your feedback text' },
+          category: {
+            type: 'string',
+            enum: ['bug', 'suggestion', 'pricing', 'docs', 'integration', 'other'],
+            description: 'Optional category (default other)',
+          },
+          endpoint: { type: 'string', description: 'Optional webcap route you were using, e.g. POST /v1/x402/capture' },
+        },
+        required: ['message'],
+      },
+    },
 
     // --- paid: the products ---
     {

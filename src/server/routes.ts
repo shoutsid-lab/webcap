@@ -707,6 +707,11 @@ export function registerRoutes(app: FastifyInstance, deps: AppDeps): void {
           path: '/v1/x402/trial/analyze',
           note: 'free deterministic single-URL analysis trial, one per wallet (model-backed analysis stays paid)',
         },
+        {
+          method: 'POST',
+          path: '/v1/feedback',
+          note: 'free feedback for agents and humans: {message (8-4000 chars), category? (bug|suggestion|pricing|docs|integration|other), endpoint?}; no account, rate-limited 60/hr, payer hashed; human form at GET /feedback',
+        },
       ],
     };
   });

@@ -32,6 +32,7 @@ export function openDb(path: string): Db {
   migratePreviewCache(db);
   migrateTrialClaims(db);
   migrateFaucetDays(db);
+  migrateFeedback(db);
   return db;
 }
 
@@ -266,4 +267,44 @@ function migrateFaucetDays(db: Db): void {
       'count INTEGER NOT NULL, ' +
       'PRIMARY KEY (ip_hash, day))',
   );
+}
+
+/**
+ * Additive, idempotent migration for the feedback table: fresh databases
+ * carry it via schema.sql; pre-existing database files gain the table (or any
+ * missing nullable column) here so they stay valid without a wipe. The raw
+ * payer and contact are never stored, only their sha256 hashes.
+ */
+function migrateFeedback(db: Db): void {
+  const table = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'feedback'")
+    .get() as { name: string } | undefined;
+  if (table === undefined) {
+    db.exec(
+      'CREATE TABLE feedback (' +
+        'id INTEGER PRIMARY KEY AUTOINCREMENT, ' +
+        'category TEXT NOT NULL, ' +
+        'message TEXT NOT NULL, ' +
+        'endpoint TEXT, ' +
+        "payer_hash TEXT NOT NULL DEFAULT 'anonymous', " +
+        "user_agent TEXT NOT NULL DEFAULT '', " +
+        "contact_hash TEXT NOT NULL DEFAULT 'anonymous', " +
+        "source TEXT NOT NULL DEFAULT 'http', " +
+        "created_at TEXT NOT NULL DEFAULT (datetime('now')))",
+    );
+    db.exec('CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_feedback_category ON feedback(category)');
+    return;
+  }
+  const existing = tableColumns(db, 'feedback');
+  if (!existing.has('category')) db.exec("ALTER TABLE feedback ADD COLUMN category TEXT NOT NULL DEFAULT 'other'");
+  if (!existing.has('message')) db.exec('ALTER TABLE feedback ADD COLUMN message TEXT NOT NULL DEFAULT \'\'');
+  if (!existing.has('endpoint')) db.exec('ALTER TABLE feedback ADD COLUMN endpoint TEXT');
+  if (!existing.has('payer_hash')) db.exec("ALTER TABLE feedback ADD COLUMN payer_hash TEXT NOT NULL DEFAULT 'anonymous'");
+  if (!existing.has('user_agent')) db.exec("ALTER TABLE feedback ADD COLUMN user_agent TEXT NOT NULL DEFAULT ''");
+  if (!existing.has('contact_hash')) db.exec("ALTER TABLE feedback ADD COLUMN contact_hash TEXT NOT NULL DEFAULT 'anonymous'");
+  if (!existing.has('source')) db.exec("ALTER TABLE feedback ADD COLUMN source TEXT NOT NULL DEFAULT 'http'");
+  if (!existing.has('created_at')) db.exec("ALTER TABLE feedback ADD COLUMN created_at TEXT NOT NULL DEFAULT ''");
+  db.exec('CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_feedback_category ON feedback(category)');
 }

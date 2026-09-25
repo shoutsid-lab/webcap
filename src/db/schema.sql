@@ -172,4 +172,19 @@ CREATE TABLE IF NOT EXISTS tracking_events (
 
 CREATE INDEX IF NOT EXISTS idx_tracking_events_event_created ON tracking_events(event, created_at);
 
+CREATE TABLE IF NOT EXISTS feedback (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  category TEXT NOT NULL,
+  message TEXT NOT NULL,
+  endpoint TEXT,
+  payer_hash TEXT NOT NULL DEFAULT 'anonymous',
+  user_agent TEXT NOT NULL DEFAULT '',
+  contact_hash TEXT NOT NULL DEFAULT 'anonymous',
+  source TEXT NOT NULL DEFAULT 'http',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at);
+CREATE INDEX IF NOT EXISTS idx_feedback_category ON feedback(category);
+
 /* deferred to run #4: per-endpoint rollup triggers (counts/revenue join) live here. */

@@ -239,6 +239,34 @@ export const TOOLS: readonly ToolDef[] = [
   // openai-tools/mcp-tools manifests listed the trials and none of the products.
   ...TRIAL_TOOLS,
   {
+    name: 'webcap_feedback',
+    description:
+      'Free feedback into webcap: message (8-4000 chars) plus optional category and the endpoint you were using. No account, rate-limited per client (60/hr). Also open to humans at GET /feedback.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', minLength: 8, maxLength: 4000, description: 'Your feedback text' },
+        category: {
+          type: 'string',
+          enum: ['bug', 'suggestion', 'pricing', 'docs', 'integration', 'other'],
+          description: 'Optional category (default other)',
+        },
+        endpoint: { type: 'string', description: 'Optional webcap route you were using, e.g. POST /v1/x402/capture' },
+      },
+      required: ['message'],
+    },
+    free: true,
+    build: (a) => ({
+      method: 'POST',
+      path: '/v1/feedback',
+      body: {
+        message: required(a, 'message', 'webcap_feedback'),
+        ...(str(a, 'category') !== undefined ? { category: str(a, 'category') } : {}),
+        ...(str(a, 'endpoint') !== undefined ? { endpoint: str(a, 'endpoint') } : {}),
+      },
+    }),
+  },
+  {
     name: 'webcap_capture',
     description:
       'PAID ($0.001): screenshot a URL as PNG/JPEG/PDF and get a persistent public artifact URL plus free OG metadata. Settles gasless USDC over x402.',

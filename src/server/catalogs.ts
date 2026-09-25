@@ -27,6 +27,7 @@ const SITEMAP_PATHS = [
   '/og-debugger',
   '/compare',
   '/transparency',
+  '/feedback',
 ] as const;
 
 /** XML-escape a value before embedding it in the sitemap (fixed list, stay correct). */
@@ -133,6 +134,7 @@ export async function x402WellKnown(config: WebcapConfig) {
       { path: 'POST /v1/x402/trial/audit', note: 'free SEO + link/OG audit trial, one per wallet' },
       { path: 'POST /v1/x402/trial/map-lite', note: 'free site-map trial capped at 10 URLs, one per wallet' },
       { path: 'POST /v1/x402/trial/analyze', note: 'free deterministic analysis trial, one per wallet' },
+      { path: 'POST /v1/feedback', note: 'free feedback for agents and humans (message required; rate-limited 60/hr)' },
     ],
     openapi: `${base}/openapi.json`,
     sitemap: `${base}/sitemap.xml`,
@@ -343,6 +345,7 @@ export function frontDoorPayload(config: WebcapConfig) {
         { path: 'POST /v1/x402/trial/audit', note: 'free SEO + link/OG audit trial, one per wallet' },
         { path: 'POST /v1/x402/trial/map-lite', note: 'free site-map trial capped at 10 URLs, one per wallet' },
         { path: 'POST /v1/x402/trial/analyze', note: 'free deterministic analysis trial, one per wallet' },
+        { path: 'POST /v1/feedback', note: 'free feedback channel (#bug #suggestion #pricing #docs #integration); human form at GET /feedback' },
       ],
       paid: [
         { path: 'POST /v1/x402/capture', usdc: config.x402PriceUsdcUnits / USDC_SCALE, note: 'PNG/JPEG/PDF screenshot + free OG' },

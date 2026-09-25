@@ -26,6 +26,7 @@ export { landingHtml } from './pages/landing.js';
 export { compareHtml } from './pages/compare.js';
 export { quickstartHtml } from './pages/quickstart.js';
 export { buyHtml } from './pages/buy.js';
+export { feedbackHtml } from './pages/feedback.js';
 
 // ---------------------------------------------------------------------------
 // GET /transparency — public trust page (live revenue + pricing + merchant)

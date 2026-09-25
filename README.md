@@ -58,6 +58,7 @@ pack 100). Full spec: `GET /openapi.json` (tags: accounts).
 | `GET /v1/og?url=...` | Open Graph link-preview metadata |
 | `POST /v1/watches` | Create a scheduled monitor (free; prepay via top-up) |
 | `GET /v1/health` | Liveness check |
+| `POST /v1/feedback` | Tell webcap something (machine or human): `{"message":"…","category?"?:"bug\|suggestion\|pricing\|docs\|integration\|other","endpoint"?:"…"}`. No account, rate-limited 60/hr. Human form: [`GET /feedback`](/feedback) |
 
 ## Quick start
 

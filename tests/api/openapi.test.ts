@@ -486,6 +486,9 @@ describe('mppscan/x402gle discovery metadata', () => {
     ['post', '/mcp'],
     // The MCP server descriptor a registry crawler reads instead of guessing.
     ['get', '/.well-known/mcp.json'],
+    // Feedback: the machine POST + the human page, both free and security: [].
+    ['post', '/v1/feedback'],
+    ['get', '/feedback'],
   ];
 
   // The paid x402 ops: no security requirement — the auth mode is the
@@ -637,7 +640,7 @@ describe('mppscan/x402gle discovery metadata', () => {
   it('declares security: [] on every free/public op (the explicit 34-list)', async () => {
     const fx = makeApiFixture();
     try {
-      expect(FREE_OPS.length).toBe(34);
+      expect(FREE_OPS.length).toBe(36);
       const res = await getDoc(fx.app);
       const doc = res.json() as OpenapiDocView;
       for (const [method, path] of FREE_OPS) {

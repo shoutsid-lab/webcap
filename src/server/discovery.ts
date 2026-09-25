@@ -11,7 +11,7 @@ import { CREDITS_PER_USDC, PRICE_PER_CREDIT, USDC_SCALE, type WebcapConfig } fro
 import { HttpError, unprocessable } from '../util/errors.js';
 import { isRecord } from './capture-parse.js';
 import type { AppDeps } from './server.js';
-import { landingHtml, compareHtml, quickstartHtml, buyHtml, artifactPageHtml, transparencyHtml, type TransparencyStats } from './pages.js';
+import { landingHtml, compareHtml, quickstartHtml, buyHtml, feedbackHtml, artifactPageHtml, transparencyHtml, type TransparencyStats } from './pages.js';
 import { openapiDocument } from './openapi.js';
 import { agentCard, frontDoorPayload, mcpDescriptor, mcpTools, openaiTools, sitemapXml, x402WellKnown } from './catalogs.js';
 
@@ -45,6 +45,12 @@ export function registerDiscoveryRoutes(app: FastifyInstance, deps: AppDeps): vo
   app.get('/buy', async (_req, reply) => {
     reply.header('content-type', 'text/html; charset=utf-8');
     return reply.send(buyHtml(config));
+  });
+
+  // Feedback page: thin human form posting to the same JSON route agents use.
+  app.get('/feedback', async (_req, reply) => {
+    reply.header('content-type', 'text/html; charset=utf-8');
+    return reply.send(feedbackHtml(config, { state: 'empty' }));
   });
 
   app.get('/openapi.json', async () => openapiDocument(config));

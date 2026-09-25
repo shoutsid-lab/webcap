@@ -8,6 +8,7 @@ import type { CaptureRequest, CaptureResult, PageStructure, StructuredCapture } 
 import type { OgResult } from '../capture/og.js';
 import { registerBillingRoutes } from './billing.js';
 import { registerAdminHitsRoutes } from './admin-hits.js';
+import { registerFeedbackRoutes } from './feedback-routes.js';
 import { registerMapLiteRoute } from './map-lite.js';
 import { registerVideoRoute } from './video.js';
 import { registerJobRoutes } from './jobs.js';
@@ -56,6 +57,15 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     requestTimeout: deps.config.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
     bodyLimit: deps.config.bodyLimitBytes ?? DEFAULT_BODY_LIMIT_BYTES,
   });
+  // The /feedback HTML form posts application/x-www-form-urlencoded; Fastify
+  // does not parse that content type by default, so register a parser here.
+  app.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string' }, (_req, body, done) => {
+    try {
+      done(null, body as string);
+    } catch (err) {
+      done(err instanceof Error ? err : new Error(String(err)), undefined);
+    }
+  });
   app.setErrorHandler((err, _req, reply) => {
     // Guard: if the reply was already sent (e.g. by x402 402-challenge or the
     // 405 not-found envelope), Fastify still fires onError — but we must not
@@ -89,6 +99,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   // hooks above must still precede every route registration).
   registerBillingRoutes(app, deps);
   registerAdminHitsRoutes(app, deps);
+  registerFeedbackRoutes(app, deps);
   registerRoutes(app, deps);
   registerJobRoutes(app, deps);
   registerMapLiteRoute(app, { db: deps.db, config: deps.config, captureAllowHosts: deps.captureAllowHosts });

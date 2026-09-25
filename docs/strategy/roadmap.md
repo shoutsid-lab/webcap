@@ -112,8 +112,8 @@ Goal: one funded agent, calling unattended, more than once.
       manifests listed 9 tools, all free, and not one paid product, while the
       MCP server listed 11 including every product and no trial; their
       intersection was two tools. `src/server/tool-catalog.ts` is now the single
-      source for membership, schemas and endpoints (18 tools: 12 free including
-      the 6-tool trial rail, 6 paid), all three surfaces are derived from it,
+      source for membership, schemas and endpoints (19 tools: 13 free including
+      the 6-tool trial rail plus webcap_feedback, 6 paid), all three surfaces are derived from it,
       and `tests/unit/tool-catalog-agreement.test.ts` fails if they drift
       again. The agent card and mcp-tools manifest also claimed version 1.1.0
       while `/v1/status`, the package and MCP `initialize` said 0.1.0; there is
@@ -136,6 +136,21 @@ Goal: one funded agent, calling unattended, more than once.
       are not the MCP Registry.
       *Acceptance: met for the MCP path — any MCP host can wire webcap from the
       registry listing alone, with no npm token and nothing read from our docs.*
+- [x] **A feedback loop the customer can use.** An agent that hits a confusing
+      challenge or a missing feature now has a one-request channel:
+      `POST /v1/feedback` (message 8-4000 chars; optional category
+      bug|suggestion|pricing|docs|integration|other and the endpoint in use).
+      Free, no account, rate-limited 60/hr per client, `payer`/`contact`
+      hashed before storage. The human `GET /feedback` page posts to the same
+      route, so both audiences share one code path. The merchant reads entries
+      at `GET /v1/feedback/list`; `endpoint_hits` measures submissions.
+      *Acceptance met: catalog and MCP agree on the new free tool
+      (`webcap_feedback`, so the manifest list is now 19 tools and the
+      agreement test pins it), the OpenAPI FREE_OPS list documents it, and
+      `tests/api/feedback.test.ts` (9 tests) covers machine JSON, the urlencoded
+      form, hashed payer storage, the rate limit and the merchant-only list.*
+      *Remaining: none for the channel itself; the value is whatever the
+      feedback says — read it.*
 - [~] **Shorten trial → first pay.** Shipped: every free surface now hands
       over the paid path instead of dead-ending. `GET /v1/x402/trial/status`
       always returns the full priced catalog (`paid`), the x402 payment flow

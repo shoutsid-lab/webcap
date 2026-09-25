@@ -227,6 +227,7 @@ POST /v1/x402/watches/topup
 - POST /v1/watches — create a scheduled re-capture watch (free; starts with 0 credits — top up via /v1/x402/watches/topup)
 - GET /v1/watches/:id — watch state + recent runs · DELETE /v1/watches/:id — remove it
 - GET /v1/health — liveness + chain info
+- POST /v1/feedback — tell webcap something as an agent or human (message 8-4000 chars required; optional category bug|suggestion|pricing|docs|integration|other and the endpoint you were using). No account, rate-limited per client (60/hr), hashed payer. Human form: GET /feedback.
 
 ## Paying: minimal x402 flow
 
@@ -334,6 +335,7 @@ Base URL: ${config.publicBaseUrl}
 | Trial map-lite (capped at 10 URLs) | POST /v1/x402/trial/map-lite {"url", "payer", "signature"} with endpoint "map-lite" in the message | free, one claim per wallet per endpoint |
 | Trial analyze (deterministic, one URL) | POST /v1/x402/trial/analyze {"url", "task", "payer", "signature"} with endpoint "analyze" in the message; task: classification\|accessibility\|layout\|entities\|sentiment | free, one claim per wallet per endpoint |
 | OG metadata | GET /v1/og?url=… | free |
+| Feedback (agent) | POST /v1/feedback {"message": "…", "category"?:"bug|suggestion|pricing|docs|integration|other", "endpoint"?:"POST /v1/x402/capture"} | free, rate-limited per client (60/hr); payer hashed; human form at GET /feedback |
 | Bearer-token rail (no signing key): register once, fund with a USDC transfer, then call with "Authorization: Bearer \<key\>" | POST /v1/register {"address"} → {apiKey}; POST /v1/invoice → {merchant, token, requiredUsdc}; then POST /v1/extract, POST /v1/audit, POST /v1/map-lite, POST /v1/video, POST /v1/analyze, POST /v1/analyze/batch, POST /v1/watches/{id}/topup (100-run pack) | 1 credit/call, watch packs at x402 parity, refunded on non-200; empty balance 402s with a top-up invoice |
 
 Machine-readable catalog: ${config.publicBaseUrl}/v1/x402/service · Full spec: ${config.publicBaseUrl}/openapi.json · Tool manifests: ${config.publicBaseUrl}/.well-known/openai-tools.json + ${config.publicBaseUrl}/.well-known/mcp-tools.json · Agent card: ${config.publicBaseUrl}/.well-known/agent-card.json

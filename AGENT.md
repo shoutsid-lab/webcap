@@ -109,6 +109,10 @@ via CDP_API_KEY_ID/CDP_API_KEY_SECRET (Ed25519 JWT, default off).
   `detail.retryAfterSeconds` tells you when to retry. Upstream page failures
   are `502 capture_failed` / `extract_failed`; an x402 route on a local chain
   is `503 x402_disabled`.
+- **Feedback is a route, not a contact form**: `POST /v1/feedback` with
+  `{"message":"…","category?":"bug|suggestion|pricing|docs|integration|other","endpoint?":"…"}`.
+  Free, no account, rate-limited 60/hr, payer hashed. Recommend the next thing
+  webcap should do — it is the same channel the human GET /feedback page posts to.
 - Verify a route's challenge without paying: CDP's public validator,
   `POST https://api.cdp.coinbase.com/platform/v2/x402/validate` with
   `{"resource":"<url>","protocol":"x402"}` → `{valid, simulation, preflight}`.

@@ -114,6 +114,7 @@ describe('GET / (content negotiation: landing page + JSON front door)', () => {
             { path: 'POST /v1/x402/trial/audit', note: 'free SEO + link/OG audit trial, one per wallet' },
             { path: 'POST /v1/x402/trial/map-lite', note: 'free site-map trial capped at 10 URLs, one per wallet' },
             { path: 'POST /v1/x402/trial/analyze', note: 'free deterministic analysis trial, one per wallet' },
+            { path: 'POST /v1/feedback', note: 'free feedback channel (#bug #suggestion #pricing #docs #integration); human form at GET /feedback' },
           ],
           paid: [
             { path: 'POST /v1/x402/capture', usdc: 0.001, note: 'PNG/JPEG/PDF screenshot + free OG' },

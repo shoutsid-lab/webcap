@@ -164,6 +164,10 @@ describe('GET /v1/x402/service (canonical agent descriptor)', () => {
       const trial = body.freeEndpoints.find((e) => e.path === '/v1/x402/trial');
       expect(trial?.method).toBe('POST');
       expect(String(trial?.note)).toContain('personal_sign');
+      // The feedback route is a free endpoint on the canonical descriptor too.
+      const feedback = body.freeEndpoints.find((e) => e.path === '/v1/feedback');
+      expect(feedback?.method).toBe('POST');
+      expect(String(feedback?.note)).toContain('rate-limited 60/hr');
     } finally {
       await closeX402Fixture(fx);
     }

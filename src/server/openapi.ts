@@ -24,6 +24,7 @@ import {
 import { accountPaths } from './openapi/paths-accounts.js';
 import { billingPaths } from './openapi/paths-billing.js';
 import { freePaths } from './openapi/paths-free.js';
+import { feedbackPaths } from './openapi/paths-feedback.js';
 import { jobsPaths } from './openapi/paths-jobs.js';
 import { mcpPaths } from './openapi/paths-mcp.js';
 import { mlPaths } from './openapi/paths-ml.js';
@@ -97,6 +98,7 @@ export async function openapiDocument(config: WebcapConfig): Promise<OpenapiDocu
       ...x402Paths(config, ctx),
       ...mlPaths(config, ctx),
       ...freePaths(ctx),
+      ...feedbackPaths(ctx),
       ...webPaths(config),
       ...accountPaths(config, ctx),
       ...billingPaths(ctx),
