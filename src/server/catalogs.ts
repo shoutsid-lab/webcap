@@ -287,6 +287,16 @@ export function mcpTools(config: WebcapConfig) {
   return {
     format: 'mcp-tools-list',
     server: { name: 'webcap', version: '1.1.0', url: base, openapi: `${base}/openapi.json`, skill: `${base}/skill.md` },
+    // The remote transport, so a host that speaks MCP can wire webcap with no
+    // install: point it at this URL and it gets the same tool set as the
+    // npm/stdio server. It holds no wallet, so paid tools answer the 402
+    // challenge for the caller to settle with its own x402 client.
+    mcp: {
+      transport: 'streamable-http',
+      url: `${base}/mcp`,
+      method: 'POST',
+      note: 'JSON-RPC 2.0 (initialize, tools/list, tools/call). No install, no session, no API key. Paid tool calls return the x402 402 challenge.',
+    },
     payment: 'Paid endpoints settle gasless USDC via x402 (HTTP 402); every 409/402 response carries a paidNext pointer.',
     tools,
   };

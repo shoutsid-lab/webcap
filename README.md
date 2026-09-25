@@ -64,13 +64,35 @@ pack 100). Full spec: `GET /openapi.json` (tags: accounts).
 ### Use as an MCP server (agent runtimes)
 
 webcap ships an MCP server, so any MCP host (Claude Desktop, Cursor, agent
-frameworks) can call it as a tool. The free tools need no configuration; set
-`WEBCAP_MCP_WALLET_KEY` to a Base-mainnet USDC key to let the paid tools settle
-automatically (gasless — the payer signs EIP-3009, the facilitator pays gas).
-With no key, paid tools return the x402 402 challenge for the host to pay.
-No wallet at all? Set `WEBCAP_MCP_API_KEY` to an operator-funded account key
-instead (`POST /v1/register`, then fund via `POST /v1/invoice`): paid tools
-bill 1 credit each from that balance. A configured wallet wins over the key.
+frameworks) can call it as a tool. Two ways to wire it: a **remote endpoint**
+(no install at all) or the **stdio server** from a checkout.
+
+The remote endpoint is the cheapest path for an agent — nothing to install, no
+package registry, no account:
+
+```json
+{
+  "mcpServers": {
+    "webcap": { "url": "https://webcap.shoutsid.fyi/mcp" }
+  }
+}
+```
+
+`POST /mcp` speaks MCP Streamable HTTP (JSON-RPC 2.0 over HTTPS; GET is
+deliberately 405 because the server never opens an SSE stream). It holds no
+wallet, so it never spends on a caller's behalf: the free tools run directly,
+and a paid tool returns the live x402 402 challenge for your own client to
+settle. The endpoint is also described in
+`/.well-known/mcp-tools.json` and `openapi.json`.
+
+The stdio server runs locally and can settle paid calls itself. The free tools
+need no configuration; set `WEBCAP_MCP_WALLET_KEY` to a Base-mainnet USDC key to
+let the paid tools settle automatically (gasless — the payer signs EIP-3009, the
+facilitator pays gas). With no key, paid tools return the x402 402 challenge for
+the host to pay. No wallet at all? Set `WEBCAP_MCP_API_KEY` to an
+operator-funded account key instead (`POST /v1/register`, then fund via
+`POST /v1/invoice`): paid tools bill 1 credit each from that balance. A
+configured wallet wins over the key.
 
 From a source checkout — `npm ci && npm run build` — then point `args` at
 its `dist/mcp/stdio.js`:
@@ -88,9 +110,9 @@ its `dist/mcp/stdio.js`:
 ```
 
 (`npm run mcp` runs the TypeScript directly, so no build step is needed
-there.) The first npm release will be `@shoutsid/webcap` — the unscoped
-`webcap` name belongs to an unrelated package — and this section will show
-the one-line install then.
+there.) The npm release will be `@shoutsid/webcap` — the unscoped
+`webcap` name belongs to an unrelated package, and it is not published yet —
+so until then the remote endpoint above is the install-free option.
 
 Tools: `webcap_preview`, `webcap_og`,
 `webcap_service`, `webcap_health`, `webcap_agent_funnel` (free) and

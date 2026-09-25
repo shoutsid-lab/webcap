@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.shoutsid-lab/webcap",
+  "title": "webcap",
+  "description": "Screenshot, extract or audit any URL. Paid per call in USDC over x402; free tools need no wallet.",
+  "version": "0.1.0",
+  "websiteUrl": "https://webcap.shoutsid.fyi",
+  "repository": {
+    "url": "https://github.com/shoutsid-lab/webcap",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://webcap.shoutsid.fyi/mcp"
+    }
+  ]
+}

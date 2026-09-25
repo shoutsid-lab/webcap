@@ -17,6 +17,12 @@ import { isRecord } from '../server/capture-parse.js';
 /** Protocol revision we implement. The client may request another; we echo it. */
 export const MCP_PROTOCOL_VERSION = '2024-11-05';
 export const MCP_SERVER_NAME = 'webcap';
+/**
+ * The server version reported in `initialize` and in the registry manifest.
+ * Mirrors package.json's version (kept here so the MCP transports do not have
+ * to reach into the HTTP service's modules, or read package.json at runtime).
+ */
+export const MCP_SERVER_VERSION = '0.1.0';
 
 export interface McpResponse {
   readonly status: number;
@@ -40,6 +46,13 @@ export interface McpContext {
    * of returning the x402 challenge — the host needs no wallet at all.
    */
   readonly creditKey?: string;
+  /**
+   * Replaces the default "no payer wallet is configured" advice. Each
+   * transport knows its own truth: a local stdio host can set a wallet key,
+   * while the public HTTPS endpoint holds no wallet at all and can only tell
+   * the caller to pay with its own x402 client.
+   */
+  readonly noPayerHint?: string;
 }
 
 interface ToolRequest {
@@ -289,7 +302,8 @@ function paymentGuidance(ctx: McpContext, tool: string, status: number, body: un
     `${tool} requires payment (HTTP ${status}).`,
     ctx.canPay
       ? 'A payer wallet is configured but the payment was not accepted — see the challenge below (check balance/network).'
-      : 'No payer wallet is configured for this MCP server. Set WEBCAP_MCP_WALLET_KEY (or X402_CUSTOMER_PRIVATE_KEY) to a funded Base-mainnet USDC key to auto-pay, or pay with your own x402 client.',
+      : (ctx.noPayerHint ??
+        'No payer wallet is configured for this MCP server. Set WEBCAP_MCP_WALLET_KEY (or X402_CUSTOMER_PRIVATE_KEY) to a funded Base-mainnet USDC key to auto-pay, or pay with your own x402 client.'),
     'The x402 v2 challenge is included below: sign a gasless EIP-3009 transferWithAuthorization for accepts[0] and retry with the PAYMENT-SIGNATURE header.',
     JSON.stringify(body, null, 2),
   ].join('\n');

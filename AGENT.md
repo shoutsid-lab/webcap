@@ -16,6 +16,11 @@ Returns every paid endpoint with exact prices, the network/asset/`payTo`,
 the facilitator, and the exact payment flow (`howToPay`). Also free:
 - `GET /.well-known/x402` + `GET /.well-known/agent-card.json`: machine discovery.
 - `GET /openapi.json`: full OpenAPI 3.1 catalog (incl. the 402 challenge schema).
+- `POST /mcp`: a remote **MCP (Streamable HTTP)** endpoint, so an MCP host can
+  wire webcap with no install: `{"mcpServers":{"webcap":{"url":"https://<webcap-url>/mcp"}}}`.
+  JSON-RPC 2.0 (`initialize`, `tools/list`, `tools/call`). Free tools run here;
+  the endpoint holds no wallet, so a paid tool returns the x402 402 challenge
+  for you to settle with your own client. `GET /mcp` is 405 by design.
 - `GET /v1/og?url=...`: OG metadata (title, description, image, icon).
 - `GET /v1/extract/preview?url=...`: a bounded structured preview (title, top
   headings, links, word count, trimmed markdown). Rate-limited 10/min/peer IP;

@@ -222,6 +222,7 @@ POST /v1/x402/watches/topup
 - POST /v1/x402/trial/analyze {"url", "task", "payer", "signature"} — FREE deterministic analysis, one per wallet; message endpoint "analyze"; task: classification|accessibility|layout|entities|sentiment
 - Trial messages are endpoint-bound: "Claim one free webcap trial {endpoint} for <payer>" with <payer> your lowercase 0x address (the legacy capture-only message still works for the capture trial). A repeat claim answers 409 with a paidNext pointer + the remaining list. Video has no trial (scroll-capture compute) — the capture trial is its free sample.
 - Tool manifests for framework wiring: ${config.publicBaseUrl}/.well-known/openai-tools.json (OpenAI functions shape) and ${config.publicBaseUrl}/.well-known/mcp-tools.json (MCP tools/list shape + the HTTPS endpoint per tool). Agent card (A2A v1.0): ${config.publicBaseUrl}/.well-known/agent-card.json.
+- Remote MCP endpoint (no install, no package, no account): POST ${config.publicBaseUrl}/mcp — Streamable HTTP, JSON-RPC 2.0 (initialize, tools/list, tools/call). Point an MCP host at it: {"mcpServers":{"webcap":{"url":"${config.publicBaseUrl}/mcp"}}}. Free tools run directly; this endpoint holds no wallet, so a paid tool call returns the live x402 402 challenge for you to settle with your own client.
 - GET /v1/og?url=… — Open Graph metadata (title, description, image, icon)
 - POST /v1/watches — create a scheduled re-capture watch (free; starts with 0 credits — top up via /v1/x402/watches/topup)
 - GET /v1/watches/:id — watch state + recent runs · DELETE /v1/watches/:id — remove it
@@ -336,6 +337,8 @@ Base URL: ${config.publicBaseUrl}
 | Bearer-token rail (no signing key): register once, fund with a USDC transfer, then call with "Authorization: Bearer \<key\>" | POST /v1/register {"address"} → {apiKey}; POST /v1/invoice → {merchant, token, requiredUsdc}; then POST /v1/extract, POST /v1/audit, POST /v1/map-lite, POST /v1/video, POST /v1/analyze, POST /v1/analyze/batch, POST /v1/watches/{id}/topup (100-run pack) | 1 credit/call, watch packs at x402 parity, refunded on non-200; empty balance 402s with a top-up invoice |
 
 Machine-readable catalog: ${config.publicBaseUrl}/v1/x402/service · Full spec: ${config.publicBaseUrl}/openapi.json · Tool manifests: ${config.publicBaseUrl}/.well-known/openai-tools.json + ${config.publicBaseUrl}/.well-known/mcp-tools.json · Agent card: ${config.publicBaseUrl}/.well-known/agent-card.json
+
+Remote MCP endpoint (no install): POST ${config.publicBaseUrl}/mcp — Streamable HTTP, JSON-RPC 2.0 (initialize, tools/list, tools/call). Free tools run there directly; the endpoint holds no wallet, so a paid tool returns the x402 402 challenge for your own client to settle.
 
 ## Quick start (Node.js, @x402/axios)
 

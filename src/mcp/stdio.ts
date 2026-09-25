@@ -30,7 +30,7 @@ import axios, { type AxiosResponse } from 'axios';
 import { x402Client, wrapAxiosWithPayment } from '@x402/axios';
 import { ExactEvmScheme } from '@x402/evm';
 import { privateKeyToAccount } from 'viem/accounts';
-import { handleRpc, type McpHttp, type McpResponse } from './server.js';
+import { handleRpc, MCP_SERVER_VERSION, type McpHttp, type McpResponse } from './server.js';
 
 const DEFAULT_BASE_URL = 'https://webcap.shoutsid.fyi';
 const TIMEOUT_MS = 120_000;
@@ -96,7 +96,7 @@ async function main(): Promise<void> {
     },
   };
 
-  const ctx = { baseUrl: base, version: '0.1.0', http, canPay: paying !== undefined, ...(creditKey !== undefined ? { creditKey } : {}) };
+  const ctx = { baseUrl: base, version: MCP_SERVER_VERSION, http, canPay: paying !== undefined, ...(creditKey !== undefined ? { creditKey } : {}) };
   log(
     `webcap MCP server ready (base ${base}, paid ${paying !== undefined ? 'wallet' : creditKey !== undefined ? 'account-credits' : 'return-402'})`,
   );

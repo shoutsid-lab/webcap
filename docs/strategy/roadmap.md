@@ -4,9 +4,10 @@ Sequenced by one question: **what most increases settled paid calls from
 autonomous agents?** Read `docs/strategy/agent-first.md` first — that charter
 defines the customer and the rules; this file only sequences the work.
 
-Evidence baseline (refreshed 2026-09-23): discovery solved, demand ~zero, 1
-lifetime paid call ($0.01), 3 trial claims, 0 active watches. See the charter
-for the full table.
+Evidence baseline (refreshed 2026-09-25): discovery solved, demand ~zero, 1
+lifetime paid call ($0.01, external payer), 6 trial claims (one is our dogfood
+wallet and three look like our own harness, so read the number as inflated), 0
+active watches. See the charter for the full table.
 
 ---
 
@@ -44,6 +45,16 @@ The product already has excellent agent surfaces; one operational gap remains.
       30-day no-settlement rule delists them around 2026-10-14 / 2026-10-05.
       *Remaining: fund a **non-merchant** payer wallet (≥$0.001 USDC on Base) and
       settle one call at the current origin — see `artifacts/PROOF.md`.*
+      Verified 2026-09-25: `state/webcap-keepalive.state` reports
+      `settlementOutcome: "failed"` and `bazaarIndexedForHost: "0"`; the
+      merchant wallet `0xB25572D7317eb98EBb39c45Da40eAAEA2A56c25e` holds 0.01
+      USDC and 0 ETH on Base, while the payer configured for
+      `scripts/x402-pay.ts` (`X402_CUSTOMER_PRIVATE_KEY`,
+      `0xBAc4987c4Bc949f0B2833b6BC7C5B9F7b5B9757B`) holds 0 USDC and 0 ETH.
+      `scripts/x402-pay.ts` is gasless: the payer signs an EIP-3009
+      authorization and the facilitator submits it and pays gas, so the payer
+      needs USDC only, no ETH. Funding that payer wallet with a few cents of
+      USDC on Base is therefore the whole remaining step.
       *Acceptance: `logs/` shows green re-assertion for the current host.*
 
 ## Phase 1 — The first paying agent loop
@@ -57,9 +68,44 @@ Goal: one funded agent, calling unattended, more than once.
       tarball is 333 kB / 250 files (was 20 MB / 582 — a `files` whitelist),
       `npm run build` copies `dist/db/schema.sql` so `node dist/main.js` boots
       (previously the Dockerfile patched that by hand), and an installed tarball
-      passes a real MCP handshake. Remaining: publish under a **scoped** name
-      (unscoped `webcap` is taken on npm by an unrelated package) and register
-      with the MCP registry / agent-tool directories — needs npm auth.
+      passes a real MCP handshake.
+      Shipped and verified live 2026-09-25: a remote **Streamable-HTTP MCP
+      endpoint at `POST /mcp`** (`src/mcp/http.ts`, registered in `buildApp`).
+      An MCP host points at the URL with no install, no package, no account:
+      `{"mcpServers":{"webcap":{"url":"https://webcap.shoutsid.fyi/mcp"}}}`.
+      Verified against the running container: `initialize` echoes the requested
+      revision, `tools/list` returns all 11 tools, a free tool executes for
+      real (`webcap_preview` returned example.com's title), a notification-only
+      body answers `202`, and a paid tool returns the live x402 402 challenge
+      (payTo, `10000` units, and a pointer to pay over HTTPS) because the
+      endpoint holds no wallet of its own. `GET /mcp` is 405 with `Allow: POST`
+      on purpose: the server never opens a server-initiated SSE stream, and
+      advertising one would be a surface that lies.
+      Every surface agrees: `openapi.json` (75 paths), the
+      `/.well-known/mcp-tools.json` manifest (a new `mcp` block), `llms.txt`,
+      `skill.md`, `AGENT.md` and the README. `server.json` is committed for the
+      official MCP Registry, carrying a `streamable-http` `remotes` entry and no
+      `packages` (the npm path is not published, so claiming a package would be
+      a lie); it is validated against the registry's published schema, and
+      `tests/unit/mcp-registry-manifest.test.ts` pins its name, version,
+      100-character description limit and the remote path the app serves. The
+      registry accepts remote servers, so publishing no longer strictly needs an
+      npm token.
+      Measurable, as rule 3 requires: MCP calls land in `endpoint_hits` with the
+      caller's user agent (`POST /mcp` plus the nested paid route's 402), and
+      the caller's address is forwarded into the nested request so free-tool
+      budgets stay per caller instead of collapsing into one shared loopback
+      bucket (`tests/api/mcp-http.test.ts`, verified to fail without that
+      forwarding). `BrickBlueBot` had already probed `POST /mcp` 6x against the
+      404 while it was still source-only, which is the one piece of evidence
+      that an agent wanted this before it existed.
+      Still open: the npm token in `~/.npmrc` is expired (`npm whoami` returns
+      401), so the stdio/npm distribution path stays unpublished, and the
+      registry publish itself has not been run (it needs an interactive
+      `mcp-publisher login github`).
+      Remaining: publish the scoped npm package (unscoped `webcap` is taken by
+      an unrelated package) and register with the MCP registry / agent-tool
+      directories.
       *Acceptance: a third-party agent runtime can wire webcap without reading
       our docs.*
 - [~] **Shorten trial → first pay.** Shipped: every free surface now hands
@@ -71,8 +117,12 @@ Goal: one funded agent, calling unattended, more than once.
       previously got `available: []` and nothing else. The five trial receipts,
       the 409 and the 429s carry `howToPay` too. A test pins the advertised
       prices to the live 402 challenge so the two cannot drift.
-      Remaining: a prepaid **credit pack** an operator can buy once and let the
-      agent spend without re-signing per call.
+      Shipped: the prepaid **credit pack** an operator can buy once and let the
+      agent spend without re-signing per call. `POST /v1/invoice` returns the
+      named pack plus `credits` and `requiredUsdc` (starter 100 credits/$0.50,
+      pro 1,000/$3, max 10,000/$12; `PACKS` in `src/config/pricing.ts`), and
+      card checkout sells the same packs (`CREDIT_PACKS` in
+      `src/server/stripe-routes.ts`).
       *Acceptance: ≥1 wallet with a `revenue_ledger` row that previously
       appears in `trial_claims`.*
 - [x] **Sell document, not chrome.** The paid extract used to walk the whole

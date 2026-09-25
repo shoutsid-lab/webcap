@@ -25,6 +25,7 @@ import { accountPaths } from './openapi/paths-accounts.js';
 import { billingPaths } from './openapi/paths-billing.js';
 import { freePaths } from './openapi/paths-free.js';
 import { jobsPaths } from './openapi/paths-jobs.js';
+import { mcpPaths } from './openapi/paths-mcp.js';
 import { mlPaths } from './openapi/paths-ml.js';
 import { webPaths } from './openapi/paths-web.js';
 import { x402Paths } from './openapi/paths-x402.js';
@@ -100,6 +101,9 @@ export async function openapiDocument(config: WebcapConfig): Promise<OpenapiDocu
       ...accountPaths(config, ctx),
       ...billingPaths(ctx),
       ...jobsPaths(config, ctx),
+      // Appended last on purpose: every pre-existing path keeps its key order,
+      // so the generated JSON for them is unchanged by this addition.
+      ...mcpPaths(config, ctx),
     },
     components: {
       // Every operation declares its auth mode: `apiKey` for the API-key

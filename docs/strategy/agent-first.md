@@ -42,31 +42,47 @@ in a marketing deck.
 
 These are the numbers at takeover (2026-09-22), read from the live container's
 `/data/webcap.db` and `/v1/status`. They are the reason this charter exists.
-Evidence refreshed 2026-09-23 — the shape has not changed (second column).
+Evidence refreshed 2026-09-23 and again 2026-09-25; the shape has not changed
+(third column).
 
-| Signal | Takeover | 2026-09-23 | Meaning |
-|---|---|---|---|
-| Lifetime endpoint hits | 52,066 | 58,927 | Discovery is **not** the bottleneck |
-| Lifetime paid calls | **1** (`revenue_ledger`) | **1** | Income is ~zero |
-| Lifetime revenue | **$0.01** USDC (`revenue_ledger`) | **$0.01** | One $0.01 extract on 2026-09-14 |
-| Stripe payments / invoices | 0 / 0 | 0 / 0 | Card rail unused |
-| Trial claims | 2 (1 capture, 1 extract) | 3 | Trials are almost untouched |
-| Watches active | 0 | 0 | The recurring rail has no demand |
-| `POST /v1/x402/capture` hits | 11,099 of 11,348 are `402` | 11,141 of 11,142 are `402` | Probed constantly, paid ~never |
-| Capture probe rate (7d) | steady ~720/day | ~749/day | A **monitoring heartbeat**, not customers |
-| Extract probe rate (7d) | — | ~586/day `402` | Newer probe interest, same non-payment |
-| Human landing funnel (24h) | 14 views → 0 previews | — (dead path, no longer tracked) | The human path is dead |
-| Waitlist | 2 emails | 2 emails | Human signups are noise |
+| Signal | Takeover | 2026-09-23 | 2026-09-25 | Meaning |
+|---|---|---|---|---|
+| Lifetime endpoint hits | 52,066 | 58,927 | 68,133 | Discovery is **not** the bottleneck |
+| Lifetime paid calls | **1** (`revenue_ledger`) | **1** | **1** | Income is ~zero |
+| Lifetime revenue | **$0.01** USDC (`revenue_ledger`) | **$0.01** | **$0.01** | One $0.01 extract on 2026-09-14 |
+| Stripe payments / invoices | 0 / 0 | 0 / 0 | 0 / 3 (all dev account, expired) | Card rail unused |
+| Trial claims | 2 (1 capture, 1 extract) | 3 | 6 (mostly our own harness) | Trials are almost untouched |
+| Watches active | 0 | 0 | 0 | The recurring rail has no demand |
+| `POST /v1/x402/capture` hits | 11,099 of 11,348 are `402` | 11,141 of 11,142 are `402` | 12,363 of 12,363 are `402` | Probed constantly, paid ~never |
+| Capture probe rate (7d) | steady ~720/day | ~749/day | ~733/day | A **monitoring heartbeat**, not customers |
+| Extract probe rate (7d) | — | ~586/day `402` | ~589/day `402` | Newer probe interest, same non-payment |
+| Human landing funnel (24h) | 14 views → 0 previews | — (dead path, no longer tracked) | — (dead path, no longer tracked) | The human path is dead |
+| Waitlist | 2 emails | 2 emails | 2 emails | Human signups are noise |
 
-Clients seen in `endpoint_hits.user_agent` (7d to 2026-09-23): `CarbonMonitor/0.1`
+The single lifetime paid call is `revenue_ledger` row id 8: payer
+`0xe3Badbd4f38214b9Eae528a1a5398f6678f63fB3`, endpoint `extract`, 10,000 USDC
+units = **$0.01**, created 2026-09-14T19:53:05Z. That payer is not the merchant
+wallet (`0xB25572...`), not `X402_CUSTOMER_PRIVATE_KEY` (`0xBAc498...`) and not
+`X402_DOGFOOD_PRIVATE_KEY` (`0xDC879f...`), so the "1 lifetime paid call" is a
+genuinely external, if tiny, customer signal. Of the 6 `trial_claims` rows, one
+(`0xdc879f...`) is our own dogfood wallet, and three land inside one second on
+2026-09-24 (04:56:36.730Z, 04:56:37.268Z, 04:56:37.594Z, sweeping
+audit/extract/capture), the signature of our own `node` harness rather than
+three independent agents. Six therefore overstates genuine external trial
+interest. The 3 `invoices` rows all belong to account_id 2, the hardhat dev
+account `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`; their status is `open`
+but they are long expired, so they are not customer invoices.
+
+Clients seen in `endpoint_hits.user_agent` (7d to 2026-09-25): `CarbonMonitor/0.1`
 healthcheck, `402explorer/0.1`, `x402-observer/1.0`, `x402-census-probe/2.1`,
 `forum-labs-trust-prober/1.0`, `hermes-contact-discovery/1.0`,
 `enclave402/verifier`, `x402watch/1`, `dexter-api/x402-schema-fetcher`,
-`Dexter-Verifier/1.0`, `mako-pulse-prober/0.1`, `BrickBlueBot/0.1` (agentic-web
-registry), `x402-client/1.0`, `x402-reliability-probe/1.0`, plus `curl`/`node`.
-Every named client is a discovery/trust **crawler**, not a paying agent —
-with two footnotes: `x402-client/1.0` probed `POST /v1/x402/extract` 15x (402,
-never paid) and `BrickBlueBot` POSTed `/` 16x (405s), which is why `POST /`
+`Dexter-Verifier/1.0`, `mako-pulse-prober/0.1`, `litebeam/0.4.1`
+registry-sync, `BrickBlueBot/0.1` (agentic-web registry), `x402-client/1.0`,
+`x402-reliability-probe/1.0`, plus `curl`/`node`.
+Every named client is a discovery/trust **crawler**, not a paying agent,
+with two footnotes: `x402-client/1.0` probed `POST /v1/x402/extract` 42x (402,
+never paid) and `BrickBlueBot` POSTed `/` 91x (405s), which is why `POST /`
 now answers 405 in the error envelope with a catalog pointer instead of the
 framework default.
 
@@ -150,13 +166,18 @@ change of agent, human, or mood.
     (hundreds of 402s/day that never pay) is false progress. Verify it still
     works, then ignore it.
 
-**Open risk (flagged, not silently changed):** the 402 challenge served on a
-`GET` probe advertises `info.input.method = "GET"`, while the only payable verb
-is `POST`. The behaviour is deliberate and covered by
-`tests/e2e/x402.capture.test.ts` ("GET 402 method parity"). It is a real risk
-that a machine-readable directory could teach an agent to replay `GET` forever.
-Any fix must preserve x402 spec compliance and the header/body invariant, and
-must update that test with an explicit rationale.
+**Resolved (2026-09-25, previously flagged):** the 402 challenge served on a
+`GET` probe once advertised `info.input.method = "GET"` while only `POST` was
+registered and payable, which could teach a machine-readable directory to
+replay `GET` forever. Every paid route now serves both forms from one handler:
+`registerPaidRoute` in `src/server/query-body.ts` registers `app.post(path,
+handler)` and `app.get(path, { exposeHeadRoute: false, preValidation:
+bodyFromQuery }, handler)`, so the advertised method matches the verb actually
+served and payable (`exposeHeadRoute: false` keeps `HEAD` unserved because it
+is not in the route table). The live extract 402 now reports
+`extensions.bazaar.info.input.method = "GET"` with a working GET route behind
+it. The invariant is pinned by `tests/api/paid-get.test.ts` and
+`tests/e2e/x402.get-form.test.ts`.
 
 ---
 

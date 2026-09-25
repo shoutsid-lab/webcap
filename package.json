@@ -29,7 +29,8 @@
     ".env.example",
     "AGENT.md",
     "Dockerfile",
-    "docker-compose.yml"
+    "docker-compose.yml",
+    "server.json"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/copy-assets.mjs",

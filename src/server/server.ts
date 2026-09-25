@@ -18,6 +18,7 @@ import { registerWatchRoutes } from './watches.js';
 import { registerMLRoutes } from './ml-routes.js';
 import { registerStatusRoute } from './status.js';
 import { registerAgentFunnelRoute } from './agent-funnel.js';
+import { registerMcpHttpRoute } from '../mcp/http.js';
 import { registerStripeRoutes } from './stripe-routes.js';
 import { registerX402Middleware } from './x402.js';
 import { registerMppChallengeHook } from '../mpp/plugin.js';
@@ -94,6 +95,10 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   registerVideoRoute(app, { db: deps.db, config: deps.config, captureAllowHosts: deps.captureAllowHosts });
   registerDiscoveryRoutes(app, deps);
   registerAgentSurfaces(app, deps.config);
+  // The remote MCP transport: an MCP host can point at POST /mcp with no
+  // install and no registry package. It holds no wallet, so paid tools answer
+  // the x402 challenge for the caller to settle.
+  registerMcpHttpRoute(app, deps.config);
   registerWatchRoutes(app, deps);
   registerMLRoutes(app, deps);
   registerStatusRoute(app, deps);
