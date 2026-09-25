@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { closeApiFixture, CUSTOMER_ADDRESS, makeApiFixture } from './fixture.js';
+import { serviceTools } from '../../src/server/tool-catalog.js';
 
 /**
  * Strict XML well-formedness check for the (flat) sitemap document: single root
@@ -218,21 +219,28 @@ describe('GET /.well-known/x402 + GET /.well-known/agent-card.json (machine disc
     }
   });
 
-  it('tool manifests: openai-tools + mcp-tools 200 JSON, nine tools each naming an HTTPS endpoint', async () => {
+  it('tool manifests: openai-tools + mcp-tools 200 JSON, every catalog tool each naming an HTTPS endpoint', async () => {
     const fx = makeApiFixture();
     try {
+      // Derived, not typed: the manifests used to list 9 free tools and no paid
+      // product at all, so the number here is the shared catalog's own length.
+      const canonical = serviceTools(fx.config);
+      expect(canonical.length).toBeGreaterThan(9);
       for (const path of ['/.well-known/openai-tools.json', '/.well-known/mcp-tools.json']) {
         const res = await fx.app.inject({ method: 'GET', url: path });
         expect(res.statusCode).toBe(200);
         expect(String(res.headers['content-type'])).toContain('application/json');
         const body = res.json() as { tools: Array<{ endpoint?: { path: string }; function?: { name: string }; name?: string }> };
-        expect(body.tools.length).toBe(9);
+        expect(body.tools.length).toBe(canonical.length);
         for (const tool of body.tools) {
           expect(tool.endpoint?.path ?? '').toContain('/v1/');
         }
         const names = body.tools.map((t) => t.function?.name ?? t.name ?? '');
         expect(names).toContain('webcap_trial_status');
         expect(names).toContain('webcap_quick_thumbnail');
+        // The paid products must be discoverable from the manifest too.
+        expect(names).toContain('webcap_extract');
+        expect(names).toContain('webcap_capture');
       }
     } finally {
       await closeApiFixture(fx);

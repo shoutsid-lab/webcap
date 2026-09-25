@@ -4,7 +4,9 @@
  * WebcapConfig (no Fastify); served by the routes in ./discovery.ts.
  */
 import { USDC_SCALE, WATCH_TOPUP_RUNS, watchTopUpPriceUsdcUnits, type ChainName, type WebcapConfig } from '../config.js';
+import { MCP_SERVER_VERSION } from '../mcp/server.js';
 import { ownershipProof } from './openapi/ownership.js';
+import { serviceTools } from './tool-catalog.js';
 
 /** Public paths advertised in the sitemap (the stable service surface). */
 const SITEMAP_PATHS = [
@@ -151,7 +153,10 @@ export async function agentCard(config: WebcapConfig) {
     url: base,
     supportedInterfaces: [{ url: base, protocolBinding: 'HTTP+JSON', protocolVersion: '1.0' }],
     iconUrl: `${base}/icon.png`,
-    version: '1.1.0',
+    // The agent's own version, which is the service version: /v1/status,
+    // MCP initialize and the npm package all report this same number, and a
+    // card that disagrees with the service is a surface that lies.
+    version: MCP_SERVER_VERSION,
     provider: { organization: 'webcap', url: 'https://github.com/shoutsid-lab/webcap' },
     documentationUrl: `${base}/skill.md`,
     capabilities: { streaming: false, pushNotifications: false },
@@ -228,50 +233,24 @@ export async function agentCard(config: WebcapConfig) {
   };
 }
 
-/** Prompt-friendly tool definitions (OpenAI functions shape) for copy-paste agent wiring. */
+/**
+ * Prompt-friendly tool definitions (OpenAI functions shape) for copy-paste agent
+ * wiring. Derived from the canonical catalog, so it lists every capability an
+ * agent can call — free and paid — instead of hiding the products we sell.
+ */
 export function openaiTools(config: WebcapConfig) {
   const base = httpsBase(config.publicBaseUrl);
-  const urlParam = { type: 'object', properties: { url: { type: 'string', description: 'Target page URL (https)' } }, required: ['url'] };
-  const claimParams = {
-    type: 'object',
-    properties: {
-      url: { type: 'string', description: 'Target page URL (https)' },
-      payer: { type: 'string', description: 'Your lowercase 0x EVM address' },
-      signature: {
-        type: 'string',
-        description:
-          'EIP-191 personal_sign of exactly "Claim one free webcap trial {endpoint} for {payer}" (e.g. endpoint "extract"). One claim per wallet per endpoint; second claim answers 409 with a paidNext pointer.',
-      },
-    },
-    required: ['url', 'payer', 'signature'],
-  };
-  const fn = (name: string, description: string, parameters: unknown, path: string) => ({
-    type: 'function',
-    endpoint: { method: name === 'webcap_preview' || name === 'webcap_og' || name === 'webcap_trial_status' || name === 'webcap_quick_thumbnail' ? 'GET' : 'POST', path },
-    function: { name, description, parameters },
-  });
   return {
     format: 'openai-functions',
     name: 'webcap',
     baseUrl: base,
     openapi: `${base}/openapi.json`,
     skill: `${base}/skill.md`,
-    tools: [
-      fn('webcap_preview', 'Free bounded structured preview of a URL (title, headings, links, truncated markdown).', urlParam, '/v1/extract/preview?url=...'),
-      fn('webcap_og', 'Free Open Graph metadata for a URL.', urlParam, '/v1/og?url=...'),
-      fn(
-        'webcap_trial_status',
-        'Which free trials a wallet claimed / can still claim, the exact claim recipe, and the priced paid catalog with how to pay (x402) once the free calls are used.',
-        { type: 'object', properties: { payer: { type: 'string', description: 'Lowercase 0x address to look up' } }, required: ['payer'] },
-        '/v1/x402/trial/status?payer=...',
-      ),
-      fn('webcap_trial_claim_capture', 'Free full PNG capture trial (one per wallet).', claimParams, '/v1/x402/trial'),
-      fn('webcap_trial_claim_extract', 'Free single-URL structured extraction trial (one per wallet; no schema/model/batch).', claimParams, '/v1/x402/trial/extract'),
-      fn('webcap_trial_claim_audit', 'Free single-URL SEO + link/OG health audit trial (one per wallet).', claimParams, '/v1/x402/trial/audit'),
-      fn('webcap_trial_claim_map_lite', 'Free site-map trial, capped at 10 URLs (one per wallet).', claimParams, '/v1/x402/trial/map-lite'),
-      fn('webcap_trial_claim_analyze', 'Free deterministic single-URL visual analysis trial (one per wallet; model-backed analysis stays paid).', claimParams, '/v1/x402/trial/analyze'),
-      fn('webcap_quick_thumbnail', 'No-wallet free JPEG thumbnail (3/day per IP; full trials need a wallet signature).', urlParam, '/v1/x402/trial/quick?url=...'),
-    ],
+    tools: serviceTools(config).map((t) => ({
+      type: 'function',
+      endpoint: { method: t.method, path: t.path },
+      function: { name: t.name, description: t.description, parameters: t.inputSchema },
+    })),
   };
 }
 
@@ -286,7 +265,7 @@ export function mcpTools(config: WebcapConfig) {
   }));
   return {
     format: 'mcp-tools-list',
-    server: { name: 'webcap', version: '1.1.0', url: base, openapi: `${base}/openapi.json`, skill: `${base}/skill.md` },
+    server: { name: 'webcap', version: MCP_SERVER_VERSION, url: base, openapi: `${base}/openapi.json`, skill: `${base}/skill.md` },
     // The remote transport, so a host that speaks MCP can wire webcap with no
     // install: point it at this URL and it gets the same tool set as the
     // npm/stdio server. It holds no wallet, so paid tools answer the 402
@@ -299,6 +278,50 @@ export function mcpTools(config: WebcapConfig) {
     },
     payment: 'Paid endpoints settle gasless USDC via x402 (HTTP 402); every 409/402 response carries a paidNext pointer.',
     tools,
+  };
+}
+
+/**
+ * The MCP server descriptor at GET /.well-known/mcp.json.
+ *
+ * Requested by registry crawlers, notably BrickBlueBot (agentic-web registry),
+ * which probed this exact path six times and got a 404: it reads descriptor
+ * files to learn where a service's MCP endpoint is, instead of only guessing
+ * endpoint paths. There is no ratified schema for this path, so this document
+ * carries the fields such a reader needs and nothing it would have to
+ * interpret: the transport and its URL, how authentication and payment work,
+ * and pointers to the tool manifest and the registry listing. The tool list
+ * itself is by reference on purpose, so there is one place it can drift.
+ */
+export function mcpDescriptor(config: WebcapConfig) {
+  const base = httpsBase(config.publicBaseUrl);
+  return {
+    name: 'webcap',
+    title: 'webcap',
+    version: MCP_SERVER_VERSION,
+    description: 'Screenshot, extract or audit any URL, paid per call in USDC over x402.',
+    transports: [{ type: 'streamable-http', url: `${base}/mcp`, method: 'POST' }],
+    authentication: {
+      type: 'none',
+      note: 'Free tools need no credential, account or API key. Paid tools settle per call over x402.',
+    },
+    payment:
+      config.x402Network === undefined
+        ? { protocol: 'x402', enabled: false, note: 'x402 disabled on this deployment' }
+        : {
+            protocol: 'x402',
+            network: config.x402Network,
+            asset: config.x402Asset,
+            payTo: config.x402PayTo,
+            note: 'HTTP 402 carries the challenge; the caller signs a gasless EIP-3009 authorization and retries.',
+          },
+    tools: `${base}/.well-known/mcp-tools.json`,
+    openapi: `${base}/openapi.json`,
+    skill: `${base}/skill.md`,
+    registry: {
+      name: 'io.github.shoutsid-lab/webcap',
+      discovery: 'https://registry.modelcontextprotocol.io/v0/servers?search=webcap',
+    },
   };
 }
 

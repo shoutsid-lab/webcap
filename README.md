@@ -122,10 +122,21 @@ there.) The npm release will be `@shoutsid/webcap` — the unscoped
 `webcap` name belongs to an unrelated package, and it is not published yet —
 so until then the remote endpoint above is the install-free option.
 
-Tools: `webcap_preview`, `webcap_og`,
-`webcap_service`, `webcap_health`, `webcap_agent_funnel` (free) and
-`webcap_capture`, `webcap_extract`, `webcap_audit`, `webcap_map_lite`,
-`webcap_video`, `webcap_analyze` (paid).
+Tools, all 18 of them (every one is also in
+`/.well-known/openai-tools.json` and `/.well-known/mcp-tools.json`):
+
+- Discovery, free: `webcap_preview`, `webcap_og`, `webcap_service`,
+  `webcap_health`, `webcap_agent_funnel`
+- Free trial rail, one claim per wallet per endpoint:
+  `webcap_trial_status`, `webcap_trial_claim_capture`,
+  `webcap_trial_claim_extract`, `webcap_trial_claim_audit`,
+  `webcap_trial_claim_map_lite`, `webcap_trial_claim_analyze`,
+  `webcap_quick_thumbnail` (no wallet needed)
+- Paid: `webcap_capture`, `webcap_extract`, `webcap_audit`, `webcap_map_lite`,
+  `webcap_video`, `webcap_analyze`
+
+The trial tools are the point: an agent can claim one real extraction, audit or
+capture for free before it spends anything.
 
 ### Capture a screenshot
 

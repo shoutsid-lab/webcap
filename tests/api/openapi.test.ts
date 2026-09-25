@@ -484,6 +484,8 @@ describe('mppscan/x402gle discovery metadata', () => {
     // The remote MCP transport: public like every other free op, and it holds
     // no wallet — a paid tool call returns the challenge for the caller to pay.
     ['post', '/mcp'],
+    // The MCP server descriptor a registry crawler reads instead of guessing.
+    ['get', '/.well-known/mcp.json'],
   ];
 
   // The paid x402 ops: no security requirement — the auth mode is the
@@ -632,10 +634,10 @@ describe('mppscan/x402gle discovery metadata', () => {
     }
   });
 
-  it('declares security: [] on every free/public op (the explicit 33-list)', async () => {
+  it('declares security: [] on every free/public op (the explicit 34-list)', async () => {
     const fx = makeApiFixture();
     try {
-      expect(FREE_OPS.length).toBe(33);
+      expect(FREE_OPS.length).toBe(34);
       const res = await getDoc(fx.app);
       const doc = res.json() as OpenapiDocView;
       for (const [method, path] of FREE_OPS) {

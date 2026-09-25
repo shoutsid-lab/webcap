@@ -13,7 +13,7 @@ import { isRecord } from './capture-parse.js';
 import type { AppDeps } from './server.js';
 import { landingHtml, compareHtml, quickstartHtml, buyHtml, artifactPageHtml, transparencyHtml, type TransparencyStats } from './pages.js';
 import { openapiDocument } from './openapi.js';
-import { agentCard, frontDoorPayload, mcpTools, openaiTools, sitemapXml, x402WellKnown } from './catalogs.js';
+import { agentCard, frontDoorPayload, mcpDescriptor, mcpTools, openaiTools, sitemapXml, x402WellKnown } from './catalogs.js';
 
 export function registerDiscoveryRoutes(app: FastifyInstance, deps: AppDeps): void {
   const { config, artifacts } = deps;
@@ -158,6 +158,14 @@ export function registerDiscoveryRoutes(app: FastifyInstance, deps: AppDeps): vo
     reply.header('content-type', 'application/json; charset=utf-8');
     reply.header('cache-control', 'public, max-age=300');
     return reply.send(mcpTools(config));
+  });
+
+  // The MCP server descriptor. Registry crawlers read this path to learn where
+  // the endpoint is; BrickBlueBot asked for it six times and got a 404.
+  app.get('/.well-known/mcp.json', async (_req, reply) => {
+    reply.header('content-type', 'application/json; charset=utf-8');
+    reply.header('cache-control', 'public, max-age=300');
+    return reply.send(mcpDescriptor(config));
   });
 
   // 402index domain-ownership proof: the SHA-256 of the registry's claim token,

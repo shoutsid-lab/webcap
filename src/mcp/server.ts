@@ -82,6 +82,92 @@ function required(args: Record<string, unknown>, key: string, tool: string): str
 
 const URL_PROP = { url: { type: 'string', description: 'Absolute http(s) URL to fetch' } } as const;
 
+/**
+ * A free trial claim is wallet-signed: `signature` is the EIP-191 personal_sign
+ * of the endpoint-bound message, so the caller proves the address it is
+ * claiming for. One claim per wallet per endpoint.
+ */
+const CLAIM_PROP = {
+  payer: { type: 'string', description: 'Your lowercase 0x EVM address' },
+  signature: {
+    type: 'string',
+    description:
+      'EIP-191 personal_sign of exactly "Claim one free webcap trial {endpoint} for {payer}", with {payer} lowercase. A repeat claim answers 409 with a paidNext pointer.',
+  },
+} as const;
+
+/** The free trial rail, one tool per claimable endpoint. */
+const TRIAL_TOOLS: readonly ToolDef[] = [
+  {
+    name: 'webcap_trial_claim_capture',
+    description: 'FREE (one per wallet): a real full PNG screenshot plus its public artifact URL, no payment. Claim it before buying webcap_capture.',
+    inputSchema: { type: 'object', properties: { ...URL_PROP, ...CLAIM_PROP }, required: ['url', 'payer', 'signature'] },
+    free: true,
+    build: (a) => ({
+      method: 'POST',
+      path: '/v1/x402/trial',
+      body: { url: required(a, 'url', 'webcap_trial_claim_capture'), payer: required(a, 'payer', 'webcap_trial_claim_capture'), signature: required(a, 'signature', 'webcap_trial_claim_capture') },
+    }),
+  },
+  {
+    name: 'webcap_trial_claim_extract',
+    description: 'FREE (one per wallet): one real single-URL structured extraction, no payment. Claim it before buying webcap_extract.',
+    inputSchema: { type: 'object', properties: { ...URL_PROP, ...CLAIM_PROP }, required: ['url', 'payer', 'signature'] },
+    free: true,
+    build: (a) => ({
+      method: 'POST',
+      path: '/v1/x402/trial/extract',
+      body: { url: required(a, 'url', 'webcap_trial_claim_extract'), payer: required(a, 'payer', 'webcap_trial_claim_extract'), signature: required(a, 'signature', 'webcap_trial_claim_extract') },
+    }),
+  },
+  {
+    name: 'webcap_trial_claim_audit',
+    description: 'FREE (one per wallet): one real SEO + link/OG audit, no payment. Claim it before buying webcap_audit.',
+    inputSchema: { type: 'object', properties: { ...URL_PROP, ...CLAIM_PROP }, required: ['url', 'payer', 'signature'] },
+    free: true,
+    build: (a) => ({
+      method: 'POST',
+      path: '/v1/x402/trial/audit',
+      body: { url: required(a, 'url', 'webcap_trial_claim_audit'), payer: required(a, 'payer', 'webcap_trial_claim_audit'), signature: required(a, 'signature', 'webcap_trial_claim_audit') },
+    }),
+  },
+  {
+    name: 'webcap_trial_claim_map_lite',
+    description: 'FREE (one per wallet): one real site-map run capped at 10 URLs, no payment.',
+    inputSchema: { type: 'object', properties: { ...URL_PROP, ...CLAIM_PROP }, required: ['url', 'payer', 'signature'] },
+    free: true,
+    build: (a) => ({
+      method: 'POST',
+      path: '/v1/x402/trial/map-lite',
+      body: { url: required(a, 'url', 'webcap_trial_claim_map_lite'), payer: required(a, 'payer', 'webcap_trial_claim_map_lite'), signature: required(a, 'signature', 'webcap_trial_claim_map_lite') },
+    }),
+  },
+  {
+    name: 'webcap_trial_claim_analyze',
+    description: 'FREE (one per wallet): one real deterministic visual analysis, no payment. Model-backed analysis stays paid.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ...URL_PROP,
+        task: { type: 'string', enum: ['classification', 'accessibility', 'layout', 'entities', 'sentiment'], description: 'What to analyze' },
+        ...CLAIM_PROP,
+      },
+      required: ['url', 'task', 'payer', 'signature'],
+    },
+    free: true,
+    build: (a) => ({
+      method: 'POST',
+      path: '/v1/x402/trial/analyze',
+      body: {
+        url: required(a, 'url', 'webcap_trial_claim_analyze'),
+        task: required(a, 'task', 'webcap_trial_claim_analyze'),
+        payer: required(a, 'payer', 'webcap_trial_claim_analyze'),
+        signature: required(a, 'signature', 'webcap_trial_claim_analyze'),
+      },
+    }),
+  },
+];
+
 /** The tool table: one entry per public capability. */
 export const TOOLS: readonly ToolDef[] = [
   {
@@ -128,6 +214,30 @@ export const TOOLS: readonly ToolDef[] = [
       return { method: 'GET', path: `/v1/agent-funnel${hours}` };
     },
   },
+  {
+    name: 'webcap_trial_status',
+    description:
+      'Free per-wallet trial menu: which endpoints a wallet already claimed, which it can still claim, the exact claim recipe, and the priced paid catalog with how to pay (x402) once the free calls are used.',
+    inputSchema: {
+      type: 'object',
+      properties: { payer: { type: 'string', description: 'Lowercase 0x EVM address to look up' } },
+      required: ['payer'],
+    },
+    free: true,
+    build: (a) => ({ method: 'GET', path: `/v1/x402/trial/status?payer=${encodeURIComponent(required(a, 'payer', 'webcap_trial_status'))}` }),
+  },
+  {
+    name: 'webcap_quick_thumbnail',
+    description: 'Free no-wallet JPEG thumbnail (3/day per IP). The full trials need a wallet signature.',
+    inputSchema: { type: 'object', properties: { ...URL_PROP }, required: ['url'] },
+    free: true,
+    build: (a) => ({ method: 'GET', path: `/v1/x402/trial/quick?url=${encodeURIComponent(required(a, 'url', 'webcap_quick_thumbnail'))}` }),
+  },
+  // The trial rail: the free path to a real product, wallet-signed and one
+  // claim per wallet per endpoint. Without these an MCP agent could preview and
+  // pay but never try the thing it is being asked to buy, while the
+  // openai-tools/mcp-tools manifests listed the trials and none of the products.
+  ...TRIAL_TOOLS,
   {
     name: 'webcap_capture',
     description:

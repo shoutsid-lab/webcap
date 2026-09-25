@@ -202,8 +202,9 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
         tags: ['discovery'],
         summary: 'Copy-paste tool definitions for LLM agents (OpenAI functions shape)',
         description:
-          'One tool per free surface (preview, OG, trial status, the five wallet-trial claims, no-wallet thumbnail), ' +
-          'each naming the exact HTTPS endpoint it maps to. Free, no payment.',
+          'One tool per agent-callable capability, free and paid: preview, OG, service catalog, health, agent funnel, ' +
+          'trial status, the five wallet-trial claims, the no-wallet thumbnail, and the six paid products with their ' +
+          'prices. Each entry names the exact HTTPS endpoint it maps to. Free, no payment to read.',
         responses: {
           200: {
             description: 'The tool manifest (application/json; charset=utf-8)',
@@ -223,6 +224,24 @@ export function webPaths(config: WebcapConfig): OpenapiPaths {
         responses: {
           200: {
             description: 'The tool manifest (application/json; charset=utf-8)',
+            content: jsonContent({ type: 'object' }),
+          },
+        },
+        security: [],
+      },
+    },
+    '/.well-known/mcp.json': {
+      get: {
+        tags: ['discovery'],
+        summary: 'MCP server descriptor (transport, auth, payment, registry identity)',
+        description:
+          'The MCP server descriptor: name and version, the streamable-http transport and its URL, how ' +
+          'authentication and payment work, and pointers to the tool manifest, the OpenAPI catalog and the ' +
+          'official MCP Registry listing. Registry crawlers read this path to find the endpoint instead of ' +
+          'guessing endpoint names. Free, no payment.',
+        responses: {
+          200: {
+            description: 'The MCP server descriptor (application/json; charset=utf-8)',
             content: jsonContent({ type: 'object' }),
           },
         },

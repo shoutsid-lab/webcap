@@ -98,7 +98,26 @@ Goal: one funded agent, calling unattended, more than once.
       bucket (`tests/api/mcp-http.test.ts`, verified to fail without that
       forwarding). `BrickBlueBot` had already probed `POST /mcp` 6x against the
       404 while it was still source-only, which is the one piece of evidence
-      that an agent wanted this before it existed.
+      that an agent wanted this before it existed. Its full probe list is worth
+      reading as a spec: it also asked for `GET /.well-known/mcp.json` six times
+      and got a 404, so that descriptor now exists
+      (`src/server/catalogs.ts` -> `mcpDescriptor`), naming the transport, the
+      auth mode, the payment flow and the registry listing. It probed three
+      other endpoint spellings too (`/api/mcp`, `/mcp/v1`, `/sse`); those are
+      deliberately not aliased, because one canonical endpoint plus a descriptor
+      that names it is the honest design, and duplicating routes to reward path
+      guessing would put three more operations in the catalog for no gain.
+
+      The tool catalogs also disagree before this pass and now do not: the two
+      manifests listed 9 tools, all free, and not one paid product, while the
+      MCP server listed 11 including every product and no trial; their
+      intersection was two tools. `src/server/tool-catalog.ts` is now the single
+      source for membership, schemas and endpoints (18 tools: 12 free including
+      the 6-tool trial rail, 6 paid), all three surfaces are derived from it,
+      and `tests/unit/tool-catalog-agreement.test.ts` fails if they drift
+      again. The agent card and mcp-tools manifest also claimed version 1.1.0
+      while `/v1/status`, the package and MCP `initialize` said 0.1.0; there is
+      now one version.
       Published to the official MCP Registry on 2026-09-25, no npm token
       involved: `io.github.shoutsid-lab/webcap` version 0.1.0, status `active`,
       discovered through the registry's own API
