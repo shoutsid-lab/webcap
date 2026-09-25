@@ -99,15 +99,24 @@ Goal: one funded agent, calling unattended, more than once.
       forwarding). `BrickBlueBot` had already probed `POST /mcp` 6x against the
       404 while it was still source-only, which is the one piece of evidence
       that an agent wanted this before it existed.
+      Published to the official MCP Registry on 2026-09-25, no npm token
+      involved: `io.github.shoutsid-lab/webcap` version 0.1.0, status `active`,
+      discovered through the registry's own API
+      (`GET https://registry.modelcontextprotocol.io/v0/servers?search=webcap`)
+      and resolved end to end from that listing to the advertised remote:
+      the registry entry points at `https://webcap.shoutsid.fyi/mcp`, which
+      answers `initialize` (11 tools). `mcp-publisher validate` confirms
+      `server.json` against the live registry, and
+      `tests/unit/mcp-registry-manifest.test.ts` pins the name, version,
+      description limit and that the advertised path answers.
       Still open: the npm token in `~/.npmrc` is expired (`npm whoami` returns
-      401), so the stdio/npm distribution path stays unpublished, and the
-      registry publish itself has not been run (it needs an interactive
-      `mcp-publisher login github`).
+      401), so the stdio/npm distribution path stays unpublished; that is now
+      the only remaining half of this item.
       Remaining: publish the scoped npm package (unscoped `webcap` is taken by
-      an unrelated package) and register with the MCP registry / agent-tool
-      directories.
-      *Acceptance: a third-party agent runtime can wire webcap without reading
-      our docs.*
+      an unrelated package) and register with the agent-tool directories that
+      are not the MCP Registry.
+      *Acceptance: met for the MCP path — any MCP host can wire webcap from the
+      registry listing alone, with no npm token and nothing read from our docs.*
 - [~] **Shorten trial → first pay.** Shipped: every free surface now hands
       over the paid path instead of dead-ending. `GET /v1/x402/trial/status`
       always returns the full priced catalog (`paid`), the x402 payment flow

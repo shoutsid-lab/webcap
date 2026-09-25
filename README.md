@@ -85,6 +85,14 @@ and a paid tool returns the live x402 402 challenge for your own client to
 settle. The endpoint is also described in
 `/.well-known/mcp-tools.json` and `openapi.json`.
 
+It is listed in the official MCP Registry as
+**`io.github.shoutsid-lab/webcap`**, so a runtime that reads the registry can
+discover it without this README:
+
+```bash
+curl -s 'https://registry.modelcontextprotocol.io/v0/servers?search=webcap'
+```
+
 The stdio server runs locally and can settle paid calls itself. The free tools
 need no configuration; set `WEBCAP_MCP_WALLET_KEY` to a Base-mainnet USDC key to
 let the paid tools settle automatically (gasless — the payer signs EIP-3009, the
