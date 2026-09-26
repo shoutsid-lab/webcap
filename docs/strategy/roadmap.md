@@ -138,14 +138,19 @@ Goal: one funded agent, calling unattended, more than once.
       90k+ servers) had already discovered and indexed webcap as a healthy
       remote connector (`io.github.shoutsid-lab/webcap`, 19 tools, last tested
       today) — its crawler probing `/.well-known/glama.json` 21x showed it was
-      checking ownership. webcap is now claimed on Glama: the claim token is
-      wired as `WEBCAP_GLAMA_CLAIM`, served as Glama's connector.json schema
-      at `/.well-known/glama.json` on the connector origin (config-gated, so
-      an unclaimed deployment 404s), verified live over
-      `https://webcap.shoutsid.fyi/.well-known/glama.json`. Two tokens are
-      distinct on purpose: the directory API key is a read credential and
-      stays out of the public file; the claim file holds only the
-      `glama_claim_...` ownership token Glama's schema accepts.
+      checking ownership. webcap is now **claimed and verified** on Glama:
+      the claim token is wired as `WEBCAP_GLAMA_CLAIM`, served as Glama's
+      connector.json schema at `/.well-known/glama.json` on the connector
+      origin (config-gated, so an unclaimed deployment 404s), verified live
+      over `https://webcap.shoutsid.fyi/.well-known/glama.json`. The directory
+      API confirmed it on 2026-09-26 18:39Z: `publisherProfile` is populated
+      (`operatorName shoutsid`, `operatorWebsite webcap.shoutsid.fyi`,
+      `evidenceStatus publisher-declared`, endpointUrl verified), which is the
+      field that is null on unclaimed connectors. Two tokens are distinct on
+      purpose: the directory API key is a read credential and stays out of
+      the public file; the claim file holds only the `glama_claim_...`
+      ownership token Glama's schema accepts. The claim survives Glama's
+      periodic re-crawl as long as the token stays published.
       Remaining: the npm publish and any further directory that is not the
       official MCP Registry or Glama.
       *Acceptance: met for the MCP path — any MCP host can wire webcap from the
