@@ -16,3 +16,4 @@ backups/
 .DS_Store
 coverage/
 .omo/
+*.tgz

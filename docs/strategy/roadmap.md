@@ -26,7 +26,7 @@ The product already has excellent agent surfaces; one operational gap remains.
       Replaces the dead human path (`/v1/funnel`) as the number that matters.
       *Acceptance met: distinct paying wallets and client reach are one request
       away, no SQL.*
-- [~] **Re-register the post-cutover origin.** Listings key on host, so
+- [x] **Re-register the post-cutover origin.** Listings key on host, so
       `webcap.shoutsid.fyi` had to be re-asserted everywhere after the cutover.
       402index re-asserts itself (cron q6h, green 2026-09-23 06:00), x402scan
       was re-registered at cutover (origin `webcap.shoutsid.fyi`, 9 resources,
@@ -36,26 +36,19 @@ The product already has excellent agent surfaces; one operational gap remains.
       one (`apiKey`, `x-payment-info`, or explicit `security: []`), a test pins
       it, and the re-audit is clean (10 warnings → 1: the remaining
       `L2_ROUTE_COUNT_HIGH`, our 75 advertised operations).
-      **Still open: CDP Bazaar.** Its index is keyed by full URL and only a
-      **settled payment** adds or keeps an entry — there is no registration API,
-      and the facilitator rejects self-sends (`self_send_not_allowed`), so the
-      keepalive's $0.001 self-settlement can never do it. The two indexed
-      entries are both the retired ngrok host (extract, mainnet, last settled
-      2026-09-14; capture, **sepolia** terms, last settled 2026-09-05) and the
-      30-day no-settlement rule delists them around 2026-10-14 / 2026-10-05.
-      *Remaining: fund a **non-merchant** payer wallet (≥$0.001 USDC on Base) and
-      settle one call at the current origin — see `artifacts/PROOF.md`.*
-      Verified 2026-09-25: `state/webcap-keepalive.state` reports
-      `settlementOutcome: "failed"` and `bazaarIndexedForHost: "0"`; the
-      merchant wallet `0xB25572D7317eb98EBb39c45Da40eAAEA2A56c25e` holds 0.01
-      USDC and 0 ETH on Base, while the payer configured for
-      `scripts/x402-pay.ts` (`X402_CUSTOMER_PRIVATE_KEY`,
-      `0xBAc4987c4Bc949f0B2833b6BC7C5B9F7b5B9757B`) holds 0 USDC and 0 ETH.
-      `scripts/x402-pay.ts` is gasless: the payer signs an EIP-3009
-      authorization and the facilitator submits it and pays gas, so the payer
-      needs USDC only, no ETH. Funding that payer wallet with a few cents of
-      USDC on Base is therefore the whole remaining step.
-      *Acceptance: `logs/` shows green re-assertion for the current host.*
+      **CDP Bazaar was the last open piece.** Its index is keyed by full URL
+      and only a **settled payment** adds or keeps an entry — there is no
+      registration API, and the facilitator rejects self-sends
+      (`self_send_not_allowed`), so the keepalive's $0.001 self-settlement can
+      never do it; the two indexed entries are both the retired ngrok host.
+      *Dropped 2026-09-26 (owner decision): the owner will not fund a
+      non-merchant payer wallet, so this entry is permanently closed. The
+      keeper cannot settle (the facilitator rejects self-sends), and the two
+      indexed entries are the retired ngrok host anyway, so the 30-day
+      no-settlement rule delists them around 2026-10-14 / 2026-10-05 —
+      accepted. No customer revenue is affected: Bazaar is one of several
+      directories, and a settled payment from an actual customer wallet would
+      still re-index the current host if one ever lands.*
 
 ## Phase 1 — The first paying agent loop
 
@@ -128,12 +121,15 @@ Goal: one funded agent, calling unattended, more than once.
       `server.json` against the live registry, and
       `tests/unit/mcp-registry-manifest.test.ts` pins the name, version,
       description limit and that the advertised path answers.
-      Still open: the npm token in `~/.npmrc` is expired (`npm whoami` returns
-      401), so the stdio/npm distribution path stays unpublished; that is now
-      the only remaining half of this item.
-      Remaining: publish the scoped npm package (unscoped `webcap` is taken by
-      an unrelated package) and register with the agent-tool directories that
-      are not the MCP Registry.
+      Distribution 2026-09-26 (owner decision; npm permanently out): the
+      stdio flavor now ships as a GitHub release instead — `v0.1.0`
+      (https://github.com/shoutsid-lab/webcap/releases/tag/v0.1.0) carries the
+      built tarball (`shoutsid-webcap-0.1.0.tgz`, 383 kB / 271 files), so a
+      self-hoster embeds it with `npm install <release tarball URL>` — no npm
+      registry account, no token. The no-install remote endpoint
+      (https://webcap.shoutsid.fyi/mcp) remains the primary distribution.
+      Remaining: register with the agent-tool directories that are not the
+      MCP Registry.
       Progress 2026-09-26: **Glama** (the largest MCP directory, glama.ai,
       90k+ servers) had already discovered and indexed webcap as a healthy
       remote connector (`io.github.shoutsid-lab/webcap`, 19 tools, last tested
@@ -151,8 +147,8 @@ Goal: one funded agent, calling unattended, more than once.
       the public file; the claim file holds only the `glama_claim_...`
       ownership token Glama's schema accepts. The claim survives Glama's
       periodic re-crawl as long as the token stays published.
-      Remaining: the npm publish and any further directory that is not the
-      official MCP Registry or Glama.
+      Remaining: any further directory that is not the official MCP Registry
+      or Glama (npm distribution permanently dropped — see above).
       *Acceptance: met for the MCP path — any MCP host can wire webcap from the
       registry listing alone, with no npm token and nothing read from our docs.*
 - [x] **A feedback loop the customer can use.** An agent that hits a confusing
@@ -242,8 +238,9 @@ The cheapest revenue is an agent that keeps calling.
   concurrent top-ups can never oversell). The webhook is already a structured
   agent feed (`WatchAlert`: watchId/url/mode/diffSummary/at/artifactUrl/
   extract/summary, generic/slack/discord channels, signed delivery).
-  *Remaining: ≥1 watch with credits > 0 on live — needs a funded wallet
-  (owner action); the funnel's `recurring` stage will show it.*
+  *Remaining: ≥1 watch with credits > 0 on live — a funded *agent* wallet is
+  needed, and the owner will not fund one (no owner pre-pay, ever); the
+  funnel's `recurring` stage shows any watch an agent funds itself.*
 - [x] **Batch/bulk pricing an agent can budget.** One extract payment covers up
   to 50 URLs and every agent surface states the per-batch economics as the
   default research call (`skill.md` extraction notes + endpoint table,

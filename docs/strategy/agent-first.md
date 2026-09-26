@@ -149,8 +149,9 @@ change of agent, human, or mood.
    (Base) and MPP. Card/Stripe is a fallback for human operators funding a bot,
    never the primary rail.
 6. **Land inside runtimes.** Distribution that matters is being loadable by an
-   agent framework (MCP server, OpenAI function manifest, A2A card, npm
-   package, directory listing). Directory registration is worth doing only
+   agent framework (MCP server, OpenAI function manifest, A2A card, an
+   installable package — distributed via GitHub release, never npm — and
+   directory listing). Directory registration is worth doing only
    because runtimes read those directories.
 
 **Don't:**

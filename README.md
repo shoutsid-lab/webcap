@@ -245,6 +245,22 @@ npm run build
 npm start
 ```
 
+### From the release tarball (no npm registry account)
+
+The packaged MCP server also ships as a GitHub release asset — install it like
+any npm dependency, without publishing to npm:
+
+```bash
+# npm 12+ (Node 24) blocks remote tarball URLs by default — opt in explicitly:
+npm install --allow-remote=all https://github.com/shoutsid-lab/webcap/releases/download/v0.1.0/shoutsid-webcap-0.1.0.tgz
+# npm <= 11 accepts the URL without the flag:
+npm install https://github.com/shoutsid-lab/webcap/releases/download/v0.1.0/shoutsid-webcap-0.1.0.tgz
+npx webcap-mcp   # stdio MCP server
+```
+
+For MCP hosts the no-install path stays primary: point them at the remote
+endpoint `https://webcap.shoutsid.fyi/mcp` (streamable HTTP, no package).
+
 ### Docker
 
 ```bash
