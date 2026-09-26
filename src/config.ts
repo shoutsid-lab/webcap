@@ -61,6 +61,16 @@ export interface WebcapConfig {
    * /.well-known/402index-verify.txt. Empty/absent = no claim in progress.
    */
   readonly indexVerifyHash?: string;
+  /**
+   * Optional Glama MCP ownership claim token (WEBCAP_GLAMA_CLAIM): the opaque
+   * `glama_claim_...` string from Glama's claim panel, served at
+   * /.well-known/glama.json so Glama's crawler can verify HTTP ownership of
+   * the remote connector on this origin. Empty/absent = not claimed. Never
+   * put the Glama directory API key here: Glama's schema binds this file to a
+   * claim token specifically, and their FAQ warns against publishing a
+   * connector/API credential as ownership proof.
+   */
+  readonly glamaClaim?: string;
   /** Optional LLM endpoint for model-based extraction (OpenAI-compatible); empty = deterministic only. */
   readonly modelApiBaseUrl: string;
   readonly modelApiKey: string;
@@ -324,6 +334,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WebcapConfig {
     ),
     contactEmail: (env.WEBCAP_CONTACT_EMAIL ?? '').trim() || undefined,
     indexVerifyHash: (env.WEBCAP_402INDEX_VERIFY_HASH ?? '').trim() || undefined,
+    glamaClaim: (env.WEBCAP_GLAMA_CLAIM ?? '').trim() || undefined,
     modelApiBaseUrl: (env.MODEL_API_BASE_URL ?? '').trim(),
     modelApiKey: (env.MODEL_API_KEY ?? '').trim(),
     modelName: (env.MODEL_NAME ?? '').trim(),

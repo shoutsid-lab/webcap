@@ -187,6 +187,25 @@ export function registerDiscoveryRoutes(app: FastifyInstance, deps: AppDeps): vo
     });
   }
 
+  // Glama MCP connector ownership proof: the claim token from Glama's claim
+  // panel, served at the exact path/.well-known contract on the connector's
+  // origin. Registered only while a claim token is configured (WEBCAP_GLAMA_CLAIM),
+  // so an unconfigured deployment cleanly 404s. The payload is Glama's
+  // connector.json schema verbatim; the API key is NOT put here (their schema
+  // binds this file to a claim token, and publishing the directory API key as
+  // ownership proof is exactly what their FAQ forbids).
+  const glamaClaim = (config.glamaClaim ?? '').trim();
+  if (glamaClaim !== '') {
+    app.get('/.well-known/glama.json', async (_req, reply) => {
+      reply.header('content-type', 'application/json; charset=utf-8');
+      reply.header('cache-control', 'no-store');
+      return reply.send({
+        $schema: 'https://glama.ai/mcp/schemas/connector.json',
+        claim: glamaClaim,
+      });
+    });
+  }
+
   // RFC 9116 contact point for security researchers (probed by trust crawlers).
   app.get('/.well-known/security.txt', async (_req, reply) => {
     const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();

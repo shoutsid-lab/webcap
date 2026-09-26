@@ -60,6 +60,8 @@ export interface FixtureOverrides {
   readonly contactEmail?: string;
   /** 402index domain-ownership proof hash (served at /.well-known/402index-verify.txt). */
   readonly indexVerifyHash?: string;
+  /** Glama MCP connector claim token (served at /.well-known/glama.json when set). */
+  readonly glamaClaim?: string;
 }
 
 export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
@@ -93,6 +95,7 @@ export function makeApiFixture(overrides: FixtureOverrides = {}): ApiFixture {
     artifactHmacSecret: (process.env.WEBCAP_ARTIFACT_HMAC_SECRET ?? '').trim() || 'test-artifact-signing-secret',
     ...(overrides.contactEmail !== undefined ? { contactEmail: overrides.contactEmail } : {}),
     ...(overrides.indexVerifyHash !== undefined ? { indexVerifyHash: overrides.indexVerifyHash } : {}),
+    ...(overrides.glamaClaim !== undefined ? { glamaClaim: overrides.glamaClaim } : {}),
   };
   const accounts = makeAccountsRepo(db);
   const keys = makeApiKeysRepo(db);

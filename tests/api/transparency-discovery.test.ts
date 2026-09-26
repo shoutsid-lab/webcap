@@ -112,6 +112,34 @@ describe('agent discovery aliases + trust surface (agent.json, x402.json, securi
     }
   });
 
+  it('glama.json: absent by default (no claim token configured -> 404)', async () => {
+    const fx = makeApiFixture();
+    try {
+      const res = await fx.app.inject({ method: 'GET', url: '/.well-known/glama.json' });
+      expect(res.statusCode).toBe(404);
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
+  it('glama.json: serves the connector schema + claim token verbatim when configured', async () => {
+    const claim = 'glama_claim_tsANdgQa-bFurj0h-0AnQO3j12e3e4m_';
+    const fx = makeApiFixture({ glamaClaim: claim });
+    try {
+      const res = await fx.app.inject({ method: 'GET', url: '/.well-known/glama.json' });
+      expect(res.statusCode).toBe(200);
+      expect(String(res.headers['content-type'])).toContain('application/json');
+      expect(res.headers['cache-control']).toBe('no-store');
+      // exactly Glama's connector.json schema shape: $schema + the claim token.
+      expect(res.json()).toEqual({
+        $schema: 'https://glama.ai/mcp/schemas/connector.json',
+        claim,
+      });
+    } finally {
+      await closeApiFixture(fx);
+    }
+  });
+
   it('openapi.json documents the new discovery paths', async () => {
     const fx = makeApiFixture();
     try {

@@ -134,6 +134,20 @@ Goal: one funded agent, calling unattended, more than once.
       Remaining: publish the scoped npm package (unscoped `webcap` is taken by
       an unrelated package) and register with the agent-tool directories that
       are not the MCP Registry.
+      Progress 2026-09-26: **Glama** (the largest MCP directory, glama.ai,
+      90k+ servers) had already discovered and indexed webcap as a healthy
+      remote connector (`io.github.shoutsid-lab/webcap`, 19 tools, last tested
+      today) — its crawler probing `/.well-known/glama.json` 21x showed it was
+      checking ownership. webcap is now claimed on Glama: the claim token is
+      wired as `WEBCAP_GLAMA_CLAIM`, served as Glama's connector.json schema
+      at `/.well-known/glama.json` on the connector origin (config-gated, so
+      an unclaimed deployment 404s), verified live over
+      `https://webcap.shoutsid.fyi/.well-known/glama.json`. Two tokens are
+      distinct on purpose: the directory API key is a read credential and
+      stays out of the public file; the claim file holds only the
+      `glama_claim_...` ownership token Glama's schema accepts.
+      Remaining: the npm publish and any further directory that is not the
+      official MCP Registry or Glama.
       *Acceptance: met for the MCP path — any MCP host can wire webcap from the
       registry listing alone, with no npm token and nothing read from our docs.*
 - [x] **A feedback loop the customer can use.** An agent that hits a confusing
