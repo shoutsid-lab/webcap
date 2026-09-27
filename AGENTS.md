@@ -85,6 +85,17 @@ npm run typecheck  # Type checking only
 ```
 - WCAG contrast test validates `--faint` has >= 4.5:1 contrast against `--bg`
 
+## Daily Check
+```bash
+docker cp scripts/daily-check.mjs webcap-webcap-1:/app/daily-check.mjs
+docker exec -w /app webcap-webcap-1 node daily-check.mjs
+```
+Prints the day's endpoint hits, x402 challenges, 5xx, revenue/trials/feedback
+lifecycle and a 7-day trend straight from the live DB, ending with an
+ATTENTION block for anything that needs a reaction. Runs readonly; flags
+`--db <path>`, `--date YYYY-MM-DD`, `--days N`, `--json` (see the script
+header). Add new sections as plain functions in `scripts/daily-check.mjs`.
+
 ## CSS Architecture
 - `BASE_CSS` - Shared design tokens + primitives (top bar, footer, buttons, terminal)
 - `LANDING_CSS` - Landing-specific (hero grid, pricing cards, steps, links)
