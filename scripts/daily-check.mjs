@@ -182,6 +182,20 @@ function userAgents(db, start, end) {
   );
 }
 
+/**
+ * Who actually got the x402 challenges? Monitors and directory crawlers probe
+ * the paid path on purpose and never sign — a day whose 402 volume comes from
+ * them is measurement, not intent. Reading the names is the point.
+ */
+function challengers(db, start, end) {
+  return qAll(
+    db,
+    'SELECT user_agent, COUNT(*) n FROM endpoint_hits WHERE created_at >= ? AND created_at < ? AND status = 402 GROUP BY user_agent ORDER BY n DESC LIMIT 8',
+    start,
+    end,
+  );
+}
+
 function trend(db, date, days) {
   const out = [];
   for (let i = days - 1; i >= 0; i--) {
@@ -215,6 +229,7 @@ function buildReport(db, args) {
     watches: watches(db, start, end),
     endpoints: endpoints(db, start, end),
     userAgents: userAgents(db, start, end),
+    challengers: challengers(db, start, end),
     trend: trend(db, args.date, Math.max(args.days, 7)),
     flags: [],
   };
@@ -281,6 +296,10 @@ function renderText(r) {
   L.push('');
   L.push('TOP USER AGENTS TODAY');
   for (const u of r.userAgents) row(truncate(u.user_agent, 40), u.n);
+
+  L.push('');
+  L.push('WHO GOT THE 402s TODAY (monitors probe and never sign — names matter)');
+  for (const c of r.challengers) row(truncate(c.user_agent, 44), c.n);
 
   L.push('');
   L.push('TREND (hits | paid | $usdc | trials | feedback)');

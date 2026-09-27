@@ -49,6 +49,17 @@ The product already has excellent agent surfaces; one operational gap remains.
       accepted. No customer revenue is affected: Bazaar is one of several
       directories, and a settled payment from an actual customer wallet would
       still re-index the current host if one ever lands.*
+      Infra 2026-09-27: the **ngrok backup tunnel is gone from production
+      entirely** (owner decision — the stable domain is the only edge now).
+      Removed: the every-minute + `@reboot` ngrok-watchdog cron entries, the
+      `bin/ngrok` binary and watchdog script, `logs/ngrok.log`,
+      `state/ngrok-dead.count`, `ngrok.pid`, and `WEBCAP_FALLBACK_URL` from
+      `.env`. The app never read the fallback var, so no restart was needed.
+      Verified after removal: `https://webcap.shoutsid.fyi` serves health
+      200, paid routes answer 402, and `POST /mcp` answers `initialize` —
+      all through the Cloudflare tunnel alone (cron now holds only the
+      cf-tunnel watchdog). `docker-compose.yml` notes the change; the ngrok
+      URL in `artifacts/PROOF.md` stays as recorded history.
 
 ## Phase 1 — The first paying agent loop
 
@@ -130,6 +141,17 @@ Goal: one funded agent, calling unattended, more than once.
       (https://webcap.shoutsid.fyi/mcp) remains the primary distribution.
       Remaining: register with the agent-tool directories that are not the
       MCP Registry.
+      Progress 2026-09-27: **mcpbeat** (mcpbeat.com) is actively crawling our
+      discovery surfaces (135 requests on 2026-09-27, holding elsewhere) but
+      has not indexed webcap ("not found" on its site). Registration is
+      login-gated (submission needs a human browser session), so it joins the
+      owner-action directory list: mcpbeat, then smithery / mcp.so / PulseMCP.
+      One more data point on who "discovery" is: of the 12,213 x402
+      challenges served in the last 7 days, essentially all came from the
+      x402 ecosystem's own monitors and verifiers (x402-observer, enclave402, 402explorer, GolemreachTrustBot, KnownGood-Verifier, CarbonMonitor) —
+      measurement traffic that probes the paid path and never signs. Zero
+      trial claims or payments in that window; the funnel's reach and
+      challenge stages are fed by this census, not by buyers yet.
       Progress 2026-09-26: **Glama** (the largest MCP directory, glama.ai,
       90k+ servers) had already discovered and indexed webcap as a healthy
       remote connector (`io.github.shoutsid-lab/webcap`, 19 tools, last tested

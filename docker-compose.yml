@@ -4,8 +4,9 @@ services:
   webcap:
     build: .
     restart: unless-stopped
-    # Bind to loopback only — the public path is the ngrok tunnel; the app
-    # must not be reachable directly on host interfaces.
+    # Bind to loopback only — the public path is the Cloudflare tunnel
+    # (webcap.shoutsid.fyi); the app must not be reachable directly on host
+    # interfaces. The former ngrok backup tunnel was removed 2026-09-27.
     ports:
       - "127.0.0.1:8080:8080"
     env_file:
